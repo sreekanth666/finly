@@ -1,8 +1,10 @@
 import { Avatar, Typography } from 'heroui-native';
+import { Bell, CalendarDays, EllipsisVertical, PiggyBank } from 'lucide-react-native';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount } from '@/components/amount';
+import { IconButton } from '@/components/icon-button';
 import { ProgressRing } from '@/components/progress-ring';
 import { StatCard } from '@/components/stat-card';
 import { balanceOverview } from '@/data/balance';
@@ -26,6 +28,9 @@ export default function BalanceScreen() {
               </Typography>
             </Avatar.Fallback>
           </Avatar>
+          <View className="flex-1" />
+          <IconButton icon={Bell} label="Notifications" />
+          <IconButton icon={EllipsisVertical} label="More options" />
         </View>
 
         <View className="gap-1">
@@ -72,12 +77,14 @@ export default function BalanceScreen() {
             title={upcomingBills.title}
             caption={upcomingBills.caption}
             amount={upcomingBills.amount}
+            icon={CalendarDays}
           />
           <StatCard
             tone="accent"
             title={autoSavings.title}
             caption={autoSavings.caption}
             amount={autoSavings.amount}
+            icon={PiggyBank}
           />
         </View>
       </ScrollView>
