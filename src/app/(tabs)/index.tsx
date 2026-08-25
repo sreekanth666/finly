@@ -39,8 +39,8 @@ export default function BalanceScreen() {
           </Typography>
           <Amount
             value={totalBalance}
-            className="text-3xl font-bold text-foreground"
-            centsClassName="text-3xl font-bold"
+            className="type-balance text-foreground"
+            centsClassName="type-balance"
           />
         </View>
 
@@ -55,7 +55,7 @@ export default function BalanceScreen() {
                 </Typography>
                 <Amount
                   value={safeToSpend.amount}
-                  className="text-5xl font-bold text-foreground"
+                  className="type-metric text-foreground"
                   showCents={false}
                 />
                 <Typography type="body-sm" className="text-accent">

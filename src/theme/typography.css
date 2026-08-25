@@ -1,0 +1,88 @@
+/**
+ * Zenith typography.
+ *
+ * HeroUI Native selects weight by FONT FAMILY, not `font-weight` — its
+ * component CSS reads `--font-normal` / `--font-medium` / `--font-semibold` /
+ * `--font-bold` (see heroui-native/lib/module/styles/components/text.css).
+ * Those four are undefined by default, which is why everything fell back to the
+ * system face. Pointing them at the Inter faces re-faces every HeroUI component
+ * at once, and sidesteps React Native's usual weight-matching problems: each
+ * weight is its own file, addressed by name.
+ *
+ * Consequence worth remembering: Tailwind's `font-bold` only sets
+ * `font-weight`, which does nothing here. Use the classes below, or HeroUI's
+ * `weight` prop, whenever text needs a weight.
+ *
+ * The families are registered natively by the expo-font config plugin in
+ * app.json, so they need a dev build rather than a Metro reload.
+ */
+
+@theme {
+  --font-normal: 'Inter-Regular';
+  --font-medium: 'Inter-Medium';
+  --font-semibold: 'Inter-SemiBold';
+  --font-bold: 'Inter-Bold';
+
+  /* Marketing headline and the wordmark's heavy treatment. */
+  --font-display: 'ArchivoBlack-Regular';
+
+  /* Tailwind's own family utilities (`font-sans`, `font-mono`). */
+  --font-sans: var(--font-normal);
+}
+
+/**
+ * App text styles. Written as plain classes the way HeroUI writes its own, so
+ * uniwind compiles them for native, under a `type-` prefix so they can't
+ * collide with Tailwind's own `text-*` utilities (`text-balance` is already
+ * taken by text-wrap). Tabular figures keep digits from shifting as amounts
+ * change.
+ */
+
+.type-metric {
+  font-family: var(--font-bold);
+  font-size: 2.75rem;
+  line-height: 3rem;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.type-balance {
+  font-family: var(--font-bold);
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.type-amount {
+  font-family: var(--font-bold);
+  font-size: 1.5rem;
+  line-height: 1.875rem;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.type-amount-cents {
+  font-family: var(--font-bold);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Brand type — used by the wordmark and the onboarding headline. */
+
+.type-wordmark {
+  font-family: var(--font-normal);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+}
+
+.type-display {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  line-height: 2.375rem;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}

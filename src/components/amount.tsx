@@ -3,12 +3,17 @@ import { Text } from 'react-native';
 
 export type AmountProps = {
   value: number;
-  /** Classes for the whole amount — size, weight and color live here. */
+  /**
+   * Overrides the default `.type-amount` style. Pass one of the money classes
+   * from theme/typography.css (`type-balance`, `type-metric`) plus a color —
+   * Tailwind's `font-*` weights do nothing here, since weight is selected by
+   * font family.
+   */
   className?: string;
   /**
-   * Classes for the trailing cents, which render a step smaller in the design.
-   * Leave the color out — the cents inherit it from the parent so they can't
-   * drift from the amount they belong to.
+   * Overrides the default `.type-amount-cents` style. Leave the color out — the
+   * cents inherit it from the parent so they can't drift from the amount they
+   * belong to.
    */
   centsClassName?: string;
   /** Render a leading + for positive values (used by transaction rows). */
@@ -25,8 +30,8 @@ const groupThousands = (whole: string) => whole.replace(/\B(?=(\d{3})+(?!\d))/g,
  */
 export function Amount({
   value,
-  className,
-  centsClassName,
+  className = 'type-amount',
+  centsClassName = 'type-amount-cents',
   signed = false,
   showCents = true,
 }: AmountProps) {

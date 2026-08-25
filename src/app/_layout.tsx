@@ -1,12 +1,16 @@
 import '@/global.css';
 
+import { useFonts } from 'expo-font';
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { HeroUINativeProvider } from 'heroui-native';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Uniwind } from 'uniwind';
 
 import { useAppColor } from '@/theme';
+import { appFonts } from '@/theme/fonts';
 
 /**
  * Zenith ships a single dark palette (see src/theme/tokens.css), so the theme is
@@ -15,7 +19,11 @@ import { useAppColor } from '@/theme';
  */
 Uniwind.setTheme('dark');
 
+SplashScreen.preventAutoHideAsync();
+
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(appFonts);
+
   const [background, surface, foreground, border, accent] = useAppColor([
     'background',
     'surface',
@@ -23,6 +31,18 @@ export default function RootLayout() {
     'border',
     'accent',
   ]);
+
+  useEffect(() => {
+    // Render on a font failure too — falling back to system faces beats a
+    // permanently stuck splash screen.
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   const navigationTheme = {
     ...DarkTheme,
