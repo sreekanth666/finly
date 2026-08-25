@@ -3,6 +3,9 @@
 
 @import 'heroui-native/styles';
 
+/* Zenith design tokens — must come after heroui-native so it can override. */
+@import './theme/tokens.css';
+
 :root {
   --font-display:
     Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,

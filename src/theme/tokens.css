@@ -1,0 +1,117 @@
+/**
+ * Zenith design tokens.
+ *
+ * This file is the ONLY place in the codebase where a raw color literal may
+ * appear. Everything else — components, screens, JS — reads a semantic token,
+ * either as a Tailwind utility (`bg-surface`, `text-muted`) or through
+ * `useAppColor()` from `@/theme`.
+ *
+ * HeroUI Native declares its semantic layer in
+ * `heroui-native/lib/module/styles/variables.css` and derives the rest
+ * (`*-hover`, `*-soft`, `background-secondary`, `border-tertiary`, the radius
+ * scale, …) in `theme.css` via color-mix. Overriding the base vars below is
+ * therefore enough to re-skin every HeroUI component.
+ *
+ * The app is locked to the dark theme (see `src/app/_layout.tsx`), so only the
+ * dark variant is defined here.
+ */
+
+@theme {
+/* --- Brand primitives ------------------------------------------------- */
+--zenith-ink: #08090b; /* app canvas */
+--zenith-graphite: #141619; /* cards, list groups */
+--zenith-slate: #1c1f23; /* chips, icon tiles, inputs */
+--zenith-steel: #262a2f; /* raised / tertiary surfaces */
+--zenith-lime: #79e256; /* primary accent: CTA, savings, active chip */
+--zenith-iris: #7b7cf2; /* secondary accent: bills card, inline links */
+--zenith-mint: #4fe07b; /* positive amounts */
+--zenith-ember: #ff5a5f; /* danger */
+--zenith-amber: #f5b54a; /* warning */
+--zenith-snow: #ffffff;
+--zenith-mist: #8b9099; /* secondary text */
+--zenith-hairline: #24272c; /* borders, separators */
+
+/* Mockup cards sit at ~20px; HeroUI derives xs…4xl from this. */
+--radius: 0.75rem;
+}
+
+@layer theme {
+  /**
+   * Uniwind requires every theme to declare the same set of variables, so the
+   * app-specific tokens are mirrored here. The app is pinned to dark, and
+   * these are fixed brand colors rather than mode-dependent ones, so light
+   * carries the same values.
+   */
+  @variant light {
+    --iris: var(--zenith-iris);
+    --iris-foreground: var(--zenith-ink);
+    --income: var(--zenith-mint);
+    --expense: var(--zenith-snow);
+  }
+
+  @variant dark {
+    /* --- Base ---------------------------------------------------------- */
+    --background: var(--zenith-ink);
+    --foreground: var(--zenith-snow);
+
+    /* --- Surfaces (cards, accordions, list groups) --------------------- */
+    --surface: var(--zenith-graphite);
+    --surface-foreground: var(--zenith-snow);
+    --surface-secondary: var(--zenith-slate);
+    --surface-secondary-foreground: var(--zenith-snow);
+    --surface-tertiary: var(--zenith-steel);
+    --surface-tertiary-foreground: var(--zenith-snow);
+
+    /* --- Overlays (dialogs, popovers, sheets, menus) ------------------- */
+    --overlay: var(--zenith-slate);
+    --overlay-foreground: var(--zenith-snow);
+    --backdrop: rgb(0 0 0 / 60%);
+
+    --muted: var(--zenith-mist);
+
+    /* Neutral interactive surface — inactive filter chips, ghost buttons */
+    --default: var(--zenith-slate);
+    --default-foreground: var(--zenith-snow);
+
+    --accent: var(--zenith-lime);
+    --accent-foreground: var(--zenith-ink);
+
+    /* --- Status ------------------------------------------------------- */
+    --success: var(--zenith-mint);
+    --success-foreground: var(--zenith-ink);
+    --warning: var(--zenith-amber);
+    --warning-foreground: var(--zenith-ink);
+    --danger: var(--zenith-ember);
+    --danger-foreground: var(--zenith-snow);
+
+    /* --- Form fields --------------------------------------------------- */
+    --field-background: var(--zenith-slate);
+    --field-foreground: var(--zenith-snow);
+    --field-placeholder: var(--zenith-mist);
+    --field-border: transparent;
+
+    /* --- Components ---------------------------------------------------- */
+    --segment: var(--zenith-slate);
+    --segment-foreground: var(--zenith-snow);
+
+    /* --- Misc ---------------------------------------------------------- */
+    --border: var(--zenith-hairline);
+    --separator: var(--zenith-hairline);
+    --focus: var(--accent);
+    --link: var(--zenith-iris);
+
+    /* --- App-specific semantics ---------------------------------------- */
+    --iris: var(--zenith-iris); /* secondary accent surface */
+    --iris-foreground: var(--zenith-ink);
+    --income: var(--zenith-mint); /* money in */
+    --expense: var(--zenith-snow); /* money out */
+  }
+}
+
+/* Expose the app-specific tokens to Tailwind utilities and `useAppColor()`. */
+@theme inline static {
+  --color-iris: var(--iris);
+  --color-iris-foreground: var(--iris-foreground);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+}
