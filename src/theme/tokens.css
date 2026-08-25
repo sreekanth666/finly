@@ -112,6 +112,9 @@
 @theme inline static {
   --color-iris: var(--iris);
   --color-iris-foreground: var(--iris-foreground);
+  /* Deeper iris for badges sitting on an iris card — mirrors how HeroUI
+     derives --color-accent-hover, so the two stat cards stay consistent. */
+  --color-iris-hover: color-mix(in oklab, var(--iris) 90%, var(--iris-foreground) 10%);
   --color-income: var(--income);
   --color-expense: var(--expense);
 }

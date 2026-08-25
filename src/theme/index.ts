@@ -14,7 +14,7 @@ import type { ThemeColor } from 'heroui-native';
 import { useCSSVariable } from 'uniwind';
 
 /** Tokens defined by this app on top of HeroUI Native's semantic layer. */
-export type AppThemeColor = 'iris' | 'iris-foreground' | 'income' | 'expense';
+export type AppThemeColor = 'iris' | 'iris-foreground' | 'iris-hover' | 'income' | 'expense';
 
 /** Every color token available to the app. */
 export type AppColor = ThemeColor | AppThemeColor;
