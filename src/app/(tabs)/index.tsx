@@ -1,11 +1,11 @@
-import { Avatar, Typography } from 'heroui-native';
-import { Bell, CalendarDays, EllipsisVertical, PiggyBank } from 'lucide-react-native';
+import { Typography } from 'heroui-native';
+import { CalendarDays, PiggyBank } from 'lucide-react-native';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount } from '@/components/amount';
-import { IconButton } from '@/components/icon-button';
 import { ProgressRing } from '@/components/progress-ring';
+import { ScreenHeader } from '@/components/screen-header';
 import { StatCard } from '@/components/stat-card';
 import { balanceOverview } from '@/data/balance';
 
@@ -20,18 +20,7 @@ export default function BalanceScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScrollView contentContainerClassName="gap-7 px-5 pb-8 pt-2" showsVerticalScrollIndicator={false}>
-        <View className="flex-row items-center">
-          <Avatar size="sm">
-            <Avatar.Fallback>
-              <Typography type="body-sm" weight="semibold">
-                SK
-              </Typography>
-            </Avatar.Fallback>
-          </Avatar>
-          <View className="flex-1" />
-          <IconButton icon={Bell} label="Notifications" />
-          <IconButton icon={EllipsisVertical} label="More options" />
-        </View>
+        <ScreenHeader />
 
         <View className="gap-1">
           <Typography type="body-xs" color="muted">

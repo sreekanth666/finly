@@ -44,3 +44,6 @@ example
 
 # uniwind (generated)
 src/uniwind-types.d.ts
+
+# local planning docs
+plan docs/

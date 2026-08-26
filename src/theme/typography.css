@@ -69,6 +69,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Transaction rows. Cents stay at the same size here — a list reads as a column
+   of figures rather than a headline, so the step-down that suits `.type-amount`
+   would just make the column ragged. */
+.type-amount-sm {
+  font-family: var(--font-semibold);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Brand type — used by the wordmark and the onboarding headline. */
 
 .type-wordmark {
