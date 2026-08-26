@@ -79,7 +79,11 @@ export default function TransactionsScreen() {
         data={days}
         keyExtractor={(day) => day.id}
         renderItem={({ item }) => (
-          <TransactionGroup label={item.label} transactions={item.transactions} />
+          <TransactionGroup
+            label={item.label}
+            transactions={item.transactions}
+            onSelect={(id) => router.push(`/expense/${id}`)}
+          />
         )}
         contentContainerClassName="gap-6 px-5 pb-8"
         showsVerticalScrollIndicator={false}

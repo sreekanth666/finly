@@ -65,6 +65,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             {/* Entry is a task, not a destination — it comes up over the tabs. */}
             <Stack.Screen name="expense/new" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="expense/[id]" options={{ presentation: 'modal' }} />
           </Stack>
         </ThemeProvider>
       </HeroUINativeProvider>

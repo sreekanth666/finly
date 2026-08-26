@@ -40,6 +40,10 @@ export function appendKey(entry: string, key: KeypadKey): string {
   return `${entry}${key}`;
 }
 
+/** The inverse, for loading a stored amount back into the keypad. */
+export const numberToEntry = (value: number) =>
+  value === 0 ? EMPTY_ENTRY : Math.abs(value).toFixed(2);
+
 export const entryToNumber = (entry: string) => {
   const value = Number.parseFloat(entry);
 

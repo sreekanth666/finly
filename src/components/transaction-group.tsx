@@ -13,6 +13,7 @@ const PREVIEW_COUNT = 3;
 export type TransactionGroupProps = {
   label: string;
   transactions: Transaction[];
+  onSelect?: (id: string) => void;
 };
 
 /**
@@ -20,7 +21,7 @@ export type TransactionGroupProps = {
  * capped at `PREVIEW_COUNT` and expand in place, so a busy day can't push the
  * next one off the screen.
  */
-export function TransactionGroup({ label, transactions }: TransactionGroupProps) {
+export function TransactionGroup({ label, transactions, onSelect }: TransactionGroupProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isCapped = transactions.length > PREVIEW_COUNT;
   const visible = isExpanded || !isCapped ? transactions : transactions.slice(0, PREVIEW_COUNT);
@@ -46,7 +47,11 @@ export function TransactionGroup({ label, transactions }: TransactionGroupProps)
 
       <View className="gap-1 rounded-3xl bg-surface p-2">
         {visible.map((transaction) => (
-          <TransactionRow key={transaction.id} transaction={transaction} />
+          <TransactionRow
+            key={transaction.id}
+            transaction={transaction}
+            onPress={onSelect ? () => onSelect(transaction.id) : undefined}
+          />
         ))}
       </View>
     </View>
