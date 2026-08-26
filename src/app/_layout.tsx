@@ -68,6 +68,13 @@ export default function RootLayout() {
             {/* Detail is a destination, so it pushes; editing is a task, so it doesn't. */}
             <Stack.Screen name="expense/[id]/index" />
             <Stack.Screen name="expense/[id]/edit" options={{ presentation: 'modal' }} />
+            {/* Settings is a section you navigate into, so every screen pushes. */}
+            <Stack.Screen name="settings/index" />
+            <Stack.Screen name="settings/budget" />
+            <Stack.Screen name="settings/categories" />
+            <Stack.Screen name="settings/accounts/index" />
+            <Stack.Screen name="settings/accounts/new" />
+            <Stack.Screen name="settings/accounts/[id]" />
           </Stack>
         </ThemeProvider>
       </HeroUINativeProvider>

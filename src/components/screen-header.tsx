@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Avatar, Typography } from 'heroui-native';
 import { Bell, EllipsisVertical } from 'lucide-react-native';
 import { View } from 'react-native';
@@ -25,7 +26,13 @@ export function ScreenHeader({ initials = 'SK' }: ScreenHeaderProps) {
       </Avatar>
       <View className="flex-1" />
       <IconButton icon={Bell} label="Notifications" />
-      <IconButton icon={EllipsisVertical} label="More options" />
+      {/* App chrome, so it routes directly rather than making all four tabs
+          pass the same handler down. */}
+      <IconButton
+        icon={EllipsisVertical}
+        label="Settings"
+        onPress={() => router.push('/settings')}
+      />
     </View>
   );
 }

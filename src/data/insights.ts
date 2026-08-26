@@ -15,6 +15,8 @@
  * pinning tones per category in the repository rather than per response.
  */
 
+import { monthlyBudget } from './budget';
+
 import type { CategoryId } from './categories';
 
 import type { ChartTone } from '@/theme/chart';
@@ -63,7 +65,7 @@ export type InsightsOverview = {
 export const insightsOverview: InsightsOverview = {
   period: 'August 2026',
   totalSpent: 3184.6,
-  monthlyBudget: 3000,
+  monthlyBudget,
   byCategory: [
     { id: 'housing', label: 'Housing', amount: 850, tone: 'chart-2' },
     { id: 'food', label: 'Food', amount: 742.4, tone: 'chart-3' },

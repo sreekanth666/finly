@@ -7,6 +7,10 @@
  * name-to-component registry; when the table lands, this file becomes the seed.
  *
  * `tone` is an `AppColor`, so a category can never carry a raw color literal.
+ *
+ * Every category here is seeded, which §5 marks `is_system` — archivable but
+ * never deletable, so nothing can be removed out from under an expense that
+ * references it. There is no delete anywhere in the UI for the same reason.
  */
 
 import {
@@ -40,16 +44,18 @@ export type Category = {
   icon: LucideIcon;
   /** Theme token the icon is painted with — mirrors `categories.color_token`. */
   tone: AppColor;
+  sortOrder: number;
+  isArchived: boolean;
 };
 
 export const CATEGORIES: Record<CategoryId, Category> = {
-  income: { label: 'Income', icon: TrendingUp, tone: 'income' },
-  shopping: { label: 'Shopping', icon: ShoppingBag, tone: 'foreground' },
-  bills: { label: 'Bills', icon: Lightbulb, tone: 'warning' },
-  housing: { label: 'Housing', icon: House, tone: 'iris' },
-  food: { label: 'Food', icon: UtensilsCrossed, tone: 'accent' },
-  transport: { label: 'Transport', icon: Car, tone: 'foreground' },
-  health: { label: 'Health', icon: HeartPulse, tone: 'danger' },
-  personal: { label: 'Personal', icon: User, tone: 'muted' },
-  other: { label: 'Other', icon: Ellipsis, tone: 'muted' },
+  income: { label: 'Income', icon: TrendingUp, tone: 'income', sortOrder: 0, isArchived: false },
+  shopping: { label: 'Shopping', icon: ShoppingBag, tone: 'foreground', sortOrder: 1, isArchived: false },
+  bills: { label: 'Bills', icon: Lightbulb, tone: 'warning', sortOrder: 2, isArchived: false },
+  housing: { label: 'Housing', icon: House, tone: 'iris', sortOrder: 3, isArchived: false },
+  food: { label: 'Food', icon: UtensilsCrossed, tone: 'accent', sortOrder: 4, isArchived: false },
+  transport: { label: 'Transport', icon: Car, tone: 'foreground', sortOrder: 5, isArchived: false },
+  health: { label: 'Health', icon: HeartPulse, tone: 'danger', sortOrder: 6, isArchived: false },
+  personal: { label: 'Personal', icon: User, tone: 'muted', sortOrder: 7, isArchived: false },
+  other: { label: 'Other', icon: Ellipsis, tone: 'muted', sortOrder: 8, isArchived: false },
 };
