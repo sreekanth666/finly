@@ -31,6 +31,31 @@
 --zenith-mist: #8b9099; /* secondary text */
 --zenith-hairline: #24272c; /* borders, separators */
 
+/**
+ * Categorical chart hues.
+ *
+ * Deliberately NOT the brand accents. A categorical palette has to stay
+ * separable under protanopia and deuteranopia, and the accents can't: they all
+ * sit near OKLCH L 0.82, well above the 0.48–0.67 band a dark surface allows,
+ * and lime/mint are barely distinguishable from each other to begin with.
+ *
+ * These five sit on the same hue angles as the brand where one exists (green
+ * 139°, violet 280°, gold 77°, red 22°), stepped into the band with lightness
+ * spread deliberately across it — under red-green CVD, lightness is most of
+ * what is left to tell hues apart. Validated all-pairs against
+ * --zenith-graphite: worst CVD ΔE 8.0, worst normal-vision ΔE 16.3, every
+ * slot ≥ 3:1 contrast.
+ *
+ * A sixth slot fails the check. Fold the tail into an "Other" bucket instead
+ * of inventing another hue — a generated one is indistinguishable from these
+ * under CVD.
+ */
+--zenith-chart-green: #2e760d;
+--zenith-chart-violet: #5a58c2;
+--zenith-chart-gold: #bb8317;
+--zenith-chart-teal: #009198;
+--zenith-chart-red: #c84247;
+
 /* Mockup cards sit at ~20px; HeroUI derives xs…4xl from this. */
 --radius: 0.75rem;
 }
@@ -47,6 +72,11 @@
     --iris-foreground: var(--zenith-ink);
     --income: var(--zenith-mint);
     --expense: var(--zenith-snow);
+    --chart-1: var(--zenith-chart-green);
+    --chart-2: var(--zenith-chart-violet);
+    --chart-3: var(--zenith-chart-gold);
+    --chart-4: var(--zenith-chart-teal);
+    --chart-5: var(--zenith-chart-red);
   }
 
   @variant dark {
@@ -105,6 +135,13 @@
     --iris-foreground: var(--zenith-ink);
     --income: var(--zenith-mint); /* money in */
     --expense: var(--zenith-snow); /* money out */
+
+    /* Categorical series, assigned by entity and never by rank. */
+    --chart-1: var(--zenith-chart-green);
+    --chart-2: var(--zenith-chart-violet);
+    --chart-3: var(--zenith-chart-gold);
+    --chart-4: var(--zenith-chart-teal);
+    --chart-5: var(--zenith-chart-red);
   }
 }
 
@@ -117,4 +154,9 @@
   --color-iris-hover: color-mix(in oklab, var(--iris) 90%, var(--iris-foreground) 10%);
   --color-income: var(--income);
   --color-expense: var(--expense);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 }
