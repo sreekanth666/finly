@@ -1,8 +1,11 @@
+import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
+import { Plus } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/button';
 import { FilterChipBar, type FilterOption } from '@/components/filter-chip-bar';
 import { ScreenHeader } from '@/components/screen-header';
 import { TransactionGroup } from '@/components/transaction-group';
@@ -55,9 +58,18 @@ export default function TransactionsScreen() {
           <ScreenHeader />
         </View>
 
-        <Typography.Heading type="h2" weight="bold" className="px-5">
-          Transactions
-        </Typography.Heading>
+        <View className="flex-row items-center justify-between gap-3 px-5">
+          <Typography.Heading type="h2" weight="bold" className="flex-1" truncate>
+            Transactions
+          </Typography.Heading>
+          <Button
+            icon={Plus}
+            label="Add"
+            size="sm"
+            accessibilityLabel="Add expense"
+            onPress={() => router.push('/expense/new')}
+          />
+        </View>
 
         <FilterChipBar options={FILTERS} selectedId={filter} onSelect={setFilter} />
       </View>

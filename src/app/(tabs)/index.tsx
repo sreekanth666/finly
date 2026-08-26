@@ -1,9 +1,11 @@
+import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { CalendarDays, PiggyBank } from 'lucide-react-native';
+import { CalendarDays, PiggyBank, Plus } from 'lucide-react-native';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount } from '@/components/amount';
+import { Button } from '@/components/button';
 import { ProgressRing } from '@/components/progress-ring';
 import { ScreenHeader } from '@/components/screen-header';
 import { StatCard } from '@/components/stat-card';
@@ -76,6 +78,8 @@ export default function BalanceScreen() {
             icon={PiggyBank}
           />
         </View>
+
+        <Button icon={Plus} label="Add expense" onPress={() => router.push('/expense/new')} />
       </ScrollView>
     </SafeAreaView>
   );

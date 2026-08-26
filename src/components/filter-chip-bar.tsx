@@ -8,7 +8,8 @@ export type FilterOption<Id extends string> = {
 
 export type FilterChipBarProps<Id extends string> = {
   options: FilterOption<Id>[];
-  selectedId: Id;
+  /** null leaves every pill unselected — a field that hasn't been answered yet. */
+  selectedId: Id | null;
   onSelect: (id: Id) => void;
 };
 

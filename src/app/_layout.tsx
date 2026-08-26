@@ -61,7 +61,11 @@ export default function RootLayout() {
       <HeroUINativeProvider>
         <ThemeProvider value={navigationTheme}>
           <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false }} />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            {/* Entry is a task, not a destination — it comes up over the tabs. */}
+            <Stack.Screen name="expense/new" options={{ presentation: 'modal' }} />
+          </Stack>
         </ThemeProvider>
       </HeroUINativeProvider>
     </GestureHandlerRootView>
