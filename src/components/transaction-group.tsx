@@ -2,6 +2,7 @@ import { Typography } from 'heroui-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { SectionHeader } from './section-header';
 import { TransactionRow } from './transaction-row';
 
 import type { Transaction } from '@/data/transactions';
@@ -26,22 +27,22 @@ export function TransactionGroup({ label, transactions }: TransactionGroupProps)
 
   return (
     <View className="gap-3">
-      <View className="flex-row items-center justify-between px-1">
-        <Typography type="body-sm" color="muted">
-          {label}
-        </Typography>
-        {isCapped && (
-          <Pressable
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={() => setIsExpanded((expanded) => !expanded)}
-            className="active:opacity-60">
-            <Typography type="body-sm" className="text-link">
-              {isExpanded ? 'See less' : 'See more'}
-            </Typography>
-          </Pressable>
-        )}
-      </View>
+      <SectionHeader
+        label={label}
+        trailing={
+          isCapped && (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => setIsExpanded((expanded) => !expanded)}
+              className="active:opacity-60">
+              <Typography type="body-sm" className="text-link">
+                {isExpanded ? 'See less' : 'See more'}
+              </Typography>
+            </Pressable>
+          )
+        }
+      />
 
       <View className="gap-1 rounded-3xl bg-surface p-2">
         {visible.map((transaction) => (
