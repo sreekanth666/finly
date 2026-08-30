@@ -13,7 +13,7 @@ import { createAccount, listAccounts } from '@/db/repositories/accounts';
 import { createCategory, listCategories } from '@/db/repositories/categories';
 import { createExpense, listExpensePage } from '@/db/repositories/expenses';
 import type { ImportRow } from '@/domain/csv';
-import { yieldToUi } from '@/db/transaction';
+import { writeTransaction, yieldToUi } from '@/db/transaction';
 
 export type ImportPlan = {
   /** Rows that will be written. */
@@ -128,23 +128,34 @@ export async function runImport(
 
     let imported = 0;
     for (let index = 0; index < toWrite.length; index += CHUNK) {
-      for (const row of toWrite.slice(index, index + CHUNK)) {
-        if (row.occurredAt === null || row.amount === null) continue;
+      const batch = toWrite.slice(index, index + CHUNK);
 
-        createExpense(
-          {
-            occurredAt: row.occurredAt,
-            amountMinor: row.amount,
-            item: row.item,
-            note: row.note.length > 0 ? row.note : null,
-            categoryId: categoryIds.get(row.category.trim().toLowerCase()) ?? null,
-            accountId: accountIds.get(row.account.trim().toLowerCase()) ?? null,
-            countsToBudget: true,
-          },
-          database,
-        );
-        imported += 1;
-      }
+      /*
+       * One transaction per batch, not per row. `createExpense` opens its own
+       * `BEGIN IMMEDIATE`, so calling it in a loop meant two thousand
+       * transactions for a two-thousand-row file — and no atomicity, since a
+       * failure partway left every prior row committed. Wrapping the batch makes
+       * each one all-or-nothing and nests the inner transactions as savepoints.
+       */
+      writeTransaction((tx) => {
+        for (const row of batch) {
+          if (row.occurredAt === null || row.amount === null) continue;
+
+          createExpense(
+            {
+              occurredAt: row.occurredAt,
+              amountMinor: row.amount,
+              item: row.item,
+              note: row.note.length > 0 ? row.note : null,
+              categoryId: categoryIds.get(row.category.trim().toLowerCase()) ?? null,
+              accountId: accountIds.get(row.account.trim().toLowerCase()) ?? null,
+              countsToBudget: true,
+            },
+            tx,
+          );
+          imported += 1;
+        }
+      }, database);
 
       // Reads are synchronous, so a long import would otherwise hold the JS
       // thread for its whole duration and freeze the progress it is reporting.

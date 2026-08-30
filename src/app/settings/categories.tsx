@@ -18,6 +18,7 @@ import {
 } from '@/db/repositories/categories';
 import type { CategoryRow } from '@/db/schema';
 import { isAtEdge, moveItem } from '@/domain/reorder';
+import { useAction } from '@/db/use-action';
 import { useCategories } from '@/features/catalog/hooks';
 import { toAppColor } from '@/theme';
 
@@ -38,6 +39,13 @@ export default function CategoriesSettingsScreen() {
    * the caret jumps to the end and characters get dropped. That is a guaranteed
    * bug the moment a live query backs an inline editor, not a hypothetical one.
    */
+  /* Writes go through useAction so a rejected rename says why, rather than
+     throwing out of a press handler with nothing to catch it. */
+  const rename = useAction(renameCategory);
+  const reorder = useAction(reorderCategories);
+  const archive = useAction(setCategoryArchived);
+  const failure = rename.errorMessage ?? reorder.errorMessage ?? archive.errorMessage;
+
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const nameOf = (category: CategoryRow) => drafts[category.id] ?? category.name;
 
@@ -48,8 +56,7 @@ export default function CategoriesSettingsScreen() {
       return rest;
     });
     if (next.length === 0 || next === category.name) return;
-    renameCategory(category.id, next);
-    categories.refetch();
+    void rename.run(category.id, next);
   };
 
   const active = useMemo(() => list.filter((category) => !category.isArchived), [list]);
@@ -60,13 +67,11 @@ export default function CategoriesSettingsScreen() {
   const move = (category: CategoryRow, direction: -1 | 1) => {
     const index = active.findIndex((candidate) => candidate.id === category.id);
     const reordered = moveItem(active, index, direction);
-    reorderCategories([...reordered, ...archived].map((row) => row.id));
-    categories.refetch();
+    void reorder.run([...reordered, ...archived].map((row) => row.id));
   };
 
   const setArchived = (id: string, isArchived: boolean) => {
-    setCategoryArchived(id, isArchived);
-    categories.refetch();
+    void archive.run(id, isArchived);
   };
 
   return (
@@ -92,6 +97,9 @@ export default function CategoriesSettingsScreen() {
             }
           />
 
+          {categories.error !== null ? (
+            <ErrorState error={categories.error} onRetry={categories.refetch} />
+          ) : (
           <View className="rounded-3xl bg-surface">
             {active.map((category, index) => (
               <View key={category.id} className={index === 0 ? ROW.first : ROW.rest}>
@@ -122,6 +130,7 @@ export default function CategoriesSettingsScreen() {
                 />
 
                 <Pressable
+                  hitSlop={10}
                   accessibilityRole="button"
                   accessibilityLabel={`Archive ${category.name}`}
                   onPress={() => setArchived(category.id, true)}
@@ -131,6 +140,13 @@ export default function CategoriesSettingsScreen() {
               </View>
             ))}
           </View>
+          )}
+
+          {failure !== null && (
+            <Typography type="body-xs" className="px-1 text-danger">
+              {failure}
+            </Typography>
+          )}
 
           <Typography type="body-xs" color="muted" className="px-1">
             These are the seeded categories, so they can be archived but not deleted — an expense
@@ -159,6 +175,7 @@ export default function CategoriesSettingsScreen() {
                     {category.name}
                   </Typography>
                   <Pressable
+                    hitSlop={10}
                     accessibilityRole="button"
                     accessibilityLabel={`Restore ${category.name}`}
                     onPress={() => setArchived(category.id, false)}

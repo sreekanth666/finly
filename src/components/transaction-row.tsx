@@ -1,4 +1,5 @@
 import { Typography } from 'heroui-native';
+import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Amount } from './amount';
@@ -19,7 +20,7 @@ export type TransactionRowProps = {
 export const TRANSACTION_ROW_HEIGHT = 60;
 
 /** One entry in the feed: category tile · description · amount over its time. */
-export function TransactionRow({ expense, onPress }: TransactionRowProps) {
+function TransactionRowBase({ expense, onPress }: TransactionRowProps) {
   const { item, amountMinor, effectiveMinor, occurredAt, category, settledMinor } = expense;
   const wasSettled = settledMinor > 0;
 
@@ -88,3 +89,10 @@ export function TransactionRow({ expense, onPress }: TransactionRowProps) {
     </Pressable>
   );
 }
+
+/**
+ * Memoised because the feed re-renders wholesale whenever a filter, the search
+ * term or a single row's data changes, and every row is otherwise rebuilt. The
+ * props are a row object and a callback, both stable per row between renders.
+ */
+export const TransactionRow = memo(TransactionRowBase);

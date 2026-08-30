@@ -155,3 +155,15 @@ export function useDbQuery<T>(
 
   return { ...state, refetch } as QueryResult<T>;
 }
+
+/**
+ * The first failure among several queries, or null.
+ *
+ * A screen usually runs one query it cannot render without and several it can
+ * degrade around. This is for the former: collapse them and show one error,
+ * rather than each falling back to `?? []` and reporting a read failure to the
+ * user as "you have no data".
+ */
+export const firstError = (
+  ...results: readonly { error: Error | null }[]
+): Error | null => results.find((result) => result.error !== null)?.error ?? null;

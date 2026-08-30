@@ -26,6 +26,8 @@ export function CategoryBreakdown({ segments, total, size }: CategoryBreakdownPr
     <View className="gap-6 rounded-3xl bg-surface p-4">
       <View className="items-center">
         <DonutChart
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
           size={size}
           segments={segments.map(({ id, amountMinor, tone }) => ({ id, value: amountMinor, tone }))}>
           <View className="items-center gap-0.5">

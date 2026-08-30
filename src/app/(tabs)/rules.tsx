@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { setRuleEnabled } from '@/db/repositories/rules';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
+import { useAction } from '@/db/use-action';
 import { useRules } from '@/features/rules/hooks';
 
 export default function RulesScreen() {
@@ -22,10 +23,15 @@ export default function RulesScreen() {
   const ruleList = rules.data ?? [];
 
   /* The design pass toggled local state, so a rule switched off came back on
-     the moment you navigated away. This writes. */
-  const toggleRule = useCallback((id: string, isEnabled: boolean) => {
-    setRuleEnabled(id, isEnabled);
-  }, []);
+     the moment you navigated away. This writes — through useAction, so a failed
+     write says so rather than letting the switch snap back unexplained. */
+  const toggle = useAction(setRuleEnabled);
+  const toggleRule = useCallback(
+    (id: string, isEnabled: boolean) => {
+      void toggle.run(id, isEnabled);
+    },
+    [toggle],
+  );
 
   /**
    * Priority is the whole point of the list, so the order on screen *is* the
@@ -66,6 +72,14 @@ export default function RulesScreen() {
           </Typography>
         </View>
       </View>
+
+      {toggle.errorMessage !== null && (
+        <View className="px-5 pb-2">
+          <Typography type="body-xs" className="text-danger">
+            {toggle.errorMessage}
+          </Typography>
+        </View>
+      )}
 
       <FlatList
         className="flex-1"

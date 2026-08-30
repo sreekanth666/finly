@@ -8,6 +8,7 @@ import { CardUtilisationList } from '@/components/card-utilisation-list';
 import { CategoryBreakdown } from '@/components/category-breakdown';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
+import { InlineError } from '@/components/inline-error';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { ScreenHeader } from '@/components/screen-header';
 import { SectionHeader } from '@/components/section-header';
@@ -122,7 +123,7 @@ export default function InsightsScreen() {
 
         {/* Utilisation is a billing-cycle figure, not a monthly one, so it sits
             outside the month switcher and is shown even for an empty month. */}
-        {(cardStandings.data ?? []).length > 0 && (
+        {(cardStandings.error !== null || (cardStandings.data ?? []).length > 0) && (
           <View className="gap-3">
             <SectionHeader
               label="Card utilisation"
@@ -132,7 +133,14 @@ export default function InsightsScreen() {
                 </Typography>
               }
             />
-            <CardUtilisationList cards={cardStandings.data ?? []} />
+            {cardStandings.error !== null ? (
+              <InlineError
+                message="Card utilisation couldn't be loaded."
+                onRetry={cardStandings.refetch}
+              />
+            ) : (
+              <CardUtilisationList cards={cardStandings.data ?? []} />
+            )}
           </View>
         )}
       </ScrollView>

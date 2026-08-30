@@ -11,6 +11,9 @@ export type DonutSegment = {
 };
 
 export type DonutChartProps = {
+  /** Passed through so a caller can hide a chart its ranked list already says. */
+  accessibilityElementsHidden?: boolean;
+  importantForAccessibility?: 'auto' | 'yes' | 'no' | 'no-hide-descendants';
   size: number;
   segments: DonutSegment[];
   strokeWidth?: number;
@@ -29,7 +32,15 @@ const SEGMENT_GAP = 3;
  * Segments are drawn as dashes on one circle rather than as arc paths, so the
  * gap between them is a property of the dash pattern and can't drift.
  */
-export function DonutChart({ size, segments, strokeWidth = 20, children }: DonutChartProps) {
+/*
+ * The chart carries no text of its own, and the ranked list rendered beside it
+ * by CategoryBreakdown says the same thing in words. Rather than read out a
+ * meaningless stack of SVG paths, it is hidden from assistive technology and the
+ * list is left to answer for both.
+ */
+export function DonutChart({
+  accessibilityElementsHidden,
+  importantForAccessibility, size, segments, strokeWidth = 20, children }: DonutChartProps) {
   const palette = useChartPalette();
   const center = size / 2;
   const radius = center - strokeWidth / 2;
@@ -54,7 +65,11 @@ export function DonutChart({ size, segments, strokeWidth = 20, children }: Donut
   });
 
   return (
-    <View className="items-center justify-center" style={{ width: size, height: size }}>
+    <View
+      className="items-center justify-center"
+      style={{ width: size, height: size }}
+      accessibilityElementsHidden={accessibilityElementsHidden}
+      importantForAccessibility={importantForAccessibility}>
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
         {/* Start at twelve o'clock rather than three. */}
         <G transform={`rotate(-90 ${center} ${center})`}>
