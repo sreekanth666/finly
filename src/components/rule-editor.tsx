@@ -13,9 +13,8 @@ import { SectionHeader } from './section-header';
 import type {
   RuleCondition,
   RuleConditionField,
-  RuleConditionOperator,
-} from '@/domain/rules';
-import { OPERATOR_LABELS, OPERATOR_OPTIONS } from '@/features/rules/presentation';
+  } from '@/domain/rules';
+import { OPERATOR_OPTIONS } from '@/features/rules/presentation';
 import { useDbQuery, type TableName } from '@/db/live';
 import { listAccounts } from '@/db/repositories/accounts';
 import { listCategories } from '@/db/repositories/categories';
@@ -117,7 +116,9 @@ export function RuleEditor({
   const targetsQuery = useDbQuery(`match-targets:${MATCH_TARGET_LIMIT}`, TARGET_TABLES, (database) =>
     listMatchTargets(MATCH_TARGET_LIMIT, database),
   );
-  const targets = targetsQuery.data ?? [];
+  /* Memoised so the two previews below actually memoise: a bare `?? []`
+     builds a new array every render, which defeats their dependency lists. */
+  const targets = useMemo(() => targetsQuery.data ?? [], [targetsQuery.data]);
 
   const accountsQuery = useDbQuery('rule-editor:accounts', ['accounts'], (database) =>
     listAccounts({}, database),

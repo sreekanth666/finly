@@ -30,7 +30,11 @@ export type AppLockProps = {
 };
 
 export function AppLock({ isEnabled, children }: AppLockProps) {
-  const [isUnlocked, setIsUnlocked] = useState(!isEnabled);
+  /* Stored as "has been unlocked this session" and combined with isEnabled at
+     render, rather than seeded from isEnabled and corrected by an effect —
+     which is a second source of truth for the same fact. */
+  const [hasUnlocked, setHasUnlocked] = useState(false);
+  const isUnlocked = !isEnabled || hasUnlocked;
   const [error, setError] = useState<string | null>(null);
   const backgroundedAt = useRef<number | null>(null);
 
@@ -43,7 +47,7 @@ export function AppLock({ isEnabled, children }: AppLockProps) {
     if (!hasHardware || !isEnrolled) {
       // Nothing to authenticate against. Standing aside beats locking the user
       // out of a local-only database with no recovery path.
-      setIsUnlocked(true);
+      setHasUnlocked(true);
       return;
     }
 
@@ -53,17 +57,14 @@ export function AppLock({ isEnabled, children }: AppLockProps) {
     });
 
     if (result.success) {
-      setIsUnlocked(true);
+      setHasUnlocked(true);
     } else {
       setError('Unlock cancelled.');
     }
   }, []);
 
   useEffect(() => {
-    if (!isEnabled) {
-      setIsUnlocked(true);
-      return;
-    }
+    if (!isEnabled) return;
     void authenticate();
   }, [isEnabled, authenticate]);
 
@@ -80,7 +81,7 @@ export function AppLock({ isEnabled, children }: AppLockProps) {
       const since = backgroundedAt.current;
       backgroundedAt.current = null;
       if (since !== null && Date.now() - since > GRACE_MS) {
-        setIsUnlocked(false);
+        setHasUnlocked(false);
         void authenticate();
       }
     });

@@ -125,7 +125,10 @@ export function ExpenseForm({
   onSubmitAndContinue,
   onClose,
 }: ExpenseFormProps) {
-  const now = Date.now();
+  /* Frozen when the form opens rather than read each render: the date chips
+     compare against it, and a form left open across midnight would otherwise
+     silently re-label what the user had already chosen. */
+  const [now] = useState(() => Date.now());
   const seed: ExpenseFormSeed = {
     entry: EMPTY_ENTRY,
     item: '',

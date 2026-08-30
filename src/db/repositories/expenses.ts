@@ -12,7 +12,7 @@
  *   loading an expense's child rows per row of a list.
  */
 
-import { and, asc, count, desc, eq, gte, inArray, isNull, like, lt, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
 import { asMinor, getActiveCurrency, type Minor } from '@/domain/money';
 import { periodOf, type PeriodKey } from '@/domain/period';

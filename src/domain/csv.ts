@@ -8,7 +8,7 @@
  */
 
 import { absMinor, parseMinor, type Minor } from './money';
-import { clampDayToMonth, daysInMonth } from './period';
+import { daysInMonth } from './period';
 
 export type CsvTable = {
   headers: string[];

@@ -15,7 +15,7 @@ import { setDefaultMonthlyBudget } from '@/db/repositories/budgets';
 import { getCurrency, setCurrency, setFlag } from '@/db/repositories/settings';
 import { useAction } from '@/db/use-action';
 import { useDbQuery } from '@/db/live';
-import { appendKey, EMPTY_ENTRY, type KeypadKey } from '@/domain/amount-entry';
+import { appendKey, type KeypadKey } from '@/domain/amount-entry';
 import {
   entryToMinor,
   formatEntry,
