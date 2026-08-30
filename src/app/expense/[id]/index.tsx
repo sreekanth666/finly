@@ -1,22 +1,27 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { ArrowLeft, Plus, Undo2 } from 'lucide-react-native';
+import { ArrowLeft, Plus, Trash2, Undo2 } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddSettlementSheet } from '@/components/add-settlement-sheet';
 import { Amount } from '@/components/amount';
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
+import { iconFor } from '@/components/icon-registry';
 import { IconButton } from '@/components/icon-button';
+import { NotFound } from '@/components/not-found';
 import { SectionHeader } from '@/components/section-header';
-import { findAccount } from '@/data/accounts';
-import { CATEGORIES } from '@/data/categories';
-import { findSettlements, type Settlement } from '@/data/settlements';
-import { findTransaction } from '@/data/transactions';
+import { softDeleteExpense } from '@/db/repositories/expenses';
+import { addSettlement, type SettlementListItem } from '@/db/repositories/settlements';
+import { useAction } from '@/db/use-action';
 import { formatMinor } from '@/domain/money';
-import { settledTotal, summariseSettlements } from '@/domain/settlement';
+import { formatDateLong, formatDayLabel, formatTime } from '@/domain/period';
+import { summariseSettlements } from '@/domain/settlement';
+import { useAccounts } from '@/features/catalog/hooks';
+import { useExpenseDetail } from '@/features/expenses/hooks';
+import { toAppColor } from '@/theme';
 
 /**
  * Class strings spelled out per position. `divide-y` is not an option: it
@@ -41,7 +46,7 @@ function DetailRow({ label, isFirst, children }: DetailRowProps) {
   );
 }
 
-function SettlementRow({ settlement }: { settlement: Settlement }) {
+function SettlementRow({ settlement }: { settlement: SettlementListItem }) {
   return (
     <View className="flex-row items-center gap-3 px-2 py-2">
       <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
@@ -53,7 +58,9 @@ function SettlementRow({ settlement }: { settlement: Settlement }) {
           {settlement.note ?? 'Returned'}
         </Typography>
         <Typography type="body-xs" color="muted" truncate>
-          {[settlement.settledAt, settlement.accountName].filter(Boolean).join(' · ')}
+          {[formatDayLabel(settlement.settledAt), settlement.account?.name]
+            .filter(Boolean)
+            .join(' · ')}
         </Typography>
       </View>
 
@@ -69,113 +76,140 @@ function SettlementRow({ settlement }: { settlement: Settlement }) {
 
 export default function ExpenseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const found = findTransaction(id);
 
-  if (!found) {
-    return (
-      <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-        <View className="flex-1 items-center justify-center gap-3 px-5">
-          <Typography type="body" weight="medium">
-            Expense not found
-          </Typography>
-          <Typography type="body-sm" color="muted" align="center">
-            It may have been deleted since this screen was opened.
-          </Typography>
-          <Button tone="secondary" label="Go back" onPress={() => router.back()} />
-        </View>
-      </SafeAreaView>
-    );
+  /*
+   * Every hook is above every return, without exception. The design pass had a
+   * useState below an early return, which was safe only while the lookup was a
+   * synchronous fixture read that could never change its answer. A query flips
+   * from undefined to a row between renders, and a hook underneath it would
+   * change the hook count — "Rendered more hooks than during the previous
+   * render". The not-found case is a data state at the bottom now.
+   */
+  const detail = useExpenseDetail(id);
+  const accounts = useAccounts();
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const settle = useAction(addSettlement);
+  const remove = useAction(softDeleteExpense);
+
+  const failure = detail.error ?? accounts.error;
+  if (failure !== null && failure !== undefined) {
+    return <NotFound title="Can't open this expense" description={failure.message} />;
   }
 
-  const { transaction, day } = found;
-  const category = CATEGORIES[transaction.categoryId];
+  const view = detail.data;
+  if (view === null) {
+    return (
+      <NotFound
+        title="Expense not found"
+        description="It may have been deleted from another screen."
+      />
+    );
+  }
+  if (view === undefined) return null;
 
-  /* Seeded from the mock, then held locally so a settlement added in the sheet
-     changes the effective amount straight away. */
-  const [settlementList, setSettlementList] = useState<Settlement[]>(() =>
-    findSettlements(transaction.id)
-  );
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-
+  const { expense, settlements } = view;
   const { settledMinor, effectiveMinor, isSettled, isPartlySettled } = summariseSettlements(
-    transaction.amountMinor,
-    settledTotal(settlementList.map((settlement) => settlement.amountMinor))
+    expense.amountMinor,
+    expense.settledMinor,
   );
   const hasReturns = isSettled || isPartlySettled;
-  const cost = transaction.amountMinor;
+
+  const confirmDelete = () => {
+    Alert.alert('Delete this expense?', 'It will be removed from your totals.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const outcome = await remove.run(expense.id);
+          if (outcome.ok) router.back();
+        },
+      },
+    ]);
+  };
 
   const recordRows = [
     {
       key: 'category',
       label: 'Category',
-      content: (
+      content: expense.category ? (
         <>
-          <Icon icon={category.icon} color={category.tone} size={14} />
-          <Typography type="body-sm" truncate>
-            {category.label}
+          <Icon
+            icon={iconFor(expense.category.icon)}
+            color={toAppColor(expense.category.colorToken, 'muted')}
+            size={15}
+          />
+          <Typography type="body-sm" weight="medium">
+            {expense.category.name}
           </Typography>
         </>
+      ) : (
+        <Typography type="body-sm" color="muted">
+          Uncategorised
+        </Typography>
       ),
     },
     {
       key: 'account',
-      label: 'Account',
+      label: 'Paid from',
       content: (
-        <Typography type="body-sm" truncate>
-          {transaction.accountName ?? 'Not set'}
+        <Typography type="body-sm" weight="medium">
+          {expense.account?.name ?? 'Not recorded'}
         </Typography>
       ),
     },
     {
       key: 'date',
       label: 'Date',
-      content: <Typography type="body-sm">{`${day.label} · ${transaction.time}`}</Typography>,
-    },
-    {
-      key: 'counts',
-      label: 'Counts to budget',
       content: (
-        <Typography type="body-sm">
-          {transaction.countsToBudget === false ? 'No' : 'Yes'}
+        <Typography type="body-sm" weight="medium">
+          {`${formatDateLong(expense.occurredAt)}, ${formatTime(expense.occurredAt)}`}
         </Typography>
       ),
     },
-    ...(transaction.note
-      ? [
+    {
+      key: 'budget',
+      label: 'Counts to budget',
+      content: (
+        <Typography type="body-sm" weight="medium">
+          {expense.countsToBudget ? 'Yes' : 'No'}
+        </Typography>
+      ),
+    },
+    ...(expense.note === null
+      ? []
+      : [
           {
             key: 'note',
             label: 'Note',
             content: (
-              <Typography type="body-sm" className="flex-1" align="end">
-                {transaction.note}
+              <Typography type="body-sm" weight="medium" className="flex-1 text-right">
+                {expense.note}
               </Typography>
             ),
           },
-        ]
-      : []),
+        ]),
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-      <View className="flex-row items-center gap-1 px-3 pt-2">
-        <IconButton icon={ArrowLeft} label="Back" onPress={() => router.back()} />
-        <Typography type="body" weight="semibold" className="flex-1">
-          Expense
-        </Typography>
-        <Button
-          tone="secondary"
-          size="sm"
-          label="Edit"
-          onPress={() => router.push(`/expense/${transaction.id}/edit`)}
-        />
-      </View>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <ScrollView contentContainerClassName="gap-6 px-5 pb-10 pt-2" showsVerticalScrollIndicator={false}>
+        <View className="flex-row items-center justify-between gap-2">
+          <IconButton icon={ArrowLeft} label="Go back" onPress={() => router.back()} />
+          <View className="flex-row items-center gap-2">
+            <IconButton icon={Trash2} label="Delete expense" color="danger" onPress={confirmDelete} />
+            <Button
+              label="Edit"
+              tone="secondary"
+              size="sm"
+              onPress={() => router.push(`/expense/${expense.id}/edit`)}
+            />
+          </View>
+        </View>
 
-      <ScrollView
-        contentContainerClassName="gap-6 px-5 pb-8 pt-4"
-        showsVerticalScrollIndicator={false}>
-        <View className="items-center gap-2">
+        <View className="items-center gap-1 pt-2">
           <Typography type="body-xs" color="muted">
-            {hasReturns ? 'Effective amount' : 'Amount'}
+            {hasReturns ? 'Counts as' : 'Amount'}
           </Typography>
           <Amount value={effectiveMinor} className="type-metric text-foreground" showFraction={false} />
 
@@ -183,7 +217,11 @@ export default function ExpenseDetailScreen() {
               never rewrites what was actually spent (D1). */}
           {hasReturns && (
             <View className="flex-row items-center gap-2">
-              <Amount value={cost} className="type-amount-sm text-muted line-through" fractionClassName="type-amount-sm" />
+              <Amount
+                value={expense.amountMinor}
+                className="type-amount-sm text-muted line-through"
+                fractionClassName="type-amount-sm"
+              />
               <Typography type="body-xs" color="muted">
                 originally
               </Typography>
@@ -191,7 +229,7 @@ export default function ExpenseDetailScreen() {
           )}
 
           <Typography type="h5" weight="semibold" className="pt-2">
-            {transaction.title}
+            {expense.item}
           </Typography>
         </View>
 
@@ -199,7 +237,7 @@ export default function ExpenseDetailScreen() {
           <View className="flex-row items-center gap-2 rounded-2xl bg-surface px-4 py-3">
             <Icon icon={Undo2} color="income" size={14} />
             <Typography type="body-xs" color="muted" className="flex-1">
-              {`${formatMinor(settledMinor)} of ${formatMinor(cost)} returned — counts as ${formatMinor(effectiveMinor)}.`}
+              {`${formatMinor(settledMinor)} of ${formatMinor(expense.amountMinor)} returned — counts as ${formatMinor(effectiveMinor)}.`}
             </Typography>
           </View>
         )}
@@ -219,41 +257,39 @@ export default function ExpenseDetailScreen() {
           <SectionHeader
             label="Settlements"
             trailing={
-              <Typography type="body-sm" color="muted">
-                {settlementList.length === 0
+              <Typography type="body-xs" color="muted">
+                {settlements.length === 0
                   ? 'None yet'
-                  : `${settlementList.length} returned`}
+                  : `${formatMinor(settledMinor)} returned`}
               </Typography>
             }
           />
 
-          <View className="gap-3 rounded-3xl bg-surface p-2">
-            {settlementList.length === 0 ? (
-              <Typography type="body-xs" color="muted" className="px-2 pt-1">
-                Nothing has come back against this expense. Recording a settlement keeps the
-                original spend intact instead of editing it away.
-              </Typography>
-            ) : (
-              <View className="gap-1">
-                {settlementList.map((settlement) => (
-                  <SettlementRow key={settlement.id} settlement={settlement} />
-                ))}
-              </View>
-            )}
+          {settlements.length > 0 && (
+            <View className="rounded-3xl bg-surface p-2">
+              {settlements.map((settlement) => (
+                <SettlementRow key={settlement.id} settlement={settlement} />
+              ))}
+            </View>
+          )}
 
+          {settle.errorMessage !== null && (
+            <Typography type="body-xs" className="text-danger">
+              {settle.errorMessage}
+            </Typography>
+          )}
+
+          {isSettled ? (
+            <Typography type="body-xs" color="muted">
+              Everything has been returned on this expense.
+            </Typography>
+          ) : (
             <Button
-              tone="secondary"
               icon={Plus}
               label="Add settlement"
-              isDisabled={isSettled}
+              tone="secondary"
               onPress={() => setIsSheetOpen(true)}
             />
-          </View>
-
-          {isSettled && (
-            <Typography type="body-xs" color="muted" className="px-1">
-              Fully returned — settlements can’t exceed the expense.
-            </Typography>
           )}
         </View>
       </ScrollView>
@@ -261,21 +297,20 @@ export default function ExpenseDetailScreen() {
       <AddSettlementSheet
         isOpen={isSheetOpen}
         onOpenChange={setIsSheetOpen}
-        expenseTitle={transaction.title}
+        expenseTitle={expense.item}
         outstanding={effectiveMinor}
-        onAdd={(draft) =>
-          setSettlementList((current) => [
-            ...current,
-            {
-              id: `s-local-${current.length + 1}`,
-              expenseId: transaction.id,
-              amountMinor: draft.amountMinor,
-              settledAt: draft.date === 'today' ? 'Today' : draft.date === 'yesterday' ? 'Yesterday' : 'Earlier',
-              accountName: findAccount(draft.accountId ?? '')?.name,
-              note: draft.note.length > 0 ? draft.note : undefined,
-            },
-          ])
-        }
+        accounts={accounts.data ?? []}
+        isSubmitting={settle.isPending}
+        onAdd={async (draft) => {
+          const outcome = await settle.run({
+            expenseId: expense.id,
+            amountMinor: draft.amountMinor,
+            settledAt: draft.settledAt,
+            accountId: draft.accountId,
+            note: draft.note,
+          });
+          if (outcome.ok) setIsSheetOpen(false);
+        }}
       />
     </SafeAreaView>
   );

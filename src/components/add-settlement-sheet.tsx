@@ -9,25 +9,28 @@ import { Button } from './button';
 import { FilterChipBar } from './filter-chip-bar';
 import { SectionHeader } from './section-header';
 
-import { accounts } from '@/data/accounts';
+import type { AccountRow } from '@/db/schema';
 import { appendKey, EMPTY_ENTRY, type KeypadKey } from '@/domain/amount-entry';
 import { entryToMinor, formatEntry, type Minor } from '@/domain/money';
+import { startOfLocalDay } from '@/domain/period';
 
-type DateChoice = 'today' | 'yesterday' | 'earlier';
+type DayChoice = 'today' | 'yesterday';
 
-const DATE_OPTIONS = [
+const DAY_OPTIONS = [
   { id: 'today' as const, label: 'Today' },
   { id: 'yesterday' as const, label: 'Yesterday' },
-  { id: 'earlier' as const, label: 'Earlier…' },
 ];
 
-const ACCOUNT_OPTIONS = accounts
-  .filter((account) => !account.isArchived)
-  .map(({ id, name }) => ({ id, label: name }));
+const MS_PER_DAY = 86_400_000;
+
+/** Midday, so the stored instant cannot drift across a day by a DST hour. */
+const instantFor = (choice: DayChoice, now: number): number =>
+  startOfLocalDay(choice === 'today' ? now : now - MS_PER_DAY) + MS_PER_DAY / 2;
 
 export type SettlementDraft = {
   amountMinor: Minor;
-  date: DateChoice;
+  /** Epoch ms. */
+  settledAt: number;
   accountId: string | null;
   note: string;
 };
@@ -39,6 +42,8 @@ export type AddSettlementSheetProps = {
   expenseTitle: string;
   /** What is still outstanding — a settlement may not exceed it (§5). */
   outstanding: Minor;
+  accounts: readonly AccountRow[];
+  isSubmitting?: boolean;
   onAdd: (draft: SettlementDraft) => void;
 };
 
@@ -71,20 +76,26 @@ export function AddSettlementSheet({
   onOpenChange,
   expenseTitle,
   outstanding,
+  accounts,
+  isSubmitting = false,
   onAdd,
 }: AddSettlementSheetProps) {
   const [entry, setEntry] = useState(EMPTY_ENTRY);
-  const [date, setDate] = useState<DateChoice>('today');
+  const [day, setDay] = useState<DayChoice>('today');
   const [accountId, setAccountId] = useState<string | null>(null);
   const [note, setNote] = useState('');
 
   const amountMinor = entryToMinor(entry);
   const exceeds = amountMinor > outstanding;
-  const canAdd = amountMinor > 0 && !exceeds;
+  const canAdd = amountMinor > 0 && !exceeds && !isSubmitting;
+
+  const accountOptions = accounts
+    .filter((account) => !account.isArchived)
+    .map(({ id, name }) => ({ id, label: name }));
 
   const reset = () => {
     setEntry(EMPTY_ENTRY);
-    setDate('today');
+    setDay('today');
     setAccountId(null);
     setNote('');
   };
@@ -145,13 +156,13 @@ export function AddSettlementSheet({
 
               <View className="gap-2">
                 <SectionHeader label="Date" />
-                <FilterChipBar options={DATE_OPTIONS} selectedId={date} onSelect={setDate} />
+                <FilterChipBar options={DAY_OPTIONS} selectedId={day} onSelect={setDay} />
               </View>
 
               <View className="gap-2">
                 <SectionHeader label="Where it landed" />
                 <FilterChipBar
-                  options={ACCOUNT_OPTIONS}
+                  options={accountOptions}
                   selectedId={accountId}
                   onSelect={(id) => setAccountId(accountId === id ? null : id)}
                 />
@@ -167,12 +178,12 @@ export function AddSettlementSheet({
               />
 
               <Button
-                label="Add settlement"
+                label={isSubmitting ? 'Saving…' : 'Add settlement'}
                 isDisabled={!canAdd}
-                onPress={() => {
-                  onAdd({ amountMinor, date, accountId, note });
-                  close(false);
-                }}
+                /* The sheet no longer closes itself: the cap is enforced inside
+                   the write, so it is the write that decides whether this
+                   settlement was accepted. */
+                onPress={() => onAdd({ amountMinor, settledAt: instantFor(day, Date.now()), accountId, note })}
               />
             </View>
           </BottomSheetScrollView>

@@ -3,47 +3,39 @@ import { Pressable, View } from 'react-native';
 
 import { Amount } from './amount';
 import { Icon } from './icon';
+import { iconFor } from './icon-registry';
 
-import { CATEGORIES } from '@/data/categories';
-import type { Transaction } from '@/data/transactions';
-import { speakMinor, ZERO_MINOR, type Minor } from '@/domain/money';
-import { summariseSettlements } from '@/domain/settlement';
+import type { ExpenseListItem } from '@/db/repositories/expenses';
+import { speakMinor } from '@/domain/money';
+import { formatTime } from '@/domain/period';
+import { toAppColor } from '@/theme';
 
 export type TransactionRowProps = {
-  transaction: Transaction;
-  /**
-   * Total already returned against this expense, from the query's SUM. When it
-   * is non-zero the row shows what the expense originally cost struck through,
-   * beside what it actually cost (§7.3).
-   */
-  settledMinor?: Minor;
+  expense: ExpenseListItem;
   onPress?: () => void;
 };
 
+/** The fixed height the flattened feed reports to getItemLayout. */
+export const TRANSACTION_ROW_HEIGHT = 60;
+
 /** One entry in the feed: category tile · description · amount over its time. */
-export function TransactionRow({
-  transaction,
-  settledMinor = ZERO_MINOR,
-  onPress,
-}: TransactionRowProps) {
-  const { title, categoryId, amountMinor, time } = transaction;
-  const category = CATEGORIES[categoryId];
+export function TransactionRow({ expense, onPress }: TransactionRowProps) {
+  const { item, amountMinor, effectiveMinor, occurredAt, category, settledMinor } = expense;
+  const wasSettled = settledMinor > 0;
 
   /*
-   * There is no income (D4) and amounts are unsigned by constraint, so the row
-   * no longer has two directions to distinguish. The colour that used to carry
-   * that distinction now carries a more useful one: whether the expense was
-   * settled.
+   * A category can be missing: it is nullable in the schema, and a restored
+   * backup can reference one this build has never seen. "Uncategorised" is a
+   * better answer than a crash.
    */
-  const { effectiveMinor, isSettled, isPartlySettled } = summariseSettlements(
-    amountMinor,
-    settledMinor,
-  );
-  const wasSettled = isSettled || isPartlySettled;
+  const categoryName = category?.name ?? 'Uncategorised';
+  const categoryIcon = iconFor(category?.icon);
+  const categoryTone = toAppColor(category?.colorToken ?? 'muted', 'muted');
 
+  const time = formatTime(occurredAt);
   const spoken = [
-    title,
-    category.label,
+    item,
+    categoryName,
     wasSettled
       ? `${speakMinor(effectiveMinor)}, reduced from ${speakMinor(amountMinor)}`
       : speakMinor(amountMinor),
@@ -57,22 +49,24 @@ export function TransactionRow({
          fragments, which is unusable. */
       accessibilityLabel={spoken}
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-2xl px-3 py-2.5 active:opacity-60">
+      className="h-[60px] flex-row items-center gap-3 rounded-2xl px-3">
       <View className="size-10 items-center justify-center rounded-xl bg-surface-secondary">
-        <Icon icon={category.icon} color={category.tone} size={18} />
+        <Icon icon={categoryIcon} color={categoryTone} size={18} />
       </View>
 
       <View className="flex-1 gap-0.5">
         <Typography type="body-sm" weight="semibold" truncate>
-          {title}
+          {item}
         </Typography>
         <Typography type="body-xs" color="muted">
-          {category.label}
+          {categoryName}
         </Typography>
       </View>
 
       <View className="items-end gap-0.5">
         <View className="flex-row items-baseline gap-1.5">
+          {/* The original stays visible: a settlement offsets an expense, it
+              never rewrites what was actually spent (D1, §7.3). */}
           {wasSettled && (
             <Amount
               value={amountMinor}
@@ -83,7 +77,7 @@ export function TransactionRow({
           )}
           <Amount
             value={effectiveMinor}
-            className={`type-amount-sm ${isSettled ? 'text-muted' : 'text-expense'}`}
+            className={`type-amount-sm ${effectiveMinor === 0 ? 'text-muted' : 'text-expense'}`}
             fractionClassName="type-amount-sm"
           />
         </View>

@@ -65,3 +65,38 @@ export function useAppColor(names: AppColor | readonly AppColor[]): string | str
 
   return isList ? resolved : resolved[0]!;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Tokens that survive a round trip through the database                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The tokens a category or an account is allowed to be painted with.
+ *
+ * `categories.color_token` and `accounts.color_token` are TEXT, so what comes
+ * back out is whatever went in — including from a backup written by a future
+ * version of the app that knew about a token this build does not. `useAppColor`
+ * throws on an unknown name, and a colour is never worth a crash, so stored
+ * tokens are validated against this list on the way in.
+ */
+export const STORED_COLOR_TOKENS = [
+  'accent',
+  'iris',
+  'income',
+  'expense',
+  'warning',
+  'danger',
+  'foreground',
+  'muted',
+] as const;
+
+export type StoredColorToken = (typeof STORED_COLOR_TOKENS)[number];
+
+const STORED_COLOR_SET: ReadonlySet<string> = new Set(STORED_COLOR_TOKENS);
+
+export const isStoredColorToken = (token: string): token is StoredColorToken =>
+  STORED_COLOR_SET.has(token);
+
+/** Resolves a stored token, falling back rather than throwing on an unknown one. */
+export const toAppColor = (token: string, fallback: AppColor = 'foreground'): AppColor =>
+  isStoredColorToken(token) ? token : fallback;

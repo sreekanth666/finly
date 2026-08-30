@@ -27,6 +27,8 @@ export type SettingsRowProps = {
   trailing?: ReactNode;
   description?: string;
   onPress?: () => void;
+  /** Used only by the hidden dev-seed action on the About row. */
+  onLongPress?: () => void;
 };
 
 /** One line of a settings list: icon · label · value · chevron. */
@@ -39,12 +41,14 @@ export function SettingsRow({
   trailing,
   description,
   onPress,
+  onLongPress,
 }: SettingsRowProps) {
   return (
     <Pressable
-      accessibilityRole={onPress ? 'button' : undefined}
-      disabled={!onPress}
+      accessibilityRole={onPress ?? onLongPress ? 'button' : undefined}
+      disabled={!onPress && !onLongPress}
       onPress={onPress}
+      onLongPress={onLongPress}
       className={isFirst ? ROW.first : ROW.rest}>
       {icon && (
         <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">

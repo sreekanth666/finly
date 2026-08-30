@@ -1,57 +1,67 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Typography } from 'heroui-native';
-import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button } from '@/components/button';
-import { ExpenseForm, type DateChoice, type ExpenseDraft } from '@/components/expense-form';
-import { findAccountByName } from '@/data/accounts';
-import { findTransaction, type TransactionLookup } from '@/data/transactions';
+import { ExpenseForm } from '@/components/expense-form';
+import { NotFound } from '@/components/not-found';
+import { updateExpense } from '@/db/repositories/expenses';
+import { useAction } from '@/db/use-action';
 import { minorToEntry } from '@/domain/money';
-
-/** The feed's day groups are labelled, not dated, until real dates land in M1. */
-const toDateChoice = (dayId: string): DateChoice =>
-  dayId === 'today' || dayId === 'yesterday' ? dayId : 'earlier';
-
-const toDraft = ({ transaction, day }: TransactionLookup): Partial<ExpenseDraft> => ({
-  entry: minorToEntry(transaction.amountMinor),
-  item: transaction.title,
-  note: transaction.note ?? '',
-  categoryId: transaction.categoryId,
-  accountId: findAccountByName(transaction.accountName)?.id ?? null,
-  countsToBudget: transaction.countsToBudget ?? true,
-  date: toDateChoice(day.id),
-});
+import { useAccounts, useCategories } from '@/features/catalog/hooks';
+import { useExpenseDetail } from '@/features/expenses/hooks';
 
 export default function EditExpenseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const found = findTransaction(id);
 
-  if (!found) {
+  /*
+   * Every hook is above every return. The design pass could get away with an
+   * early return before its useState because the lookup was a synchronous
+   * fixture read that could never change; a query flips from undefined to a row
+   * between renders, and a hook underneath would change the hook count.
+   */
+  const detail = useExpenseDetail(id);
+  const categories = useCategories();
+  const accounts = useAccounts();
+  const save = useAction(updateExpense);
+
+  const failure = detail.error ?? categories.error ?? accounts.error;
+  if (failure !== null && failure !== undefined) {
+    return <NotFound title="Can't edit this expense" description={failure.message} />;
+  }
+
+  const view = detail.data;
+  if (view === null) {
     return (
-      <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-        <View className="flex-1 items-center justify-center gap-3 px-5">
-          <Typography type="body" weight="medium">
-            Expense not found
-          </Typography>
-          <Typography type="body-sm" color="muted" align="center">
-            It may have been deleted since this screen was opened.
-          </Typography>
-          <Button tone="secondary" label="Go back" onPress={() => router.back()} />
-        </View>
-      </SafeAreaView>
+      <NotFound
+        title="Expense not found"
+        description="It may have been deleted from another screen."
+      />
     );
   }
+  if (view === undefined) return null;
+
+  const { expense } = view;
 
   return (
     <ExpenseForm
       title="Edit expense"
-      initial={toDraft(found)}
-      /* Every field arrives answered, so a matching rule can't quietly rewrite
-         what this expense was saved with. */
-      isPrefilled
       submitLabel="Save changes"
-      onSubmit={() => router.back()}
+      isPrefilled
+      categories={categories.data ?? []}
+      accounts={accounts.data ?? []}
+      initial={{
+        entry: minorToEntry(expense.amountMinor),
+        item: expense.item,
+        note: expense.note ?? '',
+        categoryId: expense.category?.id ?? null,
+        accountId: expense.account?.id ?? null,
+        countsToBudget: expense.countsToBudget,
+        occurredAt: expense.occurredAt,
+      }}
+      isSubmitting={save.isPending}
+      errorMessage={save.errorMessage}
+      onSubmit={async (draft) => {
+        const outcome = await save.run(expense.id, draft);
+        if (outcome.ok) router.back();
+      }}
       onClose={() => router.back()}
     />
   );

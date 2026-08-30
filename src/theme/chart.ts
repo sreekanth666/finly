@@ -24,3 +24,13 @@ export function useChartPalette(): Record<ChartTone, string> {
     string
   >;
 }
+
+const CHART_TONE_SET: ReadonlySet<string> = new Set(CHART_TONES);
+
+/**
+ * Resolves `categories.chart_tone`, which is TEXT and could hold anything after
+ * a restore. Pinning the tone per category is what stops a category changing
+ * colour when a quiet month reorders the chart.
+ */
+export const toChartTone = (tone: string): ChartTone =>
+  CHART_TONE_SET.has(tone) ? (tone as ChartTone) : 'chart-5';

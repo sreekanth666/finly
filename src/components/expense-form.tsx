@@ -1,3 +1,4 @@
+import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { Input, Switch, Typography } from 'heroui-native';
 import { Sparkles, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
@@ -11,62 +12,77 @@ import { Icon } from './icon';
 import { IconButton } from './icon-button';
 import { SectionHeader } from './section-header';
 
-import { accounts, findAccountByName } from '@/data/accounts';
-import { CATEGORIES, type CategoryId } from '@/data/categories';
+import type { AccountRow, CategoryRow } from '@/db/schema';
 import { rules } from '@/data/rules';
 import { appendKey, EMPTY_ENTRY, type KeypadKey } from '@/domain/amount-entry';
-import { entryToMinor, formatEntry } from '@/domain/money';
+import { entryToMinor, formatEntry, type Minor } from '@/domain/money';
+import { formatDayLabel, startOfLocalDay } from '@/domain/period';
 import { matchRule } from '@/domain/rules';
+import { useAppColor } from '@/theme';
 
-export type DateChoice = 'today' | 'yesterday' | 'earlier';
-
+/**
+ * What the form hands back. `occurredAt` is a real instant now — the design pass
+ * carried a three-value `'today' | 'yesterday' | 'earlier'` enum, which lost the
+ * actual date on the way in and could not reconstruct it on the way out.
+ */
 export type ExpenseDraft = {
-  /** The amount as the keypad holds it, not a number — see domain/amount-entry. */
+  amountMinor: Minor;
+  item: string;
+  note: string;
+  categoryId: string | null;
+  accountId: string | null;
+  countsToBudget: boolean;
+  occurredAt: number;
+};
+
+export type ExpenseFormSeed = {
   entry: string;
   item: string;
   note: string;
-  categoryId: CategoryId | null;
+  categoryId: string | null;
   accountId: string | null;
   countsToBudget: boolean;
-  date: DateChoice;
+  occurredAt: number;
 };
-
-const EMPTY_DRAFT: ExpenseDraft = {
-  entry: EMPTY_ENTRY,
-  item: '',
-  note: '',
-  categoryId: null,
-  accountId: null,
-  countsToBudget: true,
-  date: 'today',
-};
-
-const DATE_OPTIONS = [
-  { id: 'today' as const, label: 'Today' },
-  { id: 'yesterday' as const, label: 'Yesterday' },
-  { id: 'earlier' as const, label: 'Earlier…' },
-];
-
-const CATEGORY_OPTIONS = (Object.keys(CATEGORIES) as CategoryId[])
-  .filter((id) => !CATEGORIES[id].isArchived)
-  .map((id) => ({ id, label: CATEGORIES[id].label }));
-
-const ACCOUNT_OPTIONS = accounts.map(({ id, name }) => ({ id, label: name }));
 
 export type ExpenseFormProps = {
   title: string;
-  initial?: Partial<ExpenseDraft>;
+  initial?: Partial<ExpenseFormSeed>;
+  categories: readonly CategoryRow[];
+  accounts: readonly AccountRow[];
+  /** Descriptions used recently, offered under the item field (§7.2). */
+  recentItems?: readonly string[];
   /**
    * Treat every field as already answered, so a matching rule can't rewrite
    * values the expense was saved with. Editing sets this; adding does not.
    */
   isPrefilled?: boolean;
   submitLabel: string;
+  isSubmitting?: boolean;
+  errorMessage?: string | null;
   onSubmit: (draft: ExpenseDraft) => void;
   /** Add-only. Providing it shows the second action and clears the form after. */
   onSubmitAndContinue?: (draft: ExpenseDraft) => void;
   onClose: () => void;
 };
+
+type DayChoice = 'today' | 'yesterday' | 'other';
+
+const DAY_OPTIONS = [
+  { id: 'today' as const, label: 'Today' },
+  { id: 'yesterday' as const, label: 'Yesterday' },
+  { id: 'other' as const, label: 'Pick a date…' },
+];
+
+const MS_PER_DAY = 86_400_000;
+
+/** Which chip a stored instant corresponds to, so editing opens on the right one. */
+function dayChoiceOf(occurredAt: number, now: number): DayChoice {
+  const day = startOfLocalDay(occurredAt);
+  if (day === startOfLocalDay(now)) return 'today';
+  if (day === startOfLocalDay(now - MS_PER_DAY)) return 'yesterday';
+  return 'other';
+}
 
 /** Marks a field whose value a rule decided, so nothing is filled in silently. */
 function RuleBadge() {
@@ -88,13 +104,30 @@ function RuleBadge() {
 export function ExpenseForm({
   title,
   initial,
+  categories,
+  accounts,
+  recentItems = [],
   isPrefilled = false,
   submitLabel,
+  isSubmitting = false,
+  errorMessage = null,
   onSubmit,
   onSubmitAndContinue,
   onClose,
 }: ExpenseFormProps) {
-  const seed = { ...EMPTY_DRAFT, ...initial };
+  const now = Date.now();
+  const seed: ExpenseFormSeed = {
+    entry: EMPTY_ENTRY,
+    item: '',
+    note: '',
+    categoryId: null,
+    accountId: null,
+    countsToBudget: true,
+    occurredAt: now,
+    ...initial,
+  };
+
+  const accentColor = useAppColor('accent');
 
   const [entry, setEntry] = useState(seed.entry);
   /* An expense that already has an amount opens on the fields, not the keypad. */
@@ -102,10 +135,12 @@ export function ExpenseForm({
   const [item, setItem] = useState(seed.item);
   const [note, setNote] = useState(seed.note);
   const [isNoteOpen, setIsNoteOpen] = useState(seed.note.length > 0);
-  const [date, setDate] = useState<DateChoice>(seed.date);
+  const [occurredAt, setOccurredAt] = useState(seed.occurredAt);
+  const [dayChoice, setDayChoice] = useState<DayChoice>(dayChoiceOf(seed.occurredAt, now));
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   /* Chosen values, and whether the user has taken a field off the rule. */
-  const [categoryId, setCategoryId] = useState<CategoryId | null>(seed.categoryId);
+  const [categoryId, setCategoryId] = useState<string | null>(seed.categoryId);
   const [accountId, setAccountId] = useState<string | null>(seed.accountId);
   const [countsToBudget, setCountsToBudget] = useState(seed.countsToBudget);
   const [overridden, setOverridden] = useState({
@@ -114,39 +149,65 @@ export function ExpenseForm({
     counts: isPrefilled,
   });
 
+  const categoryOptions = useMemo(
+    () => categories.map((category) => ({ id: category.id, label: category.name })),
+    [categories],
+  );
+  const accountOptions = useMemo(
+    () => accounts.map((account) => ({ id: account.id, label: account.name })),
+    [accounts],
+  );
+
   /* Rules run as the item is typed — §4.6, highest priority first. */
   const fill = useMemo(() => matchRule(rules, { item, note }), [item, note]);
 
+  /* Rules still name an account rather than referencing one; M5 moves them onto
+     account ids along with the rest of the rules table. */
+  const ruleAccount = useMemo(() => {
+    const wanted = fill?.accountName?.trim().toLowerCase();
+    if (wanted === undefined || wanted.length === 0) return undefined;
+    return accounts.find((account) => account.name.trim().toLowerCase() === wanted);
+  }, [fill?.accountName, accounts]);
+
   /* A rule only speaks for a field the user hasn't answered themselves. */
   const ruleCategoryId = overridden.category ? null : (fill?.categoryId ?? null);
-  const ruleAccount = overridden.account ? undefined : findAccountByName(fill?.accountName);
+  const appliedAccount = overridden.account ? undefined : ruleAccount;
   const ruleCounts = overridden.counts ? undefined : fill?.countsToBudget;
 
   const activeCategoryId = ruleCategoryId ?? categoryId;
-  const activeAccountId = ruleAccount?.id ?? accountId;
+  const activeAccountId = appliedAccount?.id ?? accountId;
   const activeCounts = ruleCounts ?? countsToBudget;
 
-  const canSave = entryToMinor(entry) > 0 && item.trim().length > 0;
+  const amountMinor = entryToMinor(entry);
+  const canSave = amountMinor > 0 && item.trim().length > 0 && !isSubmitting;
 
   const draft = (): ExpenseDraft => ({
-    entry,
+    amountMinor,
     item,
     note,
     categoryId: activeCategoryId,
     accountId: activeAccountId,
     countsToBudget: activeCounts,
-    date,
+    occurredAt,
   });
+
+  /** Keeps the time of day when only the date changes, so ordering stays sane. */
+  const setDay = (choice: DayChoice) => {
+    setDayChoice(choice);
+    if (choice === 'other') {
+      setIsPickerOpen(true);
+      return;
+    }
+    const target = choice === 'today' ? now : now - MS_PER_DAY;
+    const clock = occurredAt - startOfLocalDay(occurredAt);
+    setOccurredAt(startOfLocalDay(target) + clock);
+  };
 
   /** Save & add another keeps the date and the account, per §7.2. */
   const handleSubmitAndContinue = () => {
     onSubmitAndContinue?.(draft());
 
-    setOverridden({
-      category: false,
-      account: activeAccountId !== null,
-      counts: false,
-    });
+    setOverridden({ category: false, account: activeAccountId !== null, counts: false });
     if (activeAccountId) setAccountId(activeAccountId);
 
     setEntry(EMPTY_ENTRY);
@@ -157,6 +218,14 @@ export function ExpenseForm({
     setCountsToBudget(true);
     setIsKeypadOpen(true);
   };
+
+  const suggestions = useMemo(() => {
+    const typed = item.trim().toLowerCase();
+    if (typed.length === 0) return recentItems.slice(0, 4);
+    return recentItems
+      .filter((recent) => recent.toLowerCase().includes(typed) && recent.toLowerCase() !== typed)
+      .slice(0, 4);
+  }, [item, recentItems]);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -195,6 +264,22 @@ export function ExpenseForm({
             onFocus={() => setIsKeypadOpen(false)}
             autoCapitalize="sentences"
           />
+          {suggestions.length > 0 && (
+            <View className="flex-row flex-wrap gap-2">
+              {suggestions.map((suggestion) => (
+                <Pressable
+                  key={suggestion}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Use ${suggestion}`}
+                  onPress={() => setItem(suggestion)}
+                  className="rounded-full bg-surface px-3 py-1.5 active:opacity-60">
+                  <Typography type="body-xs" color="muted">
+                    {suggestion}
+                  </Typography>
+                </Pressable>
+              ))}
+            </View>
+          )}
           {fill && (
             <View className="flex-row items-center gap-2 rounded-2xl bg-surface px-3 py-2.5">
               <Icon icon={Sparkles} color="accent" size={14} />
@@ -212,7 +297,7 @@ export function ExpenseForm({
             <SectionHeader label="Category" trailing={ruleCategoryId ? <RuleBadge /> : undefined} />
           </View>
           <FilterChipBar
-            options={CATEGORY_OPTIONS}
+            options={categoryOptions}
             selectedId={activeCategoryId}
             onSelect={(id) => {
               setCategoryId(id);
@@ -223,23 +308,51 @@ export function ExpenseForm({
 
         <View className="gap-2">
           <View className="px-5">
-            <SectionHeader label="Account" trailing={ruleAccount ? <RuleBadge /> : undefined} />
+            <SectionHeader label="Account" trailing={appliedAccount ? <RuleBadge /> : undefined} />
           </View>
-          <FilterChipBar
-            options={ACCOUNT_OPTIONS}
-            selectedId={activeAccountId}
-            onSelect={(id) => {
-              setAccountId(id);
-              setOverridden((current) => ({ ...current, account: true }));
-            }}
-          />
+          {accountOptions.length > 0 ? (
+            <FilterChipBar
+              options={accountOptions}
+              selectedId={activeAccountId}
+              onSelect={(id) => {
+                setAccountId(id);
+                setOverridden((current) => ({ ...current, account: true }));
+              }}
+            />
+          ) : (
+            <Typography type="body-xs" color="muted" className="px-5">
+              No accounts yet — add one in Settings to track which card paid.
+            </Typography>
+          )}
         </View>
 
         <View className="gap-2">
           <View className="px-5">
-            <SectionHeader label="Date" />
+            <SectionHeader label="Date" trailing={
+              <Typography type="body-xs" color="muted">
+                {formatDayLabel(occurredAt, now)}
+              </Typography>
+            } />
           </View>
-          <FilterChipBar options={DATE_OPTIONS} selectedId={date} onSelect={setDate} />
+          <FilterChipBar options={DAY_OPTIONS} selectedId={dayChoice} onSelect={setDay} />
+          {isPickerOpen && (
+            <View className="px-5">
+              <DateTimePicker
+                value={new Date(occurredAt)}
+                mode="date"
+                display="default"
+                accentColor={accentColor}
+                maximumDate={new Date(now)}
+                onValueChange={(_event, date) => {
+                  const clock = occurredAt - startOfLocalDay(occurredAt);
+                  setOccurredAt(startOfLocalDay(date.getTime()) + clock);
+                  setDayChoice(dayChoiceOf(date.getTime(), now));
+                  setIsPickerOpen(false);
+                }}
+                onDismiss={() => setIsPickerOpen(false)}
+              />
+            </View>
+          )}
         </View>
 
         <View className="gap-2 px-5">
@@ -289,6 +402,12 @@ export function ExpenseForm({
       </ScrollView>
 
       <View className="gap-3 border-t border-border px-5 pt-3">
+        {errorMessage !== null && (
+          <Typography type="body-xs" className="text-danger">
+            {errorMessage}
+          </Typography>
+        )}
+
         <View className="flex-row gap-3">
           {onSubmitAndContinue && (
             <View className="flex-1">
@@ -301,7 +420,11 @@ export function ExpenseForm({
             </View>
           )}
           <View className="flex-1">
-            <Button label={submitLabel} isDisabled={!canSave} onPress={() => onSubmit(draft())} />
+            <Button
+              label={isSubmitting ? 'Saving…' : submitLabel}
+              isDisabled={!canSave}
+              onPress={() => onSubmit(draft())}
+            />
           </View>
         </View>
 

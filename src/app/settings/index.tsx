@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import {
@@ -8,7 +9,7 @@ import {
   Shapes,
   Wallet,
 } from 'lucide-react-native';
-import { ScrollView, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/icon-button';
@@ -16,6 +17,7 @@ import { SectionHeader } from '@/components/section-header';
 import { SettingsRow } from '@/components/settings-row';
 import { accounts } from '@/data/accounts';
 import { monthlyBudget } from '@/data/budget';
+import { runDevSeed } from '@/db/dev-seed';
 import { formatMinor } from '@/domain/money';
 import { CATEGORIES } from '@/data/categories';
 
@@ -94,7 +96,30 @@ export default function SettingsScreen() {
         <View className="gap-3">
           <SectionHeader label="About" />
           <View className="rounded-3xl bg-surface">
-            <SettingsRow isFirst icon={Info} iconTone="muted" label="Finly" value="1.0.0" />
+            <SettingsRow
+              isFirst
+              icon={Info}
+              iconTone="muted"
+              label="Finly"
+              value={Constants.expoConfig?.version ?? '—'}
+              /* Long-press seeds three months of history. __DEV__ only, and
+                 hidden, so it can never reach real data by accident. */
+              onLongPress={
+                __DEV__
+                  ? () => {
+                      try {
+                        const seeded = runDevSeed();
+                        Alert.alert(
+                          'Development data added',
+                          `${seeded.expenses} expenses, ${seeded.accounts} accounts, ${seeded.settlements} settlement.`,
+                        );
+                      } catch (cause) {
+                        Alert.alert('Could not seed', cause instanceof Error ? cause.message : String(cause));
+                      }
+                    }
+                  : undefined
+              }
+            />
           </View>
           <Typography type="body-xs" color="muted" className="px-1">
             Local-first: there is no account and no server. Your data never leaves the device, so

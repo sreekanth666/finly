@@ -13,8 +13,17 @@ import { useCallback, useRef, useState } from 'react';
 
 import { RepositoryError, toError } from './errors';
 
+/**
+ * Deliberately not `Result | undefined`. Half the repository writes return void,
+ * so an undefined result would be indistinguishable from a failure and a screen
+ * would never navigate away after a successful save.
+ */
+export type ActionOutcome<Result> =
+  | { ok: true; value: Result }
+  | { ok: false; error: Error };
+
 export type ActionState<Args extends unknown[], Result> = {
-  run: (...args: Args) => Promise<Result | undefined>;
+  run: (...args: Args) => Promise<ActionOutcome<Result>>;
   isPending: boolean;
   error: Error | null;
   /** What to put in front of the user. Falls back to a generic line. */
@@ -37,17 +46,21 @@ export function useAction<Args extends unknown[], Result>(
     setError(null);
   }, []);
 
-  const run = useCallback(async (...args: Args): Promise<Result | undefined> => {
-    if (inFlight.current) return undefined;
+  const run = useCallback(async (...args: Args): Promise<ActionOutcome<Result>> => {
+    // A disabled prop lands a frame too late to stop a determined double tap.
+    if (inFlight.current) {
+      return { ok: false, error: new Error('Already saving.') };
+    }
     inFlight.current = true;
     setIsPending(true);
     setError(null);
 
     try {
-      return await actionRef.current(...args);
+      return { ok: true, value: await actionRef.current(...args) };
     } catch (cause) {
-      setError(toError(cause));
-      return undefined;
+      const failure = toError(cause);
+      setError(failure);
+      return { ok: false, error: failure };
     } finally {
       inFlight.current = false;
       setIsPending(false);
