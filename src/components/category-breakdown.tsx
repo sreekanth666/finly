@@ -4,12 +4,12 @@ import { View } from 'react-native';
 import { Amount } from './amount';
 import { DonutChart } from './donut-chart';
 
-import type { CategorySpend } from '@/data/insights';
+import type { CategorySpend } from '@/db/repositories/insights';
 import { useChartPalette } from '@/theme/chart';
 import type { Minor } from '@/domain/money';
 
 export type CategoryBreakdownProps = {
-  segments: CategorySpend[];
+  segments: readonly CategorySpend[];
   total: Minor;
   size: number;
 };
@@ -27,7 +27,7 @@ export function CategoryBreakdown({ segments, total, size }: CategoryBreakdownPr
       <View className="items-center">
         <DonutChart
           size={size}
-          segments={segments.map(({ id, amount, tone }) => ({ id, value: amount, tone }))}>
+          segments={segments.map(({ id, amountMinor, tone }) => ({ id, value: amountMinor, tone }))}>
           <View className="items-center gap-0.5">
             <Typography type="body-xs" color="muted">
               Total spent
@@ -48,10 +48,10 @@ export function CategoryBreakdown({ segments, total, size }: CategoryBreakdownPr
               {segment.label}
             </Typography>
             <Typography type="body-xs" color="muted">
-              {total > 0 ? Math.round((segment.amount / total) * 100) : 0}%
+              {total > 0 ? Math.round((segment.amountMinor / total) * 100) : 0}%
             </Typography>
             <Amount
-              value={segment.amount}
+              value={segment.amountMinor}
               className="type-amount-sm text-foreground"
               fractionClassName="type-amount-sm"
             />
