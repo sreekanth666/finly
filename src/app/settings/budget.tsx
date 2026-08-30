@@ -11,13 +11,9 @@ import { Button } from '@/components/button';
 import { IconButton } from '@/components/icon-button';
 import { SectionHeader } from '@/components/section-header';
 import { budgetPeriods, monthlyBudget } from '@/data/budget';
-import {
-  appendKey,
-  entryToNumber,
-  formatEntry,
-  numberToEntry,
-  type KeypadKey,
-} from '@/domain/amount-entry';
+import { appendKey, type KeypadKey } from '@/domain/amount-entry';
+import { absMinor, entryToMinor, formatEntry, formatMinor, minorToEntry } from '@/domain/money';
+import { formatPeriodLong } from '@/domain/period';
 import { buildCarryOverHistory, type PeriodResult } from '@/domain/budget';
 
 /** Spelled out per state so the compiler sees both. */
@@ -36,34 +32,34 @@ function PeriodRow({ period, isFirst }: { period: PeriodResult; isFirst: boolean
       }>
       <View className="flex-row items-center justify-between gap-3">
         <Typography type="body-sm" weight="semibold" truncate>
-          {period.label}
+          {formatPeriodLong(period.period)}
         </Typography>
         <View className="flex-row items-center gap-1.5">
           <Typography type="body-xs" className={status.text}>
             {status.label}
           </Typography>
           <Amount
-            value={Math.abs(period.remaining)}
+            value={absMinor(period.remaining)}
             className={`type-amount-sm ${status.text}`}
-            centsClassName="type-amount-sm"
+            fractionClassName="type-amount-sm"
           />
         </View>
       </View>
 
       <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">
         <Typography type="body-xs" color="muted">
-          {`Budget $${period.budget.toLocaleString('en-US')}`}
+          {`Budget ${formatMinor(period.budget, { showFraction: false })}`}
         </Typography>
         {period.carryOver > 0 && (
           <Typography type="body-xs" className="text-danger">
-            {`− $${period.carryOver.toFixed(2)} carried in`}
+            {`− ${formatMinor(period.carryOver)} carried in`}
           </Typography>
         )}
         <Typography type="body-xs" color="muted">
-          {`Available $${period.available.toFixed(2)}`}
+          {`Available ${formatMinor(period.available)}`}
         </Typography>
         <Typography type="body-xs" color="muted">
-          {`Spent $${period.spent.toFixed(2)}`}
+          {`Spent ${formatMinor(period.spent)}`}
         </Typography>
       </View>
     </View>
@@ -71,13 +67,13 @@ function PeriodRow({ period, isFirst }: { period: PeriodResult; isFirst: boolean
 }
 
 export default function BudgetSettingsScreen() {
-  const [entry, setEntry] = useState(() => numberToEntry(monthlyBudget));
+  const [entry, setEntry] = useState(() => minorToEntry(monthlyBudget));
   const [isKeypadOpen, setIsKeypadOpen] = useState(false);
 
   /* Newest first on screen; the walk itself needs oldest first. */
   const history = useMemo(() => [...buildCarryOverHistory(budgetPeriods)].reverse(), []);
 
-  const canSave = entryToNumber(entry) > 0;
+  const canSave = entryToMinor(entry) > 0;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -98,7 +94,7 @@ export default function BudgetSettingsScreen() {
         </Typography>
         <Typography
           className={entry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'}>
-          {`$${formatEntry(entry)}`}
+          {formatEntry(entry)}
         </Typography>
       </Pressable>
 

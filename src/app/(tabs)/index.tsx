@@ -14,6 +14,8 @@ import { StatCard } from '@/components/stat-card';
 import { balanceOverview } from '@/data/balance';
 import { budgetPeriods } from '@/data/budget';
 import { buildCarryOverHistory } from '@/domain/budget';
+import { absMinor, formatMinor } from '@/domain/money';
+import { formatPeriodLong } from '@/domain/period';
 
 const RING_MAX_SIZE = 320;
 const SCREEN_PADDING = 40;
@@ -38,7 +40,7 @@ export default function BalanceScreen() {
         <ScreenHeader />
 
         <MonthSwitcher
-          label={period.label}
+          label={formatPeriodLong(period.period)}
           canGoBack={index > 0}
           canGoForward={index < latest}
           onBack={() => setIndex((current) => current - 1)}
@@ -53,7 +55,7 @@ export default function BalanceScreen() {
           <Amount
             value={totalBalance}
             className="type-balance text-foreground"
-            centsClassName="type-balance"
+            fractionClassName="type-balance"
           />
         </View>
 
@@ -67,22 +69,22 @@ export default function BalanceScreen() {
                   {period.isOverspent ? 'Overspent' : 'Safe to Spend'}
                 </Typography>
                 <Amount
-                  value={Math.abs(period.remaining)}
+                  value={absMinor(period.remaining)}
                   className={
                     period.isOverspent
                       ? 'type-metric text-danger'
                       : 'type-metric text-foreground'
                   }
-                  showCents={false}
+                  showFraction={false}
                 />
                 <Typography type="body-sm" className="text-accent">
-                  {`of $${period.available.toLocaleString('en-US')} available`}
+                  {`of ${formatMinor(period.available, { showFraction: false })} available`}
                 </Typography>
                 {/* §7.1: a carry-over line, but only when there is one. */}
                 {period.carryOver > 0 && (
                   <View className="mt-2 rounded-full bg-surface-secondary px-3 py-1.5">
                     <Typography type="body-xs" color="muted">
-                      {`$${period.carryOver.toFixed(2)} carried from last month`}
+                      {`${formatMinor(period.carryOver)} carried from last month`}
                     </Typography>
                   </View>
                 )}

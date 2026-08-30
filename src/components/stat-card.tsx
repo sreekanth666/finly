@@ -6,6 +6,7 @@ import { Amount } from './amount';
 import { Icon } from './icon';
 
 import type { AppColor } from '@/theme';
+import type { Minor } from '@/domain/money';
 
 /** The two card treatments from the mockup. */
 export type StatCardTone = 'iris' | 'accent';
@@ -14,7 +15,7 @@ export type StatCardProps = {
   tone: StatCardTone;
   title: string;
   caption: string;
-  amount: number;
+  amount: Minor;
   icon: LucideIcon;
 };
 

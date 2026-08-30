@@ -11,6 +11,7 @@
 
 import { Banknote, CreditCard, Landmark, Wallet, type LucideIcon } from 'lucide-react-native';
 
+import type { Minor } from '@/domain/money';
 import type { AppColor } from '@/theme';
 
 export type AccountType = 'credit_card' | 'bank' | 'cash' | 'wallet';
@@ -23,7 +24,7 @@ export type Account = {
   /** Last four digits, for telling two cards from the same issuer apart. */
   last4?: string;
   /** Credit cards only — §5 requires it for them and forbids it elsewhere. */
-  creditLimit?: number;
+  creditLimitMinor?: Minor;
   /** Credit cards only. 1–31; short months clamp (§4.5). */
   statementDay?: number;
   /** A theme token name, never a hex. */
@@ -61,7 +62,7 @@ export const accounts: Account[] = [
     type: 'credit_card',
     issuer: 'HDFC Bank',
     last4: '4821',
-    creditLimit: 4000,
+    creditLimitMinor: 400000 as Minor,
     statementDay: 18,
     colorToken: 'accent',
     sortOrder: 0,
@@ -73,7 +74,7 @@ export const accounts: Account[] = [
     type: 'credit_card',
     issuer: 'ICICI Bank',
     last4: '7310',
-    creditLimit: 3000,
+    creditLimitMinor: 300000 as Minor,
     statementDay: 2,
     colorToken: 'iris',
     sortOrder: 1,

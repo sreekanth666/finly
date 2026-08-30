@@ -65,7 +65,7 @@ function PreviewRow({ row, isFirst }: { row: ImportRow; isFirst: boolean }) {
           <Amount
             value={row.amount}
             className="type-amount-sm text-foreground"
-            centsClassName="type-amount-sm"
+            fractionClassName="type-amount-sm"
           />
         )}
       </View>

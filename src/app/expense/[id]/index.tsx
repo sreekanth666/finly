@@ -15,7 +15,8 @@ import { findAccount } from '@/data/accounts';
 import { CATEGORIES } from '@/data/categories';
 import { findSettlements, type Settlement } from '@/data/settlements';
 import { findTransaction } from '@/data/transactions';
-import { summariseSettlements } from '@/domain/settlement';
+import { formatMinor } from '@/domain/money';
+import { settledTotal, summariseSettlements } from '@/domain/settlement';
 
 /**
  * Class strings spelled out per position. `divide-y` is not an option: it
@@ -57,10 +58,10 @@ function SettlementRow({ settlement }: { settlement: Settlement }) {
       </View>
 
       <Amount
-        value={settlement.amount}
-        signed
+        value={settlement.amountMinor}
+        sign="always"
         className="type-amount-sm text-income"
-        centsClassName="type-amount-sm"
+        fractionClassName="type-amount-sm"
       />
     </View>
   );
@@ -96,12 +97,12 @@ export default function ExpenseDetailScreen() {
   );
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const { settled, effective, isSettled, isPartlySettled } = summariseSettlements(
-    transaction.amount,
-    settlementList
+  const { settledMinor, effectiveMinor, isSettled, isPartlySettled } = summariseSettlements(
+    transaction.amountMinor,
+    settledTotal(settlementList.map((settlement) => settlement.amountMinor))
   );
   const hasReturns = isSettled || isPartlySettled;
-  const cost = Math.abs(transaction.amount);
+  const cost = transaction.amountMinor;
 
   const recordRows = [
     {
@@ -176,13 +177,13 @@ export default function ExpenseDetailScreen() {
           <Typography type="body-xs" color="muted">
             {hasReturns ? 'Effective amount' : 'Amount'}
           </Typography>
-          <Amount value={effective} className="type-metric text-foreground" showCents={false} />
+          <Amount value={effectiveMinor} className="type-metric text-foreground" showFraction={false} />
 
           {/* The original stays visible — a settlement offsets an expense, it
               never rewrites what was actually spent (D1). */}
           {hasReturns && (
             <View className="flex-row items-center gap-2">
-              <Amount value={cost} className="type-amount-sm text-muted line-through" centsClassName="type-amount-sm" />
+              <Amount value={cost} className="type-amount-sm text-muted line-through" fractionClassName="type-amount-sm" />
               <Typography type="body-xs" color="muted">
                 originally
               </Typography>
@@ -198,7 +199,7 @@ export default function ExpenseDetailScreen() {
           <View className="flex-row items-center gap-2 rounded-2xl bg-surface px-4 py-3">
             <Icon icon={Undo2} color="income" size={14} />
             <Typography type="body-xs" color="muted" className="flex-1">
-              {`$${settled.toFixed(2)} of $${cost.toFixed(2)} returned — counts as $${effective.toFixed(2)}.`}
+              {`${formatMinor(settledMinor)} of ${formatMinor(cost)} returned — counts as ${formatMinor(effectiveMinor)}.`}
             </Typography>
           </View>
         )}
@@ -261,14 +262,14 @@ export default function ExpenseDetailScreen() {
         isOpen={isSheetOpen}
         onOpenChange={setIsSheetOpen}
         expenseTitle={transaction.title}
-        outstanding={effective}
+        outstanding={effectiveMinor}
         onAdd={(draft) =>
           setSettlementList((current) => [
             ...current,
             {
               id: `s-local-${current.length + 1}`,
               expenseId: transaction.id,
-              amount: draft.amount,
+              amountMinor: draft.amountMinor,
               settledAt: draft.date === 'today' ? 'Today' : draft.date === 'yesterday' ? 'Yesterday' : 'Earlier',
               accountName: findAccount(draft.accountId ?? '')?.name,
               note: draft.note.length > 0 ? draft.note : undefined,

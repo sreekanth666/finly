@@ -6,39 +6,45 @@
  *
  * A settlement reduces the expense in the expense's own period, even when the
  * money comes back a month later (D1) — which is why this is a derived figure
- * and never a stored one. The clamp at zero mirrors the integrity rule the
- * repository layer will enforce: settlements may not exceed the expense.
+ * and never a stored one.
+ *
+ * The clamp at the expense amount duplicates the rule the repository enforces
+ * inside a transaction. Kept as defence in depth: a restored backup or a
+ * hand-edited database could carry settlements that exceed their expense, and
+ * that must render as ₹0 rather than as a negative expense.
  */
 
-import type { Settlement } from '@/data/settlements';
+import { clampMinorAtZero, minMinor, subMinor, sumMinor, type Minor } from './money';
 
 export type SettlementSummary = {
   /** Total returned so far. */
-  settled: number;
+  settledMinor: Minor;
   /** What the expense still costs, after everything returned. */
-  effective: number;
+  effectiveMinor: Minor;
   isSettled: boolean;
   isPartlySettled: boolean;
 };
 
-export const settledTotal = (settlements: Settlement[]) =>
-  settlements.reduce((total, settlement) => total + settlement.amount, 0);
+export const settledTotal = (amounts: readonly Minor[]): Minor => sumMinor(amounts);
 
 /**
- * @param amount the expense amount, signed as the feed stores it — only its
- * magnitude matters here, since a settlement offsets the size of the expense.
+ * @param amountMinor the expense amount. Unsigned by constraint (§5), so unlike
+ * the design-pass version this takes no absolute value — a negative here would
+ * be a bug worth surfacing, not something to quietly paper over.
+ * @param settledMinor the total already returned. Taken as a total rather than a
+ * list, because the list screen gets it from a SQL SUM and must never load an
+ * expense's child rows just to render one line.
  */
 export function summariseSettlements(
-  amount: number,
-  settlements: Settlement[]
+  amountMinor: Minor,
+  settledMinor: Minor,
 ): SettlementSummary {
-  const cost = Math.abs(amount);
-  const settled = Math.min(settledTotal(settlements), cost);
-  const effective = Math.max(0, cost - settled);
+  const settled = minMinor(settledMinor, amountMinor);
+  const effective = clampMinorAtZero(subMinor(amountMinor, settled));
 
   return {
-    settled,
-    effective,
+    settledMinor: settled,
+    effectiveMinor: effective,
     isSettled: settled > 0 && effective === 0,
     isPartlySettled: settled > 0 && effective > 0,
   };

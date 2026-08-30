@@ -4,6 +4,10 @@
  * Kept as a string rather than a number because "4." and "4.0" are real states
  * mid-entry that a number can't hold, and because rounding has no business
  * happening while someone is still typing.
+ *
+ * This module is only the state machine now. Turning an entry into money, and
+ * rendering it, both live in domain/money.ts — `entryToMinor`, `minorToEntry`
+ * and `formatEntry` — so there is exactly one place that knows what a rupee is.
  */
 
 export type KeypadKey =
@@ -38,26 +42,4 @@ export function appendKey(entry: string, key: KeypadKey): string {
   if (whole === '0') return key;
 
   return `${entry}${key}`;
-}
-
-/** The inverse, for loading a stored amount back into the keypad. */
-export const numberToEntry = (value: number) =>
-  value === 0 ? EMPTY_ENTRY : Math.abs(value).toFixed(2);
-
-export const entryToNumber = (entry: string) => {
-  const value = Number.parseFloat(entry);
-
-  return Number.isFinite(value) ? value : 0;
-};
-
-const groupThousands = (whole: string) => whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-/** Display form, preserving a trailing separator so the caret feels honest. */
-export function formatEntry(entry: string): string {
-  if (entry.length === 0) return '0';
-
-  const [whole = '', decimals] = entry.split('.');
-  const grouped = groupThousands(whole.length === 0 ? '0' : whole);
-
-  return decimals === undefined ? grouped : `${grouped}.${decimals}`;
 }

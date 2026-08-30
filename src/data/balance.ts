@@ -9,28 +9,30 @@
  * here would be a second source of truth that could disagree with the ring.
  */
 
+import type { Minor } from '@/domain/money';
+
 export type StatCardData = {
   title: string;
   caption: string;
-  amount: number;
+  amount: Minor;
 };
 
 export type BalanceOverview = {
-  totalBalance: number;
+  totalBalance: Minor;
   upcomingBills: StatCardData;
   autoSavings: StatCardData;
 };
 
 export const balanceOverview: BalanceOverview = {
-  totalBalance: 2980.45,
+  totalBalance: 298045 as Minor,
   upcomingBills: {
     title: 'Upcoming bills',
     caption: 'in 7 days',
-    amount: 1280.29,
+    amount: 128029 as Minor,
   },
   autoSavings: {
     title: 'Auto Savings',
     caption: '53% of goal',
-    amount: 326.04,
+    amount: 32604 as Minor,
   },
 };

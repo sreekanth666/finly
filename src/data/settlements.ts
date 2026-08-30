@@ -6,11 +6,13 @@
  * one that lands a month later, still leaves the original spend intact.
  */
 
+import type { Minor } from '@/domain/money';
+
 export type Settlement = {
   id: string;
   expenseId: string;
-  /** Positive — money returning. */
-  amount: number;
+  /** Unsigned integer paise — money returning. */
+  amountMinor: Minor;
   /** Formatted for display until real dates land in M1. */
   settledAt: string;
   /** Where the money landed. Account name is the join key until M3. */
@@ -22,7 +24,7 @@ export const settlements: Settlement[] = [
   {
     id: 's-1',
     expenseId: 'b-1',
-    amount: 129.99,
+    amountMinor: 12999 as Minor,
     settledAt: 'Mon, 25 Aug',
     accountName: 'HDFC Millennia',
     note: 'Returned — wrong model',
@@ -30,7 +32,7 @@ export const settlements: Settlement[] = [
   {
     id: 's-2',
     expenseId: 'y-2',
-    amount: 425,
+    amountMinor: 42500 as Minor,
     settledAt: 'Yesterday',
     accountName: 'ICICI Bank',
     note: 'Flatmate’s half',

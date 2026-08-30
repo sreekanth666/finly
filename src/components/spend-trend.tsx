@@ -3,10 +3,11 @@ import { View } from 'react-native';
 
 import { Amount } from './amount';
 import { TrendBars, type TrendBar } from './trend-bars';
+import type { Minor } from '@/domain/money';
 
 export type SpendTrendProps = {
   data: TrendBar[];
-  budget: number;
+  budget: Minor;
   width: number;
 };
 
@@ -39,7 +40,7 @@ export function SpendTrend({ data, budget, width }: SpendTrendProps) {
           <Typography type="body-xs" color="muted">
             Budget
           </Typography>
-          <Amount value={budget} className="type-amount-sm text-muted" showCents={false} />
+          <Amount value={budget} className="type-amount-sm text-muted" showFraction={false} />
         </View>
       </View>
     </View>

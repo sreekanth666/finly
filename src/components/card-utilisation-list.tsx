@@ -86,13 +86,13 @@ export function CardUtilisationList({ cards }: { cards: CardUtilisation[] }) {
                 <Amount
                   value={card.cycleSpend}
                   className="type-amount-sm text-foreground"
-                  centsClassName="type-amount-sm"
-                  showCents={false}
+                  fractionClassName="type-amount-sm"
+                  showFraction={false}
                 />
                 <Typography type="body-xs" color="muted">
                   of
                 </Typography>
-                <Amount value={card.creditLimit} className="type-amount-sm text-muted" showCents={false} />
+                <Amount value={card.creditLimit} className="type-amount-sm text-muted" showFraction={false} />
               </View>
             </View>
           </View>

@@ -16,6 +16,7 @@ import { SectionHeader } from '@/components/section-header';
 import { SettingsRow } from '@/components/settings-row';
 import { accounts } from '@/data/accounts';
 import { monthlyBudget } from '@/data/budget';
+import { formatMinor } from '@/domain/money';
 import { CATEGORIES } from '@/data/categories';
 
 const plural = (count: number, one: string, many: string) =>
@@ -46,7 +47,7 @@ export default function SettingsScreen() {
               iconTone="accent"
               label="Monthly budget"
               description="One overall cap, carried over when overspent"
-              value={`$${monthlyBudget.toLocaleString('en-US')}`}
+              value={formatMinor(monthlyBudget, { showFraction: false })}
               onPress={() => router.push('/settings/budget')}
             />
           </View>

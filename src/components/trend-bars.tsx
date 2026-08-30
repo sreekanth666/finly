@@ -3,17 +3,18 @@ import { View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 
 import { useAppColor } from '@/theme';
+import type { Minor } from '@/domain/money';
 
 export type TrendBar = {
   id: string;
   label: string;
-  value: number;
+  value: Minor;
 };
 
 export type TrendBarsProps = {
   data: TrendBar[];
   /** The budget each month is judged against. */
-  reference: number;
+  reference: Minor;
   width: number;
   height?: number;
 };

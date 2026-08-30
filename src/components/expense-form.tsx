@@ -14,13 +14,8 @@ import { SectionHeader } from './section-header';
 import { accounts, findAccountByName } from '@/data/accounts';
 import { CATEGORIES, type CategoryId } from '@/data/categories';
 import { rules } from '@/data/rules';
-import {
-  appendKey,
-  EMPTY_ENTRY,
-  entryToNumber,
-  formatEntry,
-  type KeypadKey,
-} from '@/domain/amount-entry';
+import { appendKey, EMPTY_ENTRY, type KeypadKey } from '@/domain/amount-entry';
+import { entryToMinor, formatEntry } from '@/domain/money';
 import { matchRule } from '@/domain/rules';
 
 export type DateChoice = 'today' | 'yesterday' | 'earlier';
@@ -53,7 +48,7 @@ const DATE_OPTIONS = [
 ];
 
 const CATEGORY_OPTIONS = (Object.keys(CATEGORIES) as CategoryId[])
-  .filter((id) => id !== 'income')
+  .filter((id) => !CATEGORIES[id].isArchived)
   .map((id) => ({ id, label: CATEGORIES[id].label }));
 
 const ACCOUNT_OPTIONS = accounts.map(({ id, name }) => ({ id, label: name }));
@@ -131,7 +126,7 @@ export function ExpenseForm({
   const activeAccountId = ruleAccount?.id ?? accountId;
   const activeCounts = ruleCounts ?? countsToBudget;
 
-  const canSave = entryToNumber(entry) > 0 && item.trim().length > 0;
+  const canSave = entryToMinor(entry) > 0 && item.trim().length > 0;
 
   const draft = (): ExpenseDraft => ({
     entry,
@@ -182,7 +177,7 @@ export function ExpenseForm({
         </Typography>
         <Typography
           className={entry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'}>
-          {`$${formatEntry(entry)}`}
+          {formatEntry(entry)}
         </Typography>
       </Pressable>
 

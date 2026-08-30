@@ -67,7 +67,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:tz": "TZ=Asia/Kolkata jest && TZ=UTC jest && TZ=America/Los_Angeles jest",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "check:money": "node scripts/check-money.mjs"
   },
   "private": true
 }
