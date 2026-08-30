@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { ArrowLeft, FileJson, FileSpreadsheet, TriangleAlert, Upload } from 'lucide-react-native';
+import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,7 +16,13 @@ import { rules } from '@/data/rules';
 import { settlements } from '@/data/settlements';
 import { transactionDays } from '@/data/transactions';
 
+type ExportFormat = 'json' | 'csv';
+
 export default function DataTransferScreen() {
+  /* Nothing is written in the design pass, but the rows have to behave like
+     actions — an inert row with no chevron reads as a label, and the "Never
+     exported" line could otherwise never change. */
+  const [lastExport, setLastExport] = useState<ExportFormat | null>(null);
   const expenseCount = transactionDays.reduce((total, day) => total + day.transactions.length, 0);
 
   const contents = [
@@ -43,7 +50,7 @@ export default function DataTransferScreen() {
           <Icon icon={TriangleAlert} color="warning" size={16} />
           <View className="flex-1 gap-1">
             <Typography type="body-sm" weight="semibold">
-              No backup yet
+              {lastExport === null ? 'No backup yet' : 'Backed up'}
             </Typography>
             <Typography type="body-xs" color="muted">
               Everything lives on this device and nowhere else. If you lose the phone, an export
@@ -57,7 +64,7 @@ export default function DataTransferScreen() {
             label="Export"
             trailing={
               <Typography type="body-sm" color="muted">
-                Never exported
+                {lastExport === null ? 'Never exported' : 'Exported just now'}
               </Typography>
             }
           />
@@ -69,6 +76,8 @@ export default function DataTransferScreen() {
               iconTone="accent"
               label="Full backup (JSON)"
               description="Everything, and it restores completely"
+              value={lastExport === 'json' ? 'Just now' : undefined}
+              onPress={() => setLastExport('json')}
             />
             <SettingsRow
               isFirst={false}
@@ -76,6 +85,8 @@ export default function DataTransferScreen() {
               iconTone="iris"
               label="Expenses (CSV)"
               description="Opens in any spreadsheet — expenses only"
+              value={lastExport === 'csv' ? 'Just now' : undefined}
+              onPress={() => setLastExport('csv')}
             />
           </View>
 
