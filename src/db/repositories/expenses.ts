@@ -14,7 +14,7 @@
 
 import { and, asc, count, desc, eq, gte, inArray, isNull, like, lt, or, sql } from 'drizzle-orm';
 
-import { asMinor, type Minor } from '@/domain/money';
+import { asMinor, getActiveCurrency, type Minor } from '@/domain/money';
 import { periodOf, type PeriodKey } from '@/domain/period';
 import { summariseSettlements } from '@/domain/settlement';
 
@@ -303,6 +303,25 @@ export function offBudgetSpend(period: PeriodKey, database: DbLike = db): Minor 
   return asMinor(row?.spent ?? 0);
 }
 
+/**
+ * Category ids, most-used first — §7.2's "chips, most-used first".
+ *
+ * Counted over recent expenses rather than all of history, so the order tracks
+ * what someone is buying now rather than what they bought two years ago.
+ */
+export function categoriesByUse(limit: number, database: DbLike = db): string[] {
+  return database
+    .select({ categoryId: expenses.categoryId, uses: sql<number>`count(*)` })
+    .from(expenses)
+    .where(and(alive, sql`${expenses.categoryId} is not null`))
+    .groupBy(expenses.categoryId)
+    .orderBy(desc(sql`count(*)`))
+    .limit(limit)
+    .all()
+    .map((row) => row.categoryId)
+    .filter((id): id is string => id !== null);
+}
+
 export const earliestActivityPeriod = (database: DbLike = db): PeriodKey | null =>
   database
     .select({ period: expenses.budgetPeriod })
@@ -387,7 +406,11 @@ export function createExpense(input: ExpenseInput, database: DbLike = db): strin
   const values = normalise(input);
 
   writeTransaction((tx) => {
-    tx.insert(expenses).values({ id, ...values, currency: 'INR', createdAt: now, updatedAt: now }).run();
+    /* The row records what the amount was entered in, so a later currency
+       change never rewrites history. */
+    tx.insert(expenses)
+      .values({ id, ...values, currency: getActiveCurrency().code, createdAt: now, updatedAt: now })
+      .run();
     markCarryDirty(values.budgetPeriod, tx);
   }, database);
 

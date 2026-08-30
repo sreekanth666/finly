@@ -7,6 +7,7 @@ import {
   CircleDollarSign,
   Info,
   Shapes,
+  Coins,
   ShieldCheck,
   Wallet,
 } from 'lucide-react-native';
@@ -16,6 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/icon-button';
 import { SectionHeader } from '@/components/section-header';
 import { SettingsRow } from '@/components/settings-row';
+import { useDbQuery } from '@/db/live';
+import { getCurrency } from '@/db/repositories/settings';
 import { runDevSeed } from '@/db/dev-seed';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useDefaultMonthlyBudget } from '@/features/budget/hooks';
@@ -26,6 +29,9 @@ const plural = (count: number, one: string, many: string) =>
 
 export default function SettingsScreen() {
   const budget = useDefaultMonthlyBudget();
+  const currency = useDbQuery('settings:currency-code', ['settings'], (database) =>
+    getCurrency(database),
+  );
   const accountRows = useAccounts();
   const categoryRows = useCategories();
 
@@ -57,6 +63,14 @@ export default function SettingsScreen() {
               description="One overall cap, carried over when overspent"
               value={budget.data === undefined ? '—' : formatMinor(budget.data, { showFraction: false })}
               onPress={() => router.push('/settings/budget')}
+            />
+            <SettingsRow
+              isFirst={false}
+              icon={Coins}
+              iconTone="iris"
+              label="Currency"
+              value={currency.data?.code ?? '—'}
+              onPress={() => router.push('/settings/currency')}
             />
           </View>
         </View>
