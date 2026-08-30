@@ -10,11 +10,15 @@ import { AmountKeypad } from '@/components/amount-keypad';
 import { Button } from '@/components/button';
 import { IconButton } from '@/components/icon-button';
 import { SectionHeader } from '@/components/section-header';
-import { budgetPeriods, monthlyBudget } from '@/data/budget';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
+import { setDefaultMonthlyBudget } from '@/db/repositories/budgets';
+import { useAction } from '@/db/use-action';
+import { useBudgetHistory, useDefaultMonthlyBudget } from '@/features/budget/hooks';
 import { appendKey, type KeypadKey } from '@/domain/amount-entry';
 import { absMinor, entryToMinor, formatEntry, formatMinor, minorToEntry } from '@/domain/money';
 import { formatPeriodLong } from '@/domain/period';
-import { buildCarryOverHistory, type PeriodResult } from '@/domain/budget';
+import type { PeriodResult } from '@/domain/budget';
 
 /** Spelled out per state so the compiler sees both. */
 const PERIOD_STATUS = {
@@ -67,13 +71,26 @@ function PeriodRow({ period, isFirst }: { period: PeriodResult; isFirst: boolean
 }
 
 export default function BudgetSettingsScreen() {
-  const [entry, setEntry] = useState(() => minorToEntry(monthlyBudget));
+  const stored = useDefaultMonthlyBudget();
+  const historyQuery = useBudgetHistory();
+  const save = useAction(setDefaultMonthlyBudget);
+
+  /* Seeded once from the stored figure. Re-seeding it on every change would
+     fight the keypad mid-edit, since saving writes the value being typed. */
+  const [entry, setEntry] = useState<string | null>(null);
   const [isKeypadOpen, setIsKeypadOpen] = useState(false);
 
-  /* Newest first on screen; the walk itself needs oldest first. */
-  const history = useMemo(() => [...buildCarryOverHistory(budgetPeriods)].reverse(), []);
+  const currentEntry = entry ?? (stored.data === undefined ? '' : minorToEntry(stored.data));
 
-  const canSave = entryToMinor(entry) > 0;
+  /* Newest first on screen; the walk itself needs oldest first. */
+  const history = useMemo(
+    () => [...(historyQuery.data ?? [])].reverse(),
+    [historyQuery.data],
+  );
+
+  const amountMinor = entryToMinor(currentEntry);
+  const isChanged = stored.data !== undefined && amountMinor !== stored.data;
+  const canSave = amountMinor > 0 && isChanged && !save.isPending;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -93,8 +110,10 @@ export default function BudgetSettingsScreen() {
           Every month
         </Typography>
         <Typography
-          className={entry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'}>
-          {formatEntry(entry)}
+          className={
+            currentEntry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'
+          }>
+          {formatEntry(currentEntry)}
         </Typography>
       </Pressable>
 
@@ -111,11 +130,20 @@ export default function BudgetSettingsScreen() {
           }
         />
 
-        <View className="rounded-3xl bg-surface">
-          {history.map((period, index) => (
-            <PeriodRow key={period.period} period={period} isFirst={index === 0} />
-          ))}
-        </View>
+        {historyQuery.error !== null ? (
+          <ErrorState error={historyQuery.error} onRetry={historyQuery.refetch} />
+        ) : history.length === 0 ? (
+          <EmptyState
+            title="No history yet"
+            description="Once you have a month of expenses, its carry-over shows up here."
+          />
+        ) : (
+          <View className="rounded-3xl bg-surface">
+            {history.map((period, index) => (
+              <PeriodRow key={period.period} period={period} isFirst={index === 0} />
+            ))}
+          </View>
+        )}
 
         <Typography type="body-xs" color="muted" className="px-1">
           Only overspending carries. An underspent month banks nothing, and two bad months in a
@@ -124,15 +152,40 @@ export default function BudgetSettingsScreen() {
       </ScrollView>
 
       <View className="gap-3 border-t border-border px-5 pt-3">
+        {save.errorMessage !== null && (
+          <Typography type="body-xs" className="text-danger">
+            {save.errorMessage}
+          </Typography>
+        )}
+
         <Button
-          label="Save budget"
+          label={save.isPending ? 'Saving…' : 'Save budget'}
           isDisabled={!canSave}
-          onPress={() => router.back()}
+          onPress={async () => {
+            const outcome = await save.run(amountMinor);
+            if (outcome.ok) router.back();
+          }}
         />
+
         {isKeypadOpen && (
-          <AmountKeypad
-            onKeyPress={(key: KeypadKey) => setEntry((current) => appendKey(current, key))}
-          />
+          <View className="gap-2">
+            {/* The design pass had no way to put the keypad away once it was up,
+                which left the carry-over history it covers unreachable. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close the keypad"
+              onPress={() => setIsKeypadOpen(false)}
+              className="self-end active:opacity-60">
+              <Typography type="body-xs" className="text-link">
+                Done
+              </Typography>
+            </Pressable>
+            <AmountKeypad
+              onKeyPress={(key: KeypadKey) =>
+                setEntry((current) => appendKey(current ?? currentEntry, key))
+              }
+            />
+          </View>
         )}
       </View>
     </SafeAreaView>

@@ -15,12 +15,17 @@
  * pinning tones per category in the repository rather than per response.
  */
 
-import { monthlyBudget } from './budget';
-
 import type { CategoryId } from './categories';
 
 import type { Minor } from '@/domain/money';
 import type { ChartTone } from '@/theme/chart';
+
+/**
+ * Stands in for the stored monthly budget while Insights is still a fixture.
+ * M6 replaces this whole file with aggregates, and the budget line on the trend
+ * chart comes from the budgets table like every other figure.
+ */
+const monthlyBudget = 500000 as Minor;
 
 export type CategorySpend = {
   /** 'other' is the folded tail, not the Other category. */

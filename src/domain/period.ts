@@ -185,6 +185,25 @@ export function formatTime(ms: number): string {
   return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
+/**
+ * Days left in a period, counting today as one of them.
+ *
+ * A month that has already ended has none left, and a month still in the future
+ * has all of them — so "what can I spend today" divides by a number that is
+ * always at least 1 for the month being lived in.
+ */
+export function daysRemainingIn(period: PeriodKey, now: number = Date.now()): number {
+  const { year, month } = parsePeriod(period);
+  const today = new Date(now);
+  const total = daysInMonth(year, month);
+
+  if (periodOf(now) !== period) {
+    return comparePeriods(period, periodOf(now)) > 0 ? total : 0;
+  }
+
+  return total - today.getDate() + 1;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Statement days (§4.5)                                                        */
 /* -------------------------------------------------------------------------- */

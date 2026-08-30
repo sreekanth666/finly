@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Uniwind } from 'uniwind';
 
 import migrations from '../../drizzle/migrations';
+import { scheduleCarryOverFlush } from '@/db/carry-over';
 import { db, openError } from '@/db/client';
 import { toError } from '@/db/errors';
 import { runSeed } from '@/db/seed';
@@ -71,6 +72,12 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsSettled, databaseSettled]);
+
+  useEffect(() => {
+    /* Covers a crash between a write and its recompute, and a month rolling
+       over while the app was closed. */
+    if (databaseSettled && fatal === null) scheduleCarryOverFlush();
+  }, [databaseSettled, fatal]);
 
   if (!fontsSettled || !databaseSettled) {
     return null;
