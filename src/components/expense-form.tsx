@@ -192,6 +192,27 @@ export function ExpenseForm({
   const canSave = amountMinor > 0 && item.trim().length > 0 && !isSubmitting;
 
   /**
+   * Why Save is dimmed.
+   *
+   * The item is required — the spec makes it so, and it is also what rules
+   * match against — but the form is amount-first, so the natural thing to do is
+   * type a figure and reach for Save. Both buttons are then dead with nothing
+   * on screen accounting for it, and a disabled button that gives no reason
+   * reads as a broken one.
+   *
+   * Held back until the user has actually entered something, so a form that has
+   * only just opened does not greet them with a complaint.
+   */
+  const blocker =
+    canSave || isSubmitting
+      ? null
+      : amountMinor > 0
+        ? 'Add what you bought to save.'
+        : item.trim().length > 0
+          ? 'Enter an amount to save.'
+          : null;
+
+  /**
    * Which rule, if any, actually decided something on the expense being saved.
    * A rule that matched while typing but had every field overridden did not
    * apply, and counting it would make the "used N times" stat meaningless.
@@ -438,6 +459,12 @@ export function ExpenseForm({
         {errorMessage !== null && (
           <Typography type="body-xs" className="text-danger">
             {errorMessage}
+          </Typography>
+        )}
+
+        {errorMessage === null && blocker !== null && (
+          <Typography type="body-xs" color="muted">
+            {blocker}
           </Typography>
         )}
 
