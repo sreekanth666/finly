@@ -11,16 +11,17 @@
  */
 
 import type { Period } from '@/domain/budget';
+import type { Minor } from '@/domain/money';
 
 /** The configured monthly cap (D9 — one overall cap, no per-category budgets). */
-export const monthlyBudget = 3000;
+export const monthlyBudget = 300000 as Minor;
 
 /** Oldest first, which is the order the carry-over walk needs. */
 export const budgetPeriods: Period[] = [
-  { period: '2026-03', label: 'March 2026', budget: monthlyBudget, spent: 2740.1 },
-  { period: '2026-04', label: 'April 2026', budget: monthlyBudget, spent: 3160.4 },
-  { period: '2026-05', label: 'May 2026', budget: monthlyBudget, spent: 2585.75 },
-  { period: '2026-06', label: 'June 2026', budget: monthlyBudget, spent: 2910.2 },
-  { period: '2026-07', label: 'July 2026', budget: monthlyBudget, spent: 3402.8 },
-  { period: '2026-08', label: 'August 2026', budget: monthlyBudget, spent: 3184.6 },
+  { period: '2026-03', budget: monthlyBudget, spent: 274010 as Minor },
+  { period: '2026-04', budget: monthlyBudget, spent: 316040 as Minor },
+  { period: '2026-05', budget: monthlyBudget, spent: 258575 as Minor },
+  { period: '2026-06', budget: monthlyBudget, spent: 291020 as Minor },
+  { period: '2026-07', budget: monthlyBudget, spent: 340280 as Minor },
+  { period: '2026-08', budget: monthlyBudget, spent: 318460 as Minor },
 ];

@@ -12,7 +12,7 @@ const toDraft = (account: Account): AccountDraft => ({
   type: account.type,
   issuer: account.issuer ?? '',
   last4: account.last4 ?? '',
-  creditLimit: account.creditLimit === undefined ? '' : String(account.creditLimit),
+  creditLimit: account.creditLimitMinor === undefined ? '' : String(account.creditLimitMinor),
   statementDay: account.statementDay === undefined ? '' : String(account.statementDay),
   colorToken: account.colorToken as AccountColorToken,
 });

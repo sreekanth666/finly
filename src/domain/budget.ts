@@ -11,35 +11,49 @@
  *   a frugal January can't license a blowout in February.
  * - It **compounds**. `available(P−1)` already carries its own deduction, so two
  *   bad months in a row bite twice.
+ *
+ * Arithmetic is in integer paise, so the running total cannot drift by a
+ * fraction over a year of months the way a float would.
  */
 
+import {
+  clampMinorAtZero,
+  subMinor,
+  ZERO_MINOR,
+  type Minor,
+} from './money';
+import type { PeriodKey } from './period';
+
 export type Period = {
-  /** 'YYYY-MM'. */
-  period: string;
-  label: string;
-  budget: number;
-  spent: number;
+  period: PeriodKey;
+  budget: Minor;
+  spent: Minor;
 };
 
 export type PeriodResult = Period & {
   /** Overspend inherited from the month before. */
-  carryOver: number;
+  carryOver: Minor;
   /** What there was to spend: budget less the carry-over. */
-  available: number;
+  available: Minor;
   /** What was left. Negative means this month overspent in turn. */
-  remaining: number;
+  remaining: Minor;
   isOverspent: boolean;
 };
 
 /**
- * @param periods oldest first. The first period ever recorded carries nothing.
+ * @param periods oldest first, and **dense** — every month between the first and
+ * the last, including ones with no activity. A gap is not the same as a month
+ * that never happened: skipping an empty January carries December's overspend
+ * into February as though January had been free.
+ *
+ * The first period ever recorded carries nothing.
  */
-export function buildCarryOverHistory(periods: Period[]): PeriodResult[] {
-  let carryOver = 0;
+export function buildCarryOverHistory(periods: readonly Period[]): PeriodResult[] {
+  let carryOver: Minor = ZERO_MINOR;
 
   return periods.map((period) => {
-    const available = period.budget - carryOver;
-    const remaining = available - period.spent;
+    const available = subMinor(period.budget, carryOver);
+    const remaining = subMinor(available, period.spent);
     const result: PeriodResult = {
       ...period,
       carryOver,
@@ -48,7 +62,7 @@ export function buildCarryOverHistory(periods: Period[]): PeriodResult[] {
       isOverspent: remaining < 0,
     };
 
-    carryOver = Math.max(0, period.spent - available);
+    carryOver = clampMinorAtZero(subMinor(period.spent, available));
 
     return result;
   });

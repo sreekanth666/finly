@@ -7,14 +7,14 @@ import { Button } from '@/components/button';
 import { ExpenseForm, type DateChoice, type ExpenseDraft } from '@/components/expense-form';
 import { findAccountByName } from '@/data/accounts';
 import { findTransaction, type TransactionLookup } from '@/data/transactions';
-import { numberToEntry } from '@/domain/amount-entry';
+import { minorToEntry } from '@/domain/money';
 
 /** The feed's day groups are labelled, not dated, until real dates land in M1. */
 const toDateChoice = (dayId: string): DateChoice =>
   dayId === 'today' || dayId === 'yesterday' ? dayId : 'earlier';
 
 const toDraft = ({ transaction, day }: TransactionLookup): Partial<ExpenseDraft> => ({
-  entry: numberToEntry(transaction.amount),
+  entry: minorToEntry(transaction.amountMinor),
   item: transaction.title,
   note: transaction.note ?? '',
   categoryId: transaction.categoryId,

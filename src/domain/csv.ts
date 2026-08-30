@@ -7,6 +7,8 @@
  * quoted field, which is exactly the corruption an import must not produce.
  */
 
+import { absMinor, parseMinor, type Minor } from './money';
+
 export type CsvTable = {
   headers: string[];
   rows: string[][];
@@ -154,7 +156,7 @@ export type ImportRow = {
   index: number;
   date: string;
   item: string;
-  amount: number | null;
+  amount: Minor | null;
   /** As written in the file, for showing the reader what was rejected. */
   rawAmount: string;
   account: string;
@@ -170,15 +172,17 @@ const DATE_PATTERNS = [
   /^\d{1,2}-\d{1,2}-\d{4}$/, // 24-08-2026
 ];
 
-/** Strips grouping and any currency mark before parsing. */
-export function parseAmount(raw: string): number | null {
-  const cleaned = raw.replace(/[^\d.\-]/g, '');
-
-  if (cleaned.length === 0) return null;
-
-  const value = Number.parseFloat(cleaned);
-
-  return Number.isFinite(value) ? Math.abs(value) : null;
+/**
+ * Strips grouping and any currency mark, and returns paise.
+ *
+ * Delegates to money.ts rather than reimplementing the parse, so an imported
+ * ₹1,24,050.50 lands on exactly the same integer as one typed on the keypad.
+ * Sign is discarded: a spreadsheet writes money out as a negative, and §5 stores
+ * every expense unsigned.
+ */
+export function parseAmount(raw: string): Minor | null {
+  const parsed = parseMinor(raw);
+  return parsed === null ? null : absMinor(parsed);
 }
 
 const cell = (row: string[], index: number | null) =>

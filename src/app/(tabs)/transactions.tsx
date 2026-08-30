@@ -16,7 +16,6 @@ type FilterId = 'all' | CategoryId;
 
 /** Order the pills appear in — the mockup leads with the categories seen most. */
 const FILTER_ORDER: CategoryId[] = [
-  'income',
   'shopping',
   'bills',
   'housing',

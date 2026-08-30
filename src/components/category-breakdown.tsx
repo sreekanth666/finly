@@ -6,10 +6,11 @@ import { DonutChart } from './donut-chart';
 
 import type { CategorySpend } from '@/data/insights';
 import { useChartPalette } from '@/theme/chart';
+import type { Minor } from '@/domain/money';
 
 export type CategoryBreakdownProps = {
   segments: CategorySpend[];
-  total: number;
+  total: Minor;
   size: number;
 };
 
@@ -31,7 +32,7 @@ export function CategoryBreakdown({ segments, total, size }: CategoryBreakdownPr
             <Typography type="body-xs" color="muted">
               Total spent
             </Typography>
-            <Amount value={total} className="type-amount text-foreground" showCents={false} />
+            <Amount value={total} className="type-amount text-foreground" showFraction={false} />
           </View>
         </DonutChart>
       </View>
@@ -52,7 +53,7 @@ export function CategoryBreakdown({ segments, total, size }: CategoryBreakdownPr
             <Amount
               value={segment.amount}
               className="type-amount-sm text-foreground"
-              centsClassName="type-amount-sm"
+              fractionClassName="type-amount-sm"
             />
           </View>
         ))}

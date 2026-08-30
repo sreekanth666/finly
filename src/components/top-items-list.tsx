@@ -40,7 +40,7 @@ export function TopItemsList({ items }: { items: TopItem[] }) {
             <Amount
               value={item.amount}
               className="type-amount-sm text-foreground"
-              centsClassName="type-amount-sm"
+              fractionClassName="type-amount-sm"
             />
           </View>
         );

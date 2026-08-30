@@ -62,7 +62,7 @@ const OPERATORS = (Object.keys(OPERATOR_LABELS) as RuleConditionOperator[]).map(
 }));
 
 const CATEGORY_OPTIONS = (Object.keys(CATEGORIES) as CategoryId[])
-  .filter((id) => id !== 'income')
+  .filter((id) => !CATEGORIES[id].isArchived)
   .map((id) => ({ id, label: CATEGORIES[id].label }));
 
 const ACCOUNT_OPTIONS = accounts

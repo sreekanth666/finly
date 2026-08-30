@@ -10,13 +10,8 @@ import { FilterChipBar } from './filter-chip-bar';
 import { SectionHeader } from './section-header';
 
 import { accounts } from '@/data/accounts';
-import {
-  appendKey,
-  EMPTY_ENTRY,
-  entryToNumber,
-  formatEntry,
-  type KeypadKey,
-} from '@/domain/amount-entry';
+import { appendKey, EMPTY_ENTRY, type KeypadKey } from '@/domain/amount-entry';
+import { entryToMinor, formatEntry, type Minor } from '@/domain/money';
 
 type DateChoice = 'today' | 'yesterday' | 'earlier';
 
@@ -31,7 +26,7 @@ const ACCOUNT_OPTIONS = accounts
   .map(({ id, name }) => ({ id, label: name }));
 
 export type SettlementDraft = {
-  amount: number;
+  amountMinor: Minor;
   date: DateChoice;
   accountId: string | null;
   note: string;
@@ -43,7 +38,7 @@ export type AddSettlementSheetProps = {
   /** What the expense was for, so the sheet can say what it is settling. */
   expenseTitle: string;
   /** What is still outstanding — a settlement may not exceed it (§5). */
-  outstanding: number;
+  outstanding: Minor;
   onAdd: (draft: SettlementDraft) => void;
 };
 
@@ -83,9 +78,9 @@ export function AddSettlementSheet({
   const [accountId, setAccountId] = useState<string | null>(null);
   const [note, setNote] = useState('');
 
-  const amount = entryToNumber(entry);
-  const exceeds = amount > outstanding;
-  const canAdd = amount > 0 && !exceeds;
+  const amountMinor = entryToMinor(entry);
+  const exceeds = amountMinor > outstanding;
+  const canAdd = amountMinor > 0 && !exceeds;
 
   const reset = () => {
     setEntry(EMPTY_ENTRY);
@@ -126,7 +121,7 @@ export function AddSettlementSheet({
                   className={
                     entry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'
                   }>
-                  {`$${formatEntry(entry)}`}
+                  {formatEntry(entry)}
                 </Typography>
                 <View className="flex-row items-center gap-1">
                   <Typography type="body-xs" color="muted">
@@ -135,7 +130,7 @@ export function AddSettlementSheet({
                   <Amount
                     value={outstanding}
                     className="type-amount-sm text-muted"
-                    centsClassName="type-amount-sm"
+                    fractionClassName="type-amount-sm"
                   />
                   <Typography type="body-xs" color="muted">
                     outstanding
@@ -175,7 +170,7 @@ export function AddSettlementSheet({
                 label="Add settlement"
                 isDisabled={!canAdd}
                 onPress={() => {
-                  onAdd({ amount, date, accountId, note });
+                  onAdd({ amountMinor, date, accountId, note });
                   close(false);
                 }}
               />
