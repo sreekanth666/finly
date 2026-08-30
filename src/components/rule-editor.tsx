@@ -10,7 +10,6 @@ import { Icon } from './icon';
 import { IconButton } from './icon-button';
 import { SectionHeader } from './section-header';
 
-import { accounts } from '@/data/accounts';
 import { CATEGORIES, type CategoryId } from '@/data/categories';
 import {
   OPERATOR_LABELS,
@@ -19,6 +18,7 @@ import {
   type RuleConditionOperator,
 } from '@/data/rules';
 import { useDbQuery, type TableName } from '@/db/live';
+import { listAccounts } from '@/db/repositories/accounts';
 import { listMatchTargets } from '@/db/repositories/expenses';
 import { countMatches, ruleMatches } from '@/domain/rules';
 
@@ -66,9 +66,7 @@ const CATEGORY_OPTIONS = (Object.keys(CATEGORIES) as CategoryId[])
   .filter((id) => !CATEGORIES[id].isArchived)
   .map((id) => ({ id, label: CATEGORIES[id].label }));
 
-const ACCOUNT_OPTIONS = accounts
-  .filter((account) => !account.isArchived)
-  .map(({ name }) => ({ id: name, label: name }));
+
 
 const BUDGET_OPTIONS = [
   { id: 'leave' as const, label: 'Leave alone' },
@@ -113,6 +111,13 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
     listMatchTargets(MATCH_TARGET_LIMIT, database),
   );
   const targets = targetsQuery.data ?? [];
+
+  /* Rules still name an account rather than referencing one; M5 moves the
+     rules tables onto account ids along with the rest of that milestone. */
+  const accountsQuery = useDbQuery('rule-editor:accounts', ['accounts'], (database) =>
+    listAccounts({}, database),
+  );
+  const accountOptions = (accountsQuery.data ?? []).map(({ name }) => ({ id: name, label: name }));
 
   const set = <K extends keyof RuleDraft>(key: K, value: RuleDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
@@ -311,7 +316,7 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
               Account
             </Typography>
             <FilterChipBar
-              options={ACCOUNT_OPTIONS}
+              options={accountOptions}
               selectedId={draft.accountName}
               onSelect={(id) => set('accountName', draft.accountName === id ? null : id)}
             />

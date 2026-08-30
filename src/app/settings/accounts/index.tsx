@@ -10,46 +10,49 @@ import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { ReorderButtons } from '@/components/reorder-buttons';
 import { SectionHeader } from '@/components/section-header';
-import {
-  accounts as seedAccounts,
-  ACCOUNT_TYPE_ICONS,
-  ACCOUNT_TYPE_LABELS,
-  type Account,
-} from '@/data/accounts';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
+import { reorderAccounts, setAccountArchived } from '@/db/repositories/accounts';
+import type { AccountRow } from '@/db/schema';
 import { isAtEdge, moveItem } from '@/domain/reorder';
+import { useAccounts } from '@/features/catalog/hooks';
+import { ACCOUNT_TYPE_ICONS, ACCOUNT_TYPE_LABELS } from '@/features/accounts/presentation';
+import { toAppColor } from '@/theme';
 
 const ROW = {
   first: 'flex-row items-center gap-3 px-3 py-2.5',
   rest: 'flex-row items-center gap-3 border-t border-border px-3 py-2.5',
 } as const;
 
-const describe = (account: Account) =>
+const describe = (account: AccountRow) =>
   [ACCOUNT_TYPE_LABELS[account.type], account.last4 && `••${account.last4}`]
     .filter(Boolean)
     .join(' · ');
 
 export default function AccountsSettingsScreen() {
-  const [list, setList] = useState<Account[]>(() =>
-    [...seedAccounts].sort((a, b) => a.sortOrder - b.sortOrder)
-  );
+  const accounts = useAccounts(true);
+  const list = accounts.data ?? [];
 
   /* Order is kept on the whole list; the sections are just a view of it. */
   const active = useMemo(() => list.filter((account) => !account.isArchived), [list]);
   const archived = useMemo(() => list.filter((account) => account.isArchived), [list]);
 
-  const move = (account: Account, direction: -1 | 1) =>
-    setList((current) => {
-      const order = current.filter((candidate) => !candidate.isArchived);
-      const index = order.findIndex((candidate) => candidate.id === account.id);
-      const reordered = moveItem(order, index, direction);
+  /*
+   * moveItem reorders the array; sort_order has to be written back or the order
+   * silently resets on the next read and the buttons look broken. The design
+   * pass only ever did the first half.
+   */
+  const move = (account: AccountRow, direction: -1 | 1) => {
+    const index = active.findIndex((candidate) => candidate.id === account.id);
+    const reordered = moveItem(active, index, direction);
+    reorderAccounts([...reordered, ...archived].map((row) => row.id));
+    accounts.refetch();
+  };
 
-      return [...reordered, ...current.filter((candidate) => candidate.isArchived)];
-    });
-
-  const setArchived = (id: string, isArchived: boolean) =>
-    setList((current) =>
-      current.map((account) => (account.id === id ? { ...account, isArchived } : account))
-    );
+  const setArchived = (id: string, isArchived: boolean) => {
+    setAccountArchived(id, isArchived);
+    accounts.refetch();
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -81,8 +84,25 @@ export default function AccountsSettingsScreen() {
             }
           />
 
-          <View className="rounded-3xl bg-surface">
-            {active.map((account, index) => (
+          {accounts.error !== null ? (
+            <ErrorState error={accounts.error} onRetry={accounts.refetch} />
+          ) : active.length === 0 ? (
+            /* §5 seeds no accounts on purpose — the user's own cards are the
+               point, and a placeholder would sit in every utilisation figure
+               until they noticed. So this empty state is the first-run state. */
+            <EmptyState
+              icon={Plus}
+              title="No accounts yet"
+              description="Add the cards and accounts you pay from, and Finly can show what each one is carrying."
+              action={{
+                label: 'Add an account',
+                icon: Plus,
+                onPress: () => router.push('/settings/accounts/new'),
+              }}
+            />
+          ) : (
+            <View className="rounded-3xl bg-surface">
+              {active.map((account, index) => (
               <View key={account.id} className={index === 0 ? ROW.first : ROW.rest}>
                 <Pressable
                   accessibilityRole="button"
@@ -91,7 +111,7 @@ export default function AccountsSettingsScreen() {
                   <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
                     <Icon
                       icon={ACCOUNT_TYPE_ICONS[account.type]}
-                      color={account.colorToken}
+                      color={toAppColor(account.colorToken)}
                       size={16}
                     />
                   </View>
@@ -122,7 +142,8 @@ export default function AccountsSettingsScreen() {
                 </Pressable>
               </View>
             ))}
-          </View>
+            </View>
+          )}
 
           <Typography type="body-xs" color="muted" className="px-1">
             Archiving hides an account from new expenses. Nothing that already points at it
