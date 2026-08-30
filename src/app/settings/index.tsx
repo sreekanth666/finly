@@ -28,8 +28,10 @@ export default function SettingsScreen() {
   const accountRows = useAccounts();
   const categoryRows = useCategories();
 
-  const activeAccounts = (accountRows.data ?? []).length;
-  const categoryCount = (categoryRows.data ?? []).length;
+  /* A count of 0 and a failed read are different things, and '0 accounts' is
+     the more damaging of the two to show when it isn't true. */
+  const activeAccounts = accountRows.data === undefined ? null : accountRows.data.length;
+  const categoryCount = categoryRows.data === undefined ? null : categoryRows.data.length;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -67,7 +69,7 @@ export default function SettingsScreen() {
               iconTone="iris"
               label="Accounts"
               description="Cards, banks, cash and wallets"
-              value={plural(activeAccounts, 'account', 'accounts')}
+              value={activeAccounts === null ? '—' : plural(activeAccounts, 'account', 'accounts')}
               onPress={() => router.push('/settings/accounts')}
             />
             <SettingsRow
@@ -76,7 +78,7 @@ export default function SettingsScreen() {
               iconTone="income"
               label="Categories"
               description="Rename, reorder and archive"
-              value={plural(categoryCount, 'category', 'categories')}
+              value={categoryCount === null ? '—' : plural(categoryCount, 'category', 'categories')}
               onPress={() => router.push('/settings/categories')}
             />
           </View>

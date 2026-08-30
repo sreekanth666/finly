@@ -4,7 +4,11 @@
 
 import { useDbQuery, type TableName } from '@/db/live';
 import { defaultMonthlyBudget, getBudget } from '@/db/repositories/budgets';
-import { earliestActivityPeriod, spentByPeriod } from '@/db/repositories/expenses';
+import {
+  earliestActivityPeriod,
+  offBudgetSpend,
+  spentByPeriod,
+} from '@/db/repositories/expenses';
 import {
   spendByCategory,
   spendTrend,
@@ -32,6 +36,9 @@ const TOP_ITEM_COUNT = 5;
 export type InsightsView = {
   period: PeriodKey;
   totalSpentMinor: Minor;
+  /** Spending deliberately outside the cap (D3), shown separately rather than
+      folded into the total — see the note in repositories/insights.ts. */
+  offBudgetMinor: Minor;
   /** The budget the trend chart draws its reference line at. */
   budgetMinor: Minor;
   byCategory: CategorySpend[];
@@ -50,6 +57,7 @@ export function useInsights(period: PeriodKey) {
     return {
       period,
       totalSpentMinor: totalSpend(period, database),
+      offBudgetMinor: offBudgetSpend(period, database),
       budgetMinor: getBudget(period, database)?.amountMinor ?? defaultMonthlyBudget(database),
       byCategory: spendByCategory(period, database),
       trend: spendTrend(months, spent),

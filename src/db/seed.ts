@@ -79,5 +79,5 @@ export function runSeed(database: DbLike = db): void {
     setSetting('app_lock_enabled', '0', tx);
     setSetting('encryption_enabled', '0', tx);
     setSetting('schema_seeded', '1', tx);
-  });
+  }, database);
 }

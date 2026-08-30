@@ -193,7 +193,7 @@ export function createRule(input: RuleInput, database: DbLike = db): string {
       .run();
 
     writeChildren(id, input, tx, now);
-  });
+  }, database);
 
   return id;
 }
@@ -225,7 +225,7 @@ export function updateRule(id: string, input: RuleInput, database: DbLike = db):
     tx.delete(ruleActions).where(eq(ruleActions.ruleId, id)).run();
 
     writeChildren(id, input, tx, now);
-  });
+  }, database);
 }
 
 export function setRuleEnabled(id: string, isEnabled: boolean, database: DbLike = db): void {

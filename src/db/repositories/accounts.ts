@@ -185,7 +185,7 @@ export function deleteAccount(id: string, database: DbLike = db): void {
       throw new AccountInUseError(references.total);
     }
     tx.delete(accounts).where(eq(accounts.id, id)).run();
-  });
+  }, database);
 }
 
 /** Convenience for the CSV importer, which matches on what the sheet wrote. */

@@ -13,6 +13,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { SectionHeader } from '@/components/section-header';
 import { SpendTrend } from '@/components/spend-trend';
 import { TopItemsList } from '@/components/top-items-list';
+import { formatMinor } from '@/domain/money';
 import { addPeriods, comparePeriods, currentPeriod, formatPeriodLong } from '@/domain/period';
 import { useCardStandings } from '@/features/accounts/hooks';
 import { useInsights } from '@/features/insights/hooks';
@@ -92,6 +93,11 @@ export default function InsightsScreen() {
                 total={view.totalSpentMinor}
                 size={donutSize}
               />
+              {view.offBudgetMinor > 0 && (
+                <Typography type="body-xs" color="muted" className="px-1">
+                  {`Plus ${formatMinor(view.offBudgetMinor)} spent outside the budget, which the figures above deliberately leave out.`}
+                </Typography>
+              )}
             </View>
 
             <View className="gap-3">

@@ -130,7 +130,7 @@ export function addSettlement(input: SettlementInput, database: DbLike = db): st
      * point of settlements being linked records rather than edits.
      */
     markCarryDirty(expense.budgetPeriod, tx);
-  });
+  }, database);
 
   return id;
 }
@@ -157,5 +157,5 @@ export function softDeleteSettlement(id: string, database: DbLike = db): void {
       .run();
 
     if (expense !== undefined) markCarryDirty(expense.budgetPeriod, tx);
-  });
+  }, database);
 }

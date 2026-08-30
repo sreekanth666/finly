@@ -16,11 +16,16 @@
  * a write and its recompute cannot leave a snapshot that is silently wrong.
  */
 
-import { comparePeriods, currentPeriod, type PeriodKey } from '@/domain/period';
+import {
+  comparePeriods,
+  currentPeriod,
+  shouldReplaceDirtyPeriod,
+  type PeriodKey,
+} from '@/domain/period';
 
 import { db, type DbLike } from './client';
 import { buildBudgetHistory, getBudget, getOrCreateBudget } from './repositories/budgets';
-import { getSetting, setSetting } from './repositories/settings';
+import { deleteSetting, getSetting, setSetting } from './repositories/settings';
 import { budgets } from './schema';
 import { writeTransaction } from './transaction';
 import { eq } from 'drizzle-orm';
@@ -37,7 +42,7 @@ export function markCarryDirty(period: PeriodKey, database: DbLike = db): void {
 
   // The earliest dirty period wins: two edits in different months must leave the
   // recompute starting from the older of them, not the more recent.
-  if (existing !== null && comparePeriods(existing, period) <= 0) return;
+  if (!shouldReplaceDirtyPeriod(existing, period)) return;
 
   setSetting('carry_dirty_from', period, database);
 }
@@ -58,8 +63,17 @@ export function markCarryDirtyForMove(
 export const getCarryDirtyFrom = (database: DbLike = db): PeriodKey | null =>
   getSetting('carry_dirty_from', database);
 
+/**
+ * Removes the row rather than blanking it.
+ *
+ * Writing '' left a row that `getSetting` reports as a non-null value, and
+ * `markCarryDirty` guards on `existing !== null` — so `comparePeriods('', …)`
+ * came back -1 and every subsequent mark returned early. The marker stuck
+ * permanently after the first flush, which silently retired the whole
+ * recompute-and-notify path §4.3 depends on.
+ */
 export const clearCarryDirty = (database: DbLike = db): void => {
-  setSetting('carry_dirty_from', '', database);
+  deleteSetting('carry_dirty_from', database);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -128,7 +142,7 @@ export function flushCarryOver(database: DbLike = db): PeriodKey[] {
     }
 
     clearCarryDirty(tx);
-  });
+  }, database);
 
   return changed;
 }

@@ -17,6 +17,7 @@ import {
   periodKey,
   periodOf,
   periodsBetween,
+  shouldReplaceDirtyPeriod,
   startOfLocalDay,
   statementDateIn,
 } from '@/domain/period';
@@ -210,5 +211,29 @@ describe('currentPeriod', () => {
     const now = at(2026, 8, 26, 10, 0);
     expect(currentPeriod(now)).toBe('2026-08');
     expect(currentPeriod(now)).toBe(periodOf(now));
+  });
+});
+
+describe('shouldReplaceDirtyPeriod', () => {
+  it('records the first dirty period', () => {
+    expect(shouldReplaceDirtyPeriod(null, '2026-08')).toBe(true);
+  });
+
+  it('keeps the earliest, since the recompute walks forward from it', () => {
+    expect(shouldReplaceDirtyPeriod('2026-08', '2026-03')).toBe(true);
+    expect(shouldReplaceDirtyPeriod('2026-03', '2026-08')).toBe(false);
+    expect(shouldReplaceDirtyPeriod('2026-03', '2026-03')).toBe(false);
+  });
+
+  it('treats a blank marker as nothing recorded', () => {
+    /*
+     * The regression this exists for: clearing the marker by writing '' left a
+     * row that reads back as a value, so the guard saw '' < any period and
+     * returned early on every subsequent mark. The carry-over recompute — and
+     * with it §4.3's "a past month changed" notice — silently stopped working
+     * after the very first flush.
+     */
+    expect(shouldReplaceDirtyPeriod('', '2026-08')).toBe(true);
+    expect(shouldReplaceDirtyPeriod('', '1970-01')).toBe(true);
   });
 });
