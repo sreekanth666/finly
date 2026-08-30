@@ -1,63 +1,127 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { CalendarDays, PiggyBank, Plus } from 'lucide-react-native';
+import { CalendarClock, Plus, Receipt, Undo2, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount } from '@/components/amount';
 import { Button } from '@/components/button';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
+import { Icon } from '@/components/icon';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { ProgressRing } from '@/components/progress-ring';
 import { ScreenHeader } from '@/components/screen-header';
 import { StatCard } from '@/components/stat-card';
-import { balanceOverview } from '@/data/balance';
-import { budgetPeriods } from '@/data/budget';
-import { buildCarryOverHistory } from '@/domain/budget';
-import { absMinor, formatMinor } from '@/domain/money';
-import { formatPeriodLong } from '@/domain/period';
+import { TransactionRow } from '@/components/transaction-row';
+import { useDbQuery, type TableName } from '@/db/live';
+import { offBudgetSpend } from '@/db/repositories/expenses';
+import { absMinor, asMinor, formatMinor, ZERO_MINOR } from '@/domain/money';
+import { currentPeriod, daysRemainingIn, formatPeriodLong } from '@/domain/period';
+import {
+  dismissCarryOverNotice,
+  useBudgetHistory,
+  useCarryOverNotice,
+} from '@/features/budget/hooks';
+import { useExpenseFeed } from '@/features/expenses/hooks';
 
 const RING_MAX_SIZE = 320;
 const SCREEN_PADDING = 40;
+const RECENT_COUNT = 4;
+
+const OFF_BUDGET_TABLES: readonly TableName[] = ['expenses', 'settlements'];
 
 export default function BalanceScreen() {
   const { width } = useWindowDimensions();
-  const { totalBalance, upcomingBills, autoSavings } = balanceOverview;
   const ringSize = Math.min(width - SCREEN_PADDING, RING_MAX_SIZE);
 
-  /* §7.1: the ring is remaining(P) against available(P), not a fixed figure. */
-  const history = useMemo(() => buildCarryOverHistory(budgetPeriods), []);
-  const latest = history.length - 1;
-  const [index, setIndex] = useState(latest);
-  const period = history[index]!;
+  const history = useBudgetHistory();
+  const notice = useCarryOverNotice();
+
+  /* Which month is on screen, as an offset from the newest rather than an index,
+     so it survives the history growing underneath it. */
+  const [monthsBack, setMonthsBack] = useState(0);
+
+  const periods = history.data ?? [];
+  const index = Math.max(0, periods.length - 1 - monthsBack);
+  const period = periods[index];
+  const periodKey = period?.period ?? currentPeriod();
+
+  const offBudget = useDbQuery(`off-budget:${periodKey}`, OFF_BUDGET_TABLES, (database) =>
+    offBudgetSpend(periodKey, database),
+  );
+
+  const recent = useExpenseFeed({ period: periodKey }, RECENT_COUNT);
+  const recentRows = useMemo(
+    () => (recent.data?.groups ?? []).flatMap((group) => group.items).slice(0, RECENT_COUNT),
+    [recent.data],
+  );
+
+  if (history.error !== null) {
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <ErrorState error={history.error} onRetry={history.refetch} />
+      </SafeAreaView>
+    );
+  }
+
+  if (period === undefined) return null;
 
   const progress =
     period.available > 0 ? Math.min(1, Math.max(0, period.remaining) / period.available) : 0;
 
+  const daysLeft = daysRemainingIn(period.period);
+  const isCurrent = period.period === currentPeriod();
+
+  /*
+   * P1: the design pass showed a total balance, upcoming bills and auto savings.
+   * None of them had anything behind them — D4 excludes an income ledger and
+   * account balances, and there is no bills or savings table. These two are
+   * derived from what the app actually knows, and answer the question the plan
+   * says the home screen exists to answer.
+   */
+  const perDay =
+    isCurrent && daysLeft > 0 && period.remaining > 0
+      ? asMinor(Math.floor(period.remaining / daysLeft))
+      : ZERO_MINOR;
+
+  const changedPeriods = notice.data?.periods ?? [];
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <ScrollView contentContainerClassName="gap-7 px-5 pb-8 pt-2" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerClassName="gap-6 px-5 pb-8 pt-2" showsVerticalScrollIndicator={false}>
         <ScreenHeader />
 
         <MonthSwitcher
           label={formatPeriodLong(period.period)}
           canGoBack={index > 0}
-          canGoForward={index < latest}
-          onBack={() => setIndex((current) => current - 1)}
-          onForward={() => setIndex((current) => current + 1)}
-          onReturnToCurrent={index === latest ? undefined : () => setIndex(latest)}
+          canGoForward={monthsBack > 0}
+          onBack={() => setMonthsBack((current) => current + 1)}
+          onForward={() => setMonthsBack((current) => Math.max(0, current - 1))}
+          onReturnToCurrent={monthsBack === 0 ? undefined : () => setMonthsBack(0)}
         />
 
-        <View className="gap-1">
-          <Typography type="body-xs" color="muted">
-            Total Balance
-          </Typography>
-          <Amount
-            value={totalBalance}
-            className="type-balance text-foreground"
-            fractionClassName="type-balance"
-          />
-        </View>
+        {/* §4.3 and §10: a past total may change after the fact, and the user is
+            told when it does rather than finding out by noticing. */}
+        {changedPeriods.length > 0 && (
+          <View className="flex-row items-center gap-2 rounded-2xl bg-surface px-4 py-3">
+            <Icon icon={Undo2} color="accent" size={14} />
+            <Typography type="body-xs" color="muted" className="flex-1">
+              {`${changedPeriods.map(formatPeriodLong).join(', ')} changed — a settlement moved what an earlier month cost.`}
+            </Typography>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss"
+              hitSlop={8}
+              onPress={() => {
+                dismissCarryOverNotice();
+                notice.refetch();
+              }}>
+              <Icon icon={X} color="muted" size={14} />
+            </Pressable>
+          </View>
+        )}
 
         <View className="items-center">
           <View
@@ -71,9 +135,7 @@ export default function BalanceScreen() {
                 <Amount
                   value={absMinor(period.remaining)}
                   className={
-                    period.isOverspent
-                      ? 'type-metric text-danger'
-                      : 'type-metric text-foreground'
+                    period.isOverspent ? 'type-metric text-danger' : 'type-metric text-foreground'
                   }
                   showFraction={false}
                 />
@@ -84,7 +146,7 @@ export default function BalanceScreen() {
                 {period.carryOver > 0 && (
                   <View className="mt-2 rounded-full bg-surface-secondary px-3 py-1.5">
                     <Typography type="body-xs" color="muted">
-                      {`${formatMinor(period.carryOver)} carried from last month`}
+                      {`${formatMinor(period.carryOver, { showFraction: false })} carried in`}
                     </Typography>
                   </View>
                 )}
@@ -95,19 +157,61 @@ export default function BalanceScreen() {
 
         <View className="flex-row gap-3">
           <StatCard
-            tone="iris"
-            title={upcomingBills.title}
-            caption={upcomingBills.caption}
-            amount={upcomingBills.amount}
-            icon={CalendarDays}
+            tone="accent"
+            title={isCurrent ? 'Left to spend today' : 'Ended with'}
+            caption={
+              isCurrent
+                ? daysLeft === 1
+                  ? 'last day of the month'
+                  : `over ${daysLeft} days`
+                : period.isOverspent
+                  ? 'overspent'
+                  : 'left over'
+            }
+            amount={isCurrent ? perDay : absMinor(period.remaining)}
+            icon={CalendarClock}
           />
           <StatCard
-            tone="accent"
-            title={autoSavings.title}
-            caption={autoSavings.caption}
-            amount={autoSavings.amount}
-            icon={PiggyBank}
+            tone="iris"
+            title="Off budget"
+            caption="tracked, outside the cap"
+            amount={offBudget.data ?? ZERO_MINOR}
+            icon={Receipt}
           />
+        </View>
+
+        <View className="gap-2">
+          <View className="flex-row items-center justify-between">
+            <Typography type="body-sm" weight="semibold">
+              Recent
+            </Typography>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/transactions')}
+              className="active:opacity-60">
+              <Typography type="body-xs" className="text-link">
+                See all
+              </Typography>
+            </Pressable>
+          </View>
+
+          {recentRows.length === 0 ? (
+            <EmptyState
+              icon={Receipt}
+              title="Nothing this month"
+              description="Add an expense, or bring your history across from a spreadsheet in Settings."
+            />
+          ) : (
+            <View className="rounded-3xl bg-surface p-1">
+              {recentRows.map((expense) => (
+                <TransactionRow
+                  key={expense.id}
+                  expense={expense}
+                  onPress={() => router.push(`/expense/${expense.id}`)}
+                />
+              ))}
+            </View>
+          )}
         </View>
 
         <Button icon={Plus} label="Add expense" onPress={() => router.push('/expense/new')} />

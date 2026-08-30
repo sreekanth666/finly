@@ -16,8 +16,8 @@ import { IconButton } from '@/components/icon-button';
 import { SectionHeader } from '@/components/section-header';
 import { SettingsRow } from '@/components/settings-row';
 import { accounts } from '@/data/accounts';
-import { monthlyBudget } from '@/data/budget';
 import { runDevSeed } from '@/db/dev-seed';
+import { useDefaultMonthlyBudget } from '@/features/budget/hooks';
 import { formatMinor } from '@/domain/money';
 import { CATEGORIES } from '@/data/categories';
 
@@ -25,6 +25,8 @@ const plural = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
 
 export default function SettingsScreen() {
+  const budget = useDefaultMonthlyBudget();
+
   const activeAccounts = accounts.filter((account) => !account.isArchived).length;
   const categoryCount = Object.keys(CATEGORIES).length;
 
@@ -49,7 +51,7 @@ export default function SettingsScreen() {
               iconTone="accent"
               label="Monthly budget"
               description="One overall cap, carried over when overspent"
-              value={formatMinor(monthlyBudget, { showFraction: false })}
+              value={budget.data === undefined ? '—' : formatMinor(budget.data, { showFraction: false })}
               onPress={() => router.push('/settings/budget')}
             />
           </View>

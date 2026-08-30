@@ -266,6 +266,26 @@ export function spentByPeriod(
   return new Map(rows.map((row) => [row.period, asMinor(row.spent ?? 0)]));
 }
 
+/**
+ * What a month spent that deliberately does not count toward the budget (D3) —
+ * the laptop, not the groceries. Real spending, and worth seeing, but it is not
+ * what the ring is measuring.
+ */
+export function offBudgetSpend(period: PeriodKey, database: DbLike = db): Minor {
+  const settled = settledTotals(database);
+
+  const row = database
+    .select({
+      spent: sql<number>`coalesce(sum(max(0, ${expenses.amountMinor} - coalesce(${settled.total}, 0))), 0)`,
+    })
+    .from(expenses)
+    .leftJoin(settled, eq(settled.expenseId, expenses.id))
+    .where(and(alive, eq(expenses.countsToBudget, false), eq(expenses.budgetPeriod, period)))
+    .get();
+
+  return asMinor(row?.spent ?? 0);
+}
+
 export const earliestActivityPeriod = (database: DbLike = db): PeriodKey | null =>
   database
     .select({ period: expenses.budgetPeriod })

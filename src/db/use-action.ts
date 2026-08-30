@@ -11,6 +11,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 
+import { scheduleCarryOverFlush } from './carry-over';
 import { RepositoryError, toError } from './errors';
 
 /**
@@ -56,7 +57,11 @@ export function useAction<Args extends unknown[], Result>(
     setError(null);
 
     try {
-      return { ok: true, value: await actionRef.current(...args) };
+      const value = await actionRef.current(...args);
+      /* Any write may have moved a month's totals. Cheap when nothing is
+         dirty — the flush returns immediately. */
+      scheduleCarryOverFlush();
+      return { ok: true, value };
     } catch (cause) {
       const failure = toError(cause);
       setError(failure);
