@@ -1,58 +1,73 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { Plus } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { Plus, Receipt, Search, X } from 'lucide-react-native';
+import { useDeferredValue, useMemo, useState } from 'react';
+import { FlatList, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { FilterChipBar, type FilterOption } from '@/components/filter-chip-bar';
+import { Icon } from '@/components/icon';
 import { ScreenHeader } from '@/components/screen-header';
-import { TransactionGroup } from '@/components/transaction-group';
-import { CATEGORIES, type CategoryId } from '@/data/categories';
-import { transactionDays } from '@/data/transactions';
+import { TransactionRow, TRANSACTION_ROW_HEIGHT } from '@/components/transaction-row';
+import type { ExpenseListItem } from '@/db/repositories/expenses';
+import { flattenGroups, type FeedRow } from '@/domain/feed';
+import { useCategories } from '@/features/catalog/hooks';
+import { useExpenseFeed } from '@/features/expenses/hooks';
+import { useAppColor } from '@/theme';
 
-type FilterId = 'all' | CategoryId;
+/** One page of the feed. The list asks for more as it reaches the end. */
+const PAGE_SIZE = 60;
+const HEADER_HEIGHT = 36;
 
-/** Order the pills appear in — the mockup leads with the categories seen most. */
-const FILTER_ORDER: CategoryId[] = [
-  'shopping',
-  'bills',
-  'housing',
-  'food',
-  'transport',
-  'health',
-  'personal',
-  'other',
-];
-
-const FILTERS: FilterOption<FilterId>[] = [
-  { id: 'all', label: 'All' },
-  ...FILTER_ORDER.map((id) => ({ id, label: CATEGORIES[id].label })),
-];
+type FilterId = 'all' | string;
 
 export default function TransactionsScreen() {
   const [filter, setFilter] = useState<FilterId>('all');
+  const [search, setSearch] = useState('');
+  const [budgetOnly, setBudgetOnly] = useState(false);
+  const [limit, setLimit] = useState(PAGE_SIZE);
 
-  /** Days keep their grouping under a filter; days left with nothing drop out. */
-  const days = useMemo(() => {
-    if (filter === 'all') {
-      return transactionDays;
-    }
+  /*
+   * Deferring the search keeps typing responsive: the query runs against the
+   * settled value while the field itself stays on the latest keystroke.
+   */
+  const deferredSearch = useDeferredValue(search);
+  const mutedColor = useAppColor('muted');
 
-    return transactionDays
-      .map((day) => ({
-        ...day,
-        transactions: day.transactions.filter(({ categoryId }) => categoryId === filter),
-      }))
-      .filter((day) => day.transactions.length > 0);
-  }, [filter]);
+  const categories = useCategories();
+
+  const filters = useMemo<FilterOption<FilterId>[]>(
+    () => [
+      { id: 'all', label: 'All' },
+      ...(categories.data ?? []).map((category) => ({ id: category.id, label: category.name })),
+    ],
+    [categories.data],
+  );
+
+  const feed = useExpenseFeed(
+    {
+      categoryIds: filter === 'all' ? undefined : [filter],
+      search: deferredSearch,
+      budgetOnly,
+    },
+    limit,
+  );
+
+  const rows = useMemo<FeedRow<ExpenseListItem>[]>(
+    () => (feed.data === undefined ? [] : flattenGroups(feed.data.groups)),
+    [feed.data],
+  );
+
+  const isFiltered = filter !== 'all' || search.trim().length > 0 || budgetOnly;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       {/* The header, title and filters sit outside the list so the filter stays
           reachable however far the feed is scrolled. */}
-      <View className="gap-5 pt-2 pb-4">
+      <View className="gap-4 pt-2 pb-3">
         <View className="px-5">
           <ScreenHeader />
         </View>
@@ -70,33 +85,126 @@ export default function TransactionsScreen() {
           />
         </View>
 
-        <FilterChipBar options={FILTERS} selectedId={filter} onSelect={setFilter} />
+        <View className="mx-5 flex-row items-center gap-2 rounded-2xl bg-surface px-3">
+          <Icon icon={Search} color="muted" size={16} />
+          <TextInput
+            className="type-body-sm flex-1 py-2.5 text-foreground"
+            placeholder="Search item or note"
+            placeholderTextColor={mutedColor}
+            value={search}
+            onChangeText={setSearch}
+            autoCorrect={false}
+            returnKeyType="search"
+            accessibilityLabel="Search transactions"
+          />
+          {search.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+              onPress={() => setSearch('')}>
+              <Icon icon={X} color="muted" size={16} />
+            </Pressable>
+          )}
+        </View>
+
+        <FilterChipBar options={filters} selectedId={filter} onSelect={setFilter} />
+
+        <View className="flex-row items-center gap-2 px-5">
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: budgetOnly }}
+            accessibilityLabel="Show only expenses that count toward the budget"
+            hitSlop={6}
+            onPress={() => setBudgetOnly((current) => !current)}
+            className={
+              budgetOnly
+                ? 'rounded-full border border-accent bg-accent px-3 py-1.5'
+                : 'rounded-full border border-border px-3 py-1.5'
+            }>
+            <Typography
+              type="body-xs"
+              weight="medium"
+              className={budgetOnly ? 'text-accent-foreground' : 'text-muted'}>
+              Budget only
+            </Typography>
+          </Pressable>
+          {feed.data !== undefined && (
+            <Typography type="body-xs" color="muted">
+              {feed.data.total === 1 ? '1 expense' : `${feed.data.total} expenses`}
+            </Typography>
+          )}
+        </View>
       </View>
 
-      <FlatList
-        className="flex-1"
-        data={days}
-        keyExtractor={(day) => day.id}
-        renderItem={({ item }) => (
-          <TransactionGroup
-            label={item.label}
-            transactions={item.transactions}
-            onSelect={(id) => router.push(`/expense/${id}`)}
-          />
-        )}
-        contentContainerClassName="gap-6 px-5 pb-8"
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View className="items-center gap-1 py-16">
-            <Typography type="body" weight="medium">
-              Nothing here yet
-            </Typography>
-            <Typography type="body-sm" color="muted">
-              No transactions match this filter.
-            </Typography>
-          </View>
-        }
-      />
+      {feed.error !== null ? (
+        <ErrorState error={feed.error} onRetry={feed.refetch} />
+      ) : (
+        <FlatList
+          className="flex-1"
+          data={rows}
+          keyExtractor={(row) => row.key}
+          renderItem={({ item }) =>
+            item.type === 'header' ? (
+              <View className="h-9 justify-end pb-1">
+                <Typography type="body-xs" weight="semibold" color="muted">
+                  {item.label}
+                </Typography>
+              </View>
+            ) : (
+              <TransactionRow
+                expense={item.item}
+                onPress={() => router.push(`/expense/${item.item.id}`)}
+              />
+            )
+          }
+          /* Uniform row heights are the whole reason the feed is flattened: a
+             variable-height day group cannot supply this, and without it a fast
+             scroll leaves blank space behind. */
+          getItemLayout={(data, index) => {
+            let offset = 0;
+            for (let cursor = 0; cursor < index; cursor += 1) {
+              offset += data?.[cursor]?.type === 'header' ? HEADER_HEIGHT : TRANSACTION_ROW_HEIGHT;
+            }
+            const length = data?.[index]?.type === 'header' ? HEADER_HEIGHT : TRANSACTION_ROW_HEIGHT;
+            return { length, offset, index };
+          }}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews
+          onEndReachedThreshold={0.6}
+          onEndReached={() => {
+            if (feed.data?.hasMore === true) setLimit((current) => current + PAGE_SIZE);
+          }}
+          contentContainerClassName="px-5 pb-8"
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            isFiltered ? (
+              <EmptyState
+                icon={Search}
+                title="Nothing matches"
+                description="No expenses match this filter. Try widening it."
+                action={{
+                  label: 'Clear filters',
+                  onPress: () => {
+                    setFilter('all');
+                    setSearch('');
+                    setBudgetOnly(false);
+                  },
+                }}
+              />
+            ) : (
+              <EmptyState
+                icon={Receipt}
+                title="No expenses yet"
+                description="Add one by hand, or bring your history across from a spreadsheet in Settings."
+                action={{ label: 'Add expense', icon: Plus, onPress: () => router.push('/expense/new') }}
+              />
+            )
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }

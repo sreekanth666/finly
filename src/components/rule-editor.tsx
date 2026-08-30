@@ -18,7 +18,8 @@ import {
   type RuleConditionField,
   type RuleConditionOperator,
 } from '@/data/rules';
-import { transactionDays } from '@/data/transactions';
+import { useDbQuery, type TableName } from '@/db/live';
+import { listMatchTargets } from '@/db/repositories/expenses';
 import { countMatches, ruleMatches } from '@/domain/rules';
 
 export type RuleDraft = {
@@ -76,14 +77,17 @@ const BUDGET_OPTIONS = [
 ];
 
 /** Every expense the preview is judged against. */
-const ALL_TARGETS = transactionDays.flatMap((day) =>
-  day.transactions.map((transaction) => ({
-    id: transaction.id,
-    title: transaction.title,
-    item: transaction.title,
-    note: transaction.note ?? '',
-  }))
-);
+/**
+ * The rule preview reads real expenses now. It used to be a module-scope
+ * snapshot of the fixture, which meant the "matches N of M" figure was fixed at
+ * import time and could never answer the question it was asking.
+ *
+ * Capped rather than unbounded: the preview is a sanity check on a rule being
+ * written, and scanning the last few hundred expenses answers that as well as
+ * scanning ten thousand would.
+ */
+const MATCH_TARGET_LIMIT = 500;
+const TARGET_TABLES: readonly TableName[] = ['expenses'];
 
 const PREVIEW_LIMIT = 3;
 
@@ -104,6 +108,11 @@ export type RuleEditorProps = {
  */
 export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: RuleEditorProps) {
   const [draft, setDraft] = useState<RuleDraft>({ ...EMPTY_DRAFT, ...initial });
+
+  const targetsQuery = useDbQuery(`match-targets:${MATCH_TARGET_LIMIT}`, TARGET_TABLES, (database) =>
+    listMatchTargets(MATCH_TARGET_LIMIT, database),
+  );
+  const targets = targetsQuery.data ?? [];
 
   const set = <K extends keyof RuleDraft>(key: K, value: RuleDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
@@ -126,10 +135,10 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
     }));
 
   const matches = useMemo(
-    () => ALL_TARGETS.filter((target) => ruleMatches(draft, target)),
-    [draft]
+    () => targets.filter((target) => ruleMatches(draft, target)),
+    [draft, targets]
   );
-  const matchCount = useMemo(() => countMatches(draft, ALL_TARGETS), [draft]);
+  const matchCount = useMemo(() => countMatches(draft, targets), [draft, targets]);
 
   const hasAction =
     draft.categoryId !== null || draft.accountName !== null || draft.countsToBudget !== null;
@@ -334,7 +343,7 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
             label="Match preview"
             trailing={
               <Typography type="body-sm" color="muted">
-                {`${ALL_TARGETS.length} expenses`}
+                {`${targets.length} expenses`}
               </Typography>
             }
           />
@@ -345,13 +354,13 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
               <Typography type="body-sm" weight="semibold">
                 {matchCount === 0
                   ? 'Nothing matches yet'
-                  : `Matches ${matchCount} of ${ALL_TARGETS.length}`}
+                  : `Matches ${matchCount} of ${targets.length}`}
               </Typography>
             </View>
 
             {matches.slice(0, PREVIEW_LIMIT).map((match) => (
               <Typography key={match.id} type="body-xs" color="muted" truncate>
-                {`· ${match.title}`}
+                {`· ${match.item}`}
               </Typography>
             ))}
 

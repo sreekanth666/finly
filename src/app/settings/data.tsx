@@ -13,21 +13,26 @@ import { SettingsRow } from '@/components/settings-row';
 import { accounts } from '@/data/accounts';
 import { CATEGORIES } from '@/data/categories';
 import { rules } from '@/data/rules';
-import { settlements } from '@/data/settlements';
-import { transactionDays } from '@/data/transactions';
+import { useDbQuery, type TableName } from '@/db/live';
+import { countExpenses } from '@/db/repositories/expenses';
 
 type ExportFormat = 'json' | 'csv';
+
+const COUNT_TABLES: readonly TableName[] = ['expenses'];
 
 export default function DataTransferScreen() {
   /* Nothing is written in the design pass, but the rows have to behave like
      actions — an inert row with no chevron reads as a label, and the "Never
      exported" line could otherwise never change. */
   const [lastExport, setLastExport] = useState<ExportFormat | null>(null);
-  const expenseCount = transactionDays.reduce((total, day) => total + day.transactions.length, 0);
+  /* Real counts, so the line describing what an export contains is true.
+     The export itself is still unwritten — that is M7. */
+  const expenseCount = useDbQuery('data:expense-count', COUNT_TABLES, (database) =>
+    countExpenses({}, database),
+  );
 
   const contents = [
-    `${expenseCount} expenses`,
-    `${settlements.length} settlements`,
+    `${expenseCount.data ?? 0} expenses`,
     `${accounts.length} accounts`,
     `${Object.keys(CATEGORIES).length} categories`,
     `${rules.length} rules`,
