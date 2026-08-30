@@ -72,10 +72,12 @@ export default function OnboardingScreen() {
     },
   );
 
-  const complete = async (destination?: '/settings/import') => {
+  const complete = async () => {
     const outcome = await finish.run(currency, entry, accountName);
     if (!outcome.ok) return;
-    router.replace(destination ?? '/');
+    /* Replaced rather than pushed: onboarding is the root of the stack, and
+       nobody should be able to swipe back into a flow they have finished. */
+    router.replace('/');
   };
 
   return (
@@ -153,10 +155,16 @@ export default function OnboardingScreen() {
               Finly can show what each one is carrying this cycle.
             </Typography>
 
+            {/* A detour, not an exit. Pushed with onboarding left underneath, so
+                closing the importer comes back to this step with the currency,
+                budget and name already entered still filled in — and the flow
+                is still finished by Skip or Finish, once, below. The importer
+                creates any account named in the file itself, so it does not
+                need this step to have been completed first. */}
             <Pressable
               accessibilityRole="button"
               hitSlop={8}
-              onPress={() => void complete('/settings/import')}
+              onPress={() => router.push('/settings/import')}
               className="flex-row items-center gap-2 self-start pt-1 active:opacity-60">
               <Icon icon={FileSpreadsheet} color="accent" size={14} />
               <Typography type="body-sm" className="text-link">

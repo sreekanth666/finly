@@ -174,10 +174,21 @@ export default function ImportScreen() {
     setStep(3);
   };
 
+  /**
+   * Reached by a push from Settings, but also straight from onboarding, where
+   * there is nothing underneath to pop back to — GO_BACK there is unhandled and
+   * throws. Falling back to the tabs rather than guarding at each call site,
+   * because a deep link lands this screen at the root of the stack too.
+   */
+  const close = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
       <View className="flex-row items-center gap-1 px-3 pt-2">
-        <IconButton icon={X} label="Close" onPress={() => router.back()} />
+        <IconButton icon={X} label="Close" onPress={close} />
         <Typography type="body" weight="semibold">
           Import from CSV
         </Typography>
@@ -481,7 +492,7 @@ export default function ImportScreen() {
 
         <View className="flex-1">
           {step === 3 ? (
-            <Button label="Done" onPress={() => router.back()} />
+            <Button label="Done" onPress={close} />
           ) : (
             <Button
               label={
