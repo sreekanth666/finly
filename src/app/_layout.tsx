@@ -77,6 +77,9 @@ export default function RootLayout() {
             <Stack.Screen name="settings/accounts/index" />
             <Stack.Screen name="settings/accounts/new" />
             <Stack.Screen name="settings/accounts/[id]" />
+            <Stack.Screen name="settings/data" />
+            {/* Import is a task with its own steps, so it comes up over settings. */}
+            <Stack.Screen name="settings/import" options={{ presentation: 'modal' }} />
           </Stack>
         </ThemeProvider>
       </HeroUINativeProvider>

@@ -1,12 +1,11 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import {
+  ArrowDownUp,
   ArrowLeft,
   CircleDollarSign,
-  Download,
   Info,
   Shapes,
-  Upload,
   Wallet,
 } from 'lucide-react-native';
 import { ScrollView, View } from 'react-native';
@@ -80,20 +79,13 @@ export default function SettingsScreen() {
         <View className="gap-3">
           <SectionHeader label="Data" />
           <View className="rounded-3xl bg-surface">
-            {/* Data transfer is M7 — the rows are here so the shape is right. */}
             <SettingsRow
               isFirst
-              icon={Upload}
+              icon={ArrowDownUp}
               iconTone="foreground"
-              label="Import from CSV"
-              description="Bring the spreadsheet across"
-            />
-            <SettingsRow
-              isFirst={false}
-              icon={Download}
-              iconTone="foreground"
-              label="Export"
-              description="JSON or CSV — everything lives on this device"
+              label="Import & export"
+              description="CSV in, JSON or CSV out — this device is the only copy"
+              onPress={() => router.push('/settings/data')}
             />
           </View>
         </View>

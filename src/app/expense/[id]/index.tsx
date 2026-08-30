@@ -1,14 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { ArrowLeft, Plus, Undo2 } from 'lucide-react-native';
+import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddSettlementSheet } from '@/components/add-settlement-sheet';
 import { Amount } from '@/components/amount';
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { SectionHeader } from '@/components/section-header';
+import { findAccount } from '@/data/accounts';
 import { CATEGORIES } from '@/data/categories';
 import { findSettlements, type Settlement } from '@/data/settlements';
 import { findTransaction } from '@/data/transactions';
@@ -85,7 +88,14 @@ export default function ExpenseDetailScreen() {
 
   const { transaction, day } = found;
   const category = CATEGORIES[transaction.categoryId];
-  const settlementList = findSettlements(transaction.id);
+
+  /* Seeded from the mock, then held locally so a settlement added in the sheet
+     changes the effective amount straight away. */
+  const [settlementList, setSettlementList] = useState<Settlement[]>(() =>
+    findSettlements(transaction.id)
+  );
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
   const { settled, effective, isSettled, isPartlySettled } = summariseSettlements(
     transaction.amount,
     settlementList
@@ -235,7 +245,7 @@ export default function ExpenseDetailScreen() {
               icon={Plus}
               label="Add settlement"
               isDisabled={isSettled}
-              onPress={() => {}}
+              onPress={() => setIsSheetOpen(true)}
             />
           </View>
 
@@ -246,6 +256,26 @@ export default function ExpenseDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <AddSettlementSheet
+        isOpen={isSheetOpen}
+        onOpenChange={setIsSheetOpen}
+        expenseTitle={transaction.title}
+        outstanding={effective}
+        onAdd={(draft) =>
+          setSettlementList((current) => [
+            ...current,
+            {
+              id: `s-local-${current.length + 1}`,
+              expenseId: transaction.id,
+              amount: draft.amount,
+              settledAt: draft.date === 'today' ? 'Today' : draft.date === 'yesterday' ? 'Yesterday' : 'Earlier',
+              accountName: findAccount(draft.accountId ?? '')?.name,
+              note: draft.note.length > 0 ? draft.note : undefined,
+            },
+          ])
+        }
+      />
     </SafeAreaView>
   );
 }

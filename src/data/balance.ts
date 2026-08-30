@@ -3,6 +3,10 @@
  *
  * Design-pass placeholder — shaped the way the real API response should be so
  * swapping it out later is a one-file change.
+ *
+ * Safe-to-spend is deliberately absent: it is derived from the selected month
+ * by `buildCarryOverHistory` (§7.1), not a stored figure, so keeping a copy
+ * here would be a second source of truth that could disagree with the ring.
  */
 
 export type StatCardData = {
@@ -13,25 +17,12 @@ export type StatCardData = {
 
 export type BalanceOverview = {
   totalBalance: number;
-  safeToSpend: {
-    amount: number;
-    period: string;
-    /** Share of the weekly allowance still available, 0–1. */
-    progress: number;
-    updatedLabel: string;
-  };
   upcomingBills: StatCardData;
   autoSavings: StatCardData;
 };
 
 export const balanceOverview: BalanceOverview = {
   totalBalance: 2980.45,
-  safeToSpend: {
-    amount: 420,
-    period: 'this week',
-    progress: 0.72,
-    updatedLabel: 'Updated just now',
-  },
   upcomingBills: {
     title: 'Upcoming bills',
     caption: 'in 7 days',
