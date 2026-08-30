@@ -5,43 +5,69 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ErrorState } from '@/components/error-state';
 import { Icon } from '@/components/icon';
+import { iconFor } from '@/components/icon-registry';
 import { IconButton } from '@/components/icon-button';
 import { ReorderButtons } from '@/components/reorder-buttons';
 import { SectionHeader } from '@/components/section-header';
-import { CATEGORIES, type Category, type CategoryId } from '@/data/categories';
+import {
+  renameCategory,
+  reorderCategories,
+  setCategoryArchived,
+} from '@/db/repositories/categories';
+import type { CategoryRow } from '@/db/schema';
 import { isAtEdge, moveItem } from '@/domain/reorder';
-
-type EditableCategory = Category & { id: CategoryId };
+import { useCategories } from '@/features/catalog/hooks';
+import { toAppColor } from '@/theme';
 
 const ROW = {
   first: 'flex-row items-center gap-2 px-3 py-2',
   rest: 'flex-row items-center gap-2 border-t border-border px-3 py-2',
 } as const;
 
-const seed = (Object.keys(CATEGORIES) as CategoryId[])
-  .map((id) => ({ id, ...CATEGORIES[id] }))
-  .sort((a, b) => a.sortOrder - b.sortOrder);
-
 export default function CategoriesSettingsScreen() {
-  const [list, setList] = useState<EditableCategory[]>(seed);
+  const categories = useCategories(true);
+  const list = categories.data ?? [];
+
+  /*
+   * Renames are held locally and committed on blur, deliberately.
+   *
+   * Writing on every keystroke would fire a change event, which refetches the
+   * very list this input belongs to, which replaces the value under the cursor —
+   * the caret jumps to the end and characters get dropped. That is a guaranteed
+   * bug the moment a live query backs an inline editor, not a hypothetical one.
+   */
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const nameOf = (category: CategoryRow) => drafts[category.id] ?? category.name;
+
+  const commitRename = (category: CategoryRow) => {
+    const next = (drafts[category.id] ?? '').trim();
+    setDrafts((current) => {
+      const { [category.id]: _dropped, ...rest } = current;
+      return rest;
+    });
+    if (next.length === 0 || next === category.name) return;
+    renameCategory(category.id, next);
+    categories.refetch();
+  };
 
   const active = useMemo(() => list.filter((category) => !category.isArchived), [list]);
   const archived = useMemo(() => list.filter((category) => category.isArchived), [list]);
 
-  const move = (category: EditableCategory, direction: -1 | 1) =>
-    setList((current) => {
-      const order = current.filter((candidate) => !candidate.isArchived);
-      const index = order.findIndex((candidate) => candidate.id === category.id);
-      const reordered = moveItem(order, index, direction);
+  /* moveItem reorders the array; sort_order has to be written back or the order
+     resets on the next read. */
+  const move = (category: CategoryRow, direction: -1 | 1) => {
+    const index = active.findIndex((candidate) => candidate.id === category.id);
+    const reordered = moveItem(active, index, direction);
+    reorderCategories([...reordered, ...archived].map((row) => row.id));
+    categories.refetch();
+  };
 
-      return [...reordered, ...current.filter((candidate) => candidate.isArchived)];
-    });
-
-  const update = (id: CategoryId, patch: Partial<EditableCategory>) =>
-    setList((current) =>
-      current.map((category) => (category.id === id ? { ...category, ...patch } : category))
-    );
+  const setArchived = (id: string, isArchived: boolean) => {
+    setCategoryArchived(id, isArchived);
+    categories.refetch();
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -70,18 +96,25 @@ export default function CategoriesSettingsScreen() {
             {active.map((category, index) => (
               <View key={category.id} className={index === 0 ? ROW.first : ROW.rest}>
                 <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
-                  <Icon icon={category.icon} color={category.tone} size={16} />
+                  <Icon
+                    icon={iconFor(category.icon)}
+                    color={toAppColor(category.colorToken, 'muted')}
+                    size={16}
+                  />
                 </View>
 
                 <Input
-                  value={category.label}
-                  onChangeText={(label) => update(category.id, { label })}
+                  value={nameOf(category)}
+                  onChangeText={(name) =>
+                    setDrafts((current) => ({ ...current, [category.id]: name }))
+                  }
+                  onBlur={() => commitRename(category)}
                   className="flex-1"
-                  accessibilityLabel={`Rename ${category.label}`}
+                  accessibilityLabel={`Rename ${category.name}`}
                 />
 
                 <ReorderButtons
-                  label={category.label}
+                  label={category.name}
                   canMoveUp={!isAtEdge(active, index, -1)}
                   canMoveDown={!isAtEdge(active, index, 1)}
                   onMoveUp={() => move(category, -1)}
@@ -90,8 +123,8 @@ export default function CategoriesSettingsScreen() {
 
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Archive ${category.label}`}
-                  onPress={() => update(category.id, { isArchived: true })}
+                  accessibilityLabel={`Archive ${category.name}`}
+                  onPress={() => setArchived(category.id, true)}
                   className="size-8 items-center justify-center rounded-lg active:bg-surface-secondary">
                   <Icon icon={Archive} color="muted" size={15} />
                 </Pressable>
@@ -120,15 +153,15 @@ export default function CategoriesSettingsScreen() {
               {archived.map((category, index) => (
                 <View key={category.id} className={index === 0 ? ROW.first : ROW.rest}>
                   <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
-                    <Icon icon={category.icon} color="muted" size={16} />
+                    <Icon icon={iconFor(category.icon)} color="muted" size={16} />
                   </View>
                   <Typography type="body-sm" color="muted" className="flex-1 px-1" truncate>
-                    {category.label}
+                    {category.name}
                   </Typography>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Restore ${category.label}`}
-                    onPress={() => update(category.id, { isArchived: false })}
+                    accessibilityLabel={`Restore ${category.name}`}
+                    onPress={() => setArchived(category.id, false)}
                     className="size-8 items-center justify-center rounded-lg active:bg-surface-secondary">
                     <Icon icon={RotateCcw} color="muted" size={15} />
                   </Pressable>

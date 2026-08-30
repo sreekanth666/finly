@@ -4,12 +4,22 @@ import { Pressable, View } from 'react-native';
 
 import { Icon } from './icon';
 
-import { CATEGORIES } from '@/data/categories';
-import { OPERATOR_LABELS, type Rule, type RuleAction, type RuleCondition } from '@/data/rules';
-import type { AppColor } from '@/theme';
+import { iconFor } from './icon-registry';
+
+import type { AccountRow, CategoryRow } from '@/db/schema';
+import type { Rule, RuleAction, RuleCondition } from '@/domain/rules';
+import { OPERATOR_LABELS } from '@/features/rules/presentation';
+import { toAppColor, type AppColor } from '@/theme';
 
 export type RuleCardProps = {
   rule: Rule;
+  /**
+   * Actions reference ids, so the card is handed the catalogue to resolve them
+   * against rather than querying for itself — a list of twenty rules would
+   * otherwise run forty lookups.
+   */
+  categories: readonly CategoryRow[];
+  accounts: readonly AccountRow[];
   /**
    * Position in the evaluation order, or null for a paused rule — a rule that
    * never runs has no place in the order, and saying so beats showing a number
@@ -32,15 +42,28 @@ const describeUsage = (timesApplied: number) => {
 
 type ActionPillProps = { icon: LucideIcon; tone: AppColor; label: string };
 
-const toActionPill = (action: RuleAction): ActionPillProps => {
+const toActionPill = (
+  action: RuleAction,
+  categories: readonly CategoryRow[],
+  accounts: readonly AccountRow[],
+): ActionPillProps => {
   switch (action.type) {
     case 'set_category': {
-      const category = CATEGORIES[action.categoryId];
-
-      return { icon: category.icon, tone: category.tone, label: category.label };
+      /* The referenced row can be missing — archived, or absent from a restored
+         backup. Saying so beats rendering a blank pill. */
+      const category = categories.find((row) => row.id === action.categoryId);
+      return category === undefined
+        ? { icon: CircleSlash2, tone: 'muted', label: 'Missing category' }
+        : {
+            icon: iconFor(category.icon),
+            tone: toAppColor(category.colorToken, 'muted'),
+            label: category.name,
+          };
     }
-    case 'set_account':
-      return { icon: Wallet, tone: 'muted', label: action.label };
+    case 'set_account': {
+      const account = accounts.find((row) => row.id === action.accountId);
+      return { icon: Wallet, tone: 'muted', label: account?.name ?? 'Missing account' };
+    }
     case 'set_counts_to_budget':
       return action.countsToBudget
         ? { icon: Wallet, tone: 'muted', label: 'Counts to budget' }
@@ -61,7 +84,7 @@ function ActionPill({ icon, tone, label }: ActionPillProps) {
  * One rule: its place in the evaluation order, what it matches, what it fills
  * in, and how often it has earned its keep.
  */
-export function RuleCard({ rule, rank, onToggle, onPress }: RuleCardProps) {
+export function RuleCard({ rule, categories, accounts, rank, onToggle, onPress }: RuleCardProps) {
   const { name, isEnabled, matchMode, conditions, actions, timesApplied } = rule;
   const conditionText = conditions
     .map(describeCondition)
@@ -101,7 +124,7 @@ export function RuleCard({ rule, rank, onToggle, onPress }: RuleCardProps) {
       <View className="flex-row items-center justify-between gap-3 border-t border-border pt-3">
         <View className="flex-1 flex-row flex-wrap items-center gap-2">
           {actions.map((action) => {
-            const pill = toActionPill(action);
+            const pill = toActionPill(action, categories, accounts);
 
             return <ActionPill key={`${action.type}-${pill.label}`} {...pill} />;
           })}

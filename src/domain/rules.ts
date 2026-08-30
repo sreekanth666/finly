@@ -1,21 +1,48 @@
 /**
  * Rule evaluation — pure, and deliberately free of React and of storage.
  *
- * This is the logic §4.6 of the MVP plan describes: highest priority first,
- * first match wins, matching case-insensitively. Keeping it here rather than in
- * the screen is what will let it be unit-tested and reused by the rules
- * editor's "how many existing expenses would match" preview.
+ * §4.6: highest priority first, first match wins, matching case-insensitively.
+ * Keeping it here rather than in the screen is what lets it be unit-tested and
+ * reused by the editor's "how many existing expenses would match" preview.
+ *
+ * Actions reference categories and accounts by **id**. The design pass carried a
+ * display name for the account, which meant renaming a card silently detached
+ * every rule that filled it in.
  */
 
-import type { CategoryId } from '@/data/categories';
-import type { Rule, RuleCondition } from '@/data/rules';
+export type RuleConditionField = 'item' | 'note';
+export type RuleConditionOperator = 'contains' | 'equals' | 'starts_with';
+export type RuleMatchMode = 'all' | 'any';
+
+export type RuleCondition = {
+  field: RuleConditionField;
+  operator: RuleConditionOperator;
+  value: string;
+};
+
+export type RuleAction =
+  | { type: 'set_category'; categoryId: string }
+  | { type: 'set_account'; accountId: string }
+  | { type: 'set_counts_to_budget'; countsToBudget: boolean };
+
+export type Rule = {
+  id: string;
+  name: string;
+  /** Higher wins. Evaluation is highest-first, first match wins. */
+  priority: number;
+  isEnabled: boolean;
+  /** Whether every condition must match, or any one of them. */
+  matchMode: RuleMatchMode;
+  conditions: RuleCondition[];
+  actions: RuleAction[];
+  timesApplied: number;
+};
 
 /** What a matching rule wants to fill in. Every field is optional. */
 export type RuleFill = {
   rule: Rule;
-  categoryId?: CategoryId;
-  /** Matched against `Account.name` until accounts become real entities in M3. */
-  accountName?: string;
+  categoryId?: string;
+  accountId?: string;
   countsToBudget?: boolean;
 };
 
@@ -38,17 +65,21 @@ const testCondition = ({ field, operator, value }: RuleCondition, draft: MatchTa
   }
 };
 
+/** Later actions of the same type win, so a malformed rule still resolves. */
 const toFill = (rule: Rule): RuleFill =>
-  rule.actions.reduce<RuleFill>((fill, action) => {
-    switch (action.type) {
-      case 'set_category':
-        return { ...fill, categoryId: action.categoryId };
-      case 'set_account':
-        return { ...fill, accountName: action.label };
-      case 'set_counts_to_budget':
-        return { ...fill, countsToBudget: action.countsToBudget };
-    }
-  }, { rule });
+  rule.actions.reduce<RuleFill>(
+    (fill, action) => {
+      switch (action.type) {
+        case 'set_category':
+          return { ...fill, categoryId: action.categoryId };
+        case 'set_account':
+          return { ...fill, accountId: action.accountId };
+        case 'set_counts_to_budget':
+          return { ...fill, countsToBudget: action.countsToBudget };
+      }
+    },
+    { rule },
+  );
 
 /**
  * Whether a rule's conditions hold for a target, ignoring whether it is
@@ -58,7 +89,7 @@ const toFill = (rule: Rule): RuleFill =>
  */
 export function ruleMatches(
   rule: Pick<Rule, 'matchMode' | 'conditions'>,
-  target: MatchTarget
+  target: MatchTarget,
 ): boolean {
   if (rule.conditions.length === 0) return false;
 
@@ -71,7 +102,7 @@ export function ruleMatches(
  * The highest-priority enabled rule whose conditions the draft satisfies, or
  * null. Disabled rules are never consulted.
  */
-export function matchRule(rules: Rule[], draft: MatchTarget): RuleFill | null {
+export function matchRule(rules: readonly Rule[], draft: MatchTarget): RuleFill | null {
   const candidate = [...rules]
     .filter((rule) => rule.isEnabled)
     .sort((a, b) => b.priority - a.priority)
@@ -83,5 +114,5 @@ export function matchRule(rules: Rule[], draft: MatchTarget): RuleFill | null {
 /** How many of a set of expenses a rule would claim — the editor's preview. */
 export const countMatches = (
   rule: Pick<Rule, 'matchMode' | 'conditions'>,
-  targets: MatchTarget[]
+  targets: readonly MatchTarget[],
 ) => targets.filter((target) => ruleMatches(rule, target)).length;

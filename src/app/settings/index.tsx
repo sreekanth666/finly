@@ -19,7 +19,6 @@ import { runDevSeed } from '@/db/dev-seed';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useDefaultMonthlyBudget } from '@/features/budget/hooks';
 import { formatMinor } from '@/domain/money';
-import { CATEGORIES } from '@/data/categories';
 
 const plural = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
@@ -30,7 +29,7 @@ export default function SettingsScreen() {
   const categoryRows = useCategories();
 
   const activeAccounts = (accountRows.data ?? []).length;
-  const categoryCount = Object.keys(CATEGORIES).length;
+  const categoryCount = (categoryRows.data ?? []).length;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -115,7 +114,7 @@ export default function SettingsScreen() {
                         const seeded = runDevSeed();
                         Alert.alert(
                           'Development data added',
-                          `${seeded.expenses} expenses, ${seeded.accounts} accounts, ${seeded.settlements} settlement.`,
+                          `${seeded.expenses} expenses, ${seeded.accounts} accounts, ${seeded.settlements} settlement, ${seeded.rules} rule.`,
                         );
                       } catch (cause) {
                         Alert.alert('Could not seed', cause instanceof Error ? cause.message : String(cause));

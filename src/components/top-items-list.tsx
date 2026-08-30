@@ -4,8 +4,10 @@ import { View } from 'react-native';
 import { Amount } from './amount';
 import { Icon } from './icon';
 
-import { CATEGORIES } from '@/data/categories';
+import { iconFor } from './icon-registry';
+
 import type { TopItem } from '@/data/insights';
+import { toAppColor } from '@/theme';
 
 /**
  * A ranked table rather than a chart. Five labelled rows with their amounts
@@ -16,7 +18,9 @@ export function TopItemsList({ items }: { items: TopItem[] }) {
   return (
     <View className="gap-1 rounded-3xl bg-surface p-2">
       {items.map((item, index) => {
-        const category = CATEGORIES[item.categoryId];
+        /* Insights is still a fixture until M6; the row carries its own display
+           fields so this component is already shaped for real query results. */
+        const category = { icon: iconFor(item.categoryIcon), tone: toAppColor(item.categoryTone, 'muted'), label: item.categoryLabel };
 
         return (
           <View key={item.id} className="flex-row items-center gap-3 px-2 py-2">

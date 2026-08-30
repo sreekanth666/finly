@@ -13,11 +13,10 @@ import { IconButton } from './icon-button';
 import { SectionHeader } from './section-header';
 
 import type { AccountRow, CategoryRow } from '@/db/schema';
-import { rules } from '@/data/rules';
 import { appendKey, EMPTY_ENTRY, type KeypadKey } from '@/domain/amount-entry';
 import { entryToMinor, formatEntry, type Minor } from '@/domain/money';
 import { formatDayLabel, startOfLocalDay } from '@/domain/period';
-import { matchRule } from '@/domain/rules';
+import { matchRule, type Rule } from '@/domain/rules';
 import { useAppColor } from '@/theme';
 
 /**
@@ -52,6 +51,10 @@ export type ExpenseFormProps = {
   accounts: readonly AccountRow[];
   /** Descriptions used recently, offered under the item field (§7.2). */
   recentItems?: readonly string[];
+  /** Enabled rules, evaluated as the item is typed (§4.6). */
+  rules?: readonly Rule[];
+  /** Told which rule actually filled a saved expense, so its use count moves. */
+  onRuleApplied?: (ruleId: string) => void;
   /**
    * Treat every field as already answered, so a matching rule can't rewrite
    * values the expense was saved with. Editing sets this; adding does not.
@@ -107,6 +110,8 @@ export function ExpenseForm({
   categories,
   accounts,
   recentItems = [],
+  rules = [],
+  onRuleApplied,
   isPrefilled = false,
   submitLabel,
   isSubmitting = false,
@@ -159,15 +164,12 @@ export function ExpenseForm({
   );
 
   /* Rules run as the item is typed — §4.6, highest priority first. */
-  const fill = useMemo(() => matchRule(rules, { item, note }), [item, note]);
+  const fill = useMemo(() => matchRule(rules, { item, note }), [rules, item, note]);
 
-  /* Rules still name an account rather than referencing one; M5 moves them onto
-     account ids along with the rest of the rules table. */
-  const ruleAccount = useMemo(() => {
-    const wanted = fill?.accountName?.trim().toLowerCase();
-    if (wanted === undefined || wanted.length === 0) return undefined;
-    return accounts.find((account) => account.name.trim().toLowerCase() === wanted);
-  }, [fill?.accountName, accounts]);
+  const ruleAccount = useMemo(
+    () => accounts.find((account) => account.id === fill?.accountId),
+    [fill?.accountId, accounts],
+  );
 
   /* A rule only speaks for a field the user hasn't answered themselves. */
   const ruleCategoryId = overridden.category ? null : (fill?.categoryId ?? null);
@@ -180,6 +182,18 @@ export function ExpenseForm({
 
   const amountMinor = entryToMinor(entry);
   const canSave = amountMinor > 0 && item.trim().length > 0 && !isSubmitting;
+
+  /**
+   * Which rule, if any, actually decided something on the expense being saved.
+   * A rule that matched while typing but had every field overridden did not
+   * apply, and counting it would make the "used N times" stat meaningless.
+   */
+  const appliedRuleId = (): string | null => {
+    if (fill === null) return null;
+    const decided =
+      ruleCategoryId !== null || appliedAccount !== undefined || ruleCounts !== undefined;
+    return decided ? fill.rule.id : null;
+  };
 
   const draft = (): ExpenseDraft => ({
     amountMinor,
@@ -205,6 +219,8 @@ export function ExpenseForm({
 
   /** Save & add another keeps the date and the account, per §7.2. */
   const handleSubmitAndContinue = () => {
+    const ruleId = appliedRuleId();
+    if (ruleId !== null) onRuleApplied?.(ruleId);
     onSubmitAndContinue?.(draft());
 
     setOverridden({ category: false, account: activeAccountId !== null, counts: false });
@@ -423,7 +439,11 @@ export function ExpenseForm({
             <Button
               label={isSubmitting ? 'Saving…' : submitLabel}
               isDisabled={!canSave}
-              onPress={() => onSubmit(draft())}
+              onPress={() => {
+                const ruleId = appliedRuleId();
+                if (ruleId !== null) onRuleApplied?.(ruleId);
+                onSubmit(draft());
+              }}
             />
           </View>
         </View>

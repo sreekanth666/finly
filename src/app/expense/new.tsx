@@ -2,15 +2,18 @@ import { router } from 'expo-router';
 
 import { ExpenseForm } from '@/components/expense-form';
 import { NotFound } from '@/components/not-found';
+import { recordRuleApplied } from '@/db/repositories/rules';
 import { useAction } from '@/db/use-action';
 import { createExpense } from '@/db/repositories/expenses';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
+import { useActiveRules } from '@/features/rules/hooks';
 import { useEntryDefaults } from '@/features/expenses/hooks';
 
 export default function NewExpenseScreen() {
   const categories = useCategories();
   const accounts = useAccounts();
   const defaults = useEntryDefaults();
+  const rules = useActiveRules();
   const save = useAction(createExpense);
 
   const failure = categories.error ?? accounts.error ?? defaults.error;
@@ -25,6 +28,8 @@ export default function NewExpenseScreen() {
       categories={categories.data ?? []}
       accounts={accounts.data ?? []}
       recentItems={defaults.data?.recentItems ?? []}
+      rules={rules.data ?? []}
+      onRuleApplied={(ruleId) => recordRuleApplied(ruleId)}
       initial={{ accountId: defaults.data?.accountId ?? null }}
       isSubmitting={save.isPending}
       errorMessage={save.errorMessage}
