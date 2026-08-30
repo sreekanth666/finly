@@ -1,7 +1,7 @@
-import { BottomSheet, Typography } from 'heroui-native';
+import { BottomSheet, Switch, Typography } from 'heroui-native';
 import { SlidersHorizontal } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, Switch, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Button } from './button';
 import { FilterChipBar, type FilterOption } from './filter-chip-bar';
@@ -204,8 +204,8 @@ export function TransactionFilters({
                   </Typography>
                 </View>
                 <Switch
-                  value={budgetOnly}
-                  onValueChange={onBudgetOnlyChange}
+                  isSelected={budgetOnly}
+                  onSelectedChange={onBudgetOnlyChange}
                   accessibilityLabel="Show only expenses that count toward the budget"
                 />
               </View>

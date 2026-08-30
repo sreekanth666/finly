@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
-import { Typography } from 'heroui-native';
+import { Switch, Typography } from 'heroui-native';
 import { ArrowLeft, Fingerprint, KeyRound, TriangleAlert } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, ScrollView, Switch, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
@@ -110,8 +110,8 @@ export default function SecuritySettingsScreen() {
               </Typography>
             </View>
             <Switch
-              value={state.data?.appLock ?? false}
-              onValueChange={(next) => {
+              isSelected={state.data?.appLock ?? false}
+              onSelectedChange={(next) => {
                 void toggleLock.run(next).then(() => state.refetch());
               }}
               accessibilityLabel="Require unlock to open Finly"
@@ -134,9 +134,9 @@ export default function SecuritySettingsScreen() {
               </Typography>
             </View>
             <Switch
-              value={state.data?.encrypted ?? false}
-              disabled={busy || state.data === undefined}
-              onValueChange={(next) => (next ? confirmEncrypt() : confirmDecrypt())}
+              isSelected={state.data?.encrypted ?? false}
+              isDisabled={busy || state.data === undefined}
+              onSelectedChange={(next) => (next ? confirmEncrypt() : confirmDecrypt())}
               accessibilityLabel="Encrypt the database"
             />
           </View>
