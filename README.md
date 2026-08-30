@@ -1,56 +1,81 @@
-# Welcome to your Expo app 👋
+# Finly
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A local-first expense and budget tracker for Android and iOS. Everything lives in
+SQLite on the device: no server, no account, no network dependency.
 
-## Get started
+The approved specification is `plan docs/finly-mvp-plan.md` — domain rules in §4,
+the schema in §5, screens in §7, milestones in §9. It is the authority when this
+README and the spec disagree.
 
-1. Install dependencies
+## Running it
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+This project uses **pnpm**, and **Expo Go will not work** — `expo-sqlite` and the
+other native modules need a development build.
 
 ```bash
-npm run reset-project
+pnpm install
+pnpm android          # expo run:android
+pnpm ios              # expo run:ios
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The first run generates `android/` and `ios/` via prebuild. Both are gitignored,
+so **any change to a native dependency or to the plugin list in `app.json` needs
+a rebuild**:
 
-### Other setup steps
+```bash
+pnpm expo prebuild --clean
+pnpm android
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+After changing `babel.config.js` or `metro.config.js`, clear the bundler cache:
 
-## Learn more
+```bash
+pnpm expo start -c
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## The database
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Schema lives in `src/db/schema.ts` and is the single source of truth. After
+editing it:
 
-## Join the community
+```bash
+pnpm db:generate      # drizzle-kit generate → drizzle/
+```
 
-Join our community of developers creating universal apps.
+`drizzle/` is **checked in on purpose**. The generated `.sql` files are pulled
+into the bundle by `babel-plugin-inline-import`, so a release build fails without
+them.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Migrations run on boot, before any route mounts. If they fail, the app shows a
+recovery screen that hands the user their raw database file rather than a white
+screen — see `src/features/recovery/`.
+
+## Checks
+
+```bash
+pnpm typecheck        # tsc --noEmit
+pnpm test             # jest, over src/domain/ only
+pnpm test:tz          # the same suite in three timezones
+pnpm check:colors     # no color literal may exist outside src/theme/tokens.css
+```
+
+`pnpm test` covers `src/domain/` alone. That is where the correctness risk is —
+compounding carry-over, statement-day clamping, paise arithmetic — and it is also
+the only part that runs in Node, since `expo-sqlite` is native.
+
+## Layout
+
+```
+src/
+  app/          expo-router routes. Screens never touch the database.
+  features/     hooks and draft↔row mappers, one folder per area.
+  components/   shared presentational UI.
+  db/           schema, the single connection, repositories, reactivity.
+  domain/       pure functions. No React, no database, no clock.
+  theme/        design tokens. The only place a color may be written.
+```
+
+Reads go through `useDbQuery` in `src/db/live.ts` — one hook, not two; the
+reasoning is in that file. Writes go through `useAction`. Drizzle's expo driver
+is synchronous, so repositories are too; `src/db/transaction.ts` explains what
+that buys and what it costs.
