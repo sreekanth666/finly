@@ -11,9 +11,15 @@ import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { SectionHeader } from '@/components/section-header';
 import { StepIndicator } from '@/components/step-indicator';
-import { pickableFiles, type PickableFile } from '@/data/import-files';
+import { formatDateLong } from '@/domain/period';
+import { useAction } from '@/db/use-action';
+import { pickCsvFile, type PickedFile } from '@/features/data-transfer/files';
+import { planImport, runImport } from '@/features/data-transfer/import';
 import {
   buildRows,
+  DATE_ORDER_LABELS,
+  inferDateOrder,
+  type DateOrder,
   guessMapping,
   IMPORT_FIELD_LABELS,
   IMPORT_FIELDS,
@@ -85,23 +91,54 @@ function PreviewRow({ row, isFirst }: { row: ImportRow; isFirst: boolean }) {
 
 export default function ImportScreen() {
   const [step, setStep] = useState(0);
-  const [file, setFile] = useState<PickableFile | null>(null);
+  const [file, setFile] = useState<PickedFile | null>(null);
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);
+  const [dateOrder, setDateOrder] = useState<DateOrder>('dmy');
+  const [orderConfident, setOrderConfident] = useState(true);
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
+  const [pickError, setPickError] = useState<string | null>(null);
+  const [result, setResult] = useState<Awaited<ReturnType<typeof runImport>> | null>(null);
+
+  const importAction = useAction(runImport);
 
   const table = useMemo(() => (file ? parseCsv(file.content) : null), [file]);
   const rows = useMemo(
-    () => (table && mapping ? buildRows(table, mapping) : []),
-    [table, mapping]
+    () => (table && mapping ? buildRows(table, mapping, dateOrder) : []),
+    [table, mapping, dateOrder]
   );
   const summary = useMemo(() => summarise(rows), [rows]);
+  const plan = useMemo(() => (rows.length > 0 ? planImport(rows) : null), [rows]);
 
-  const choose = (picked: PickableFile) => {
-    const parsed = parseCsv(picked.content);
+  const choose = async () => {
+    setPickError(null);
+    try {
+      const picked = await pickCsvFile();
+      if (picked === null) return;
 
-    setFile(picked);
-    /* The guess is a starting point, not a decision — step 2 shows it. */
-    setMapping(guessMapping(parsed.headers));
-    setStep(1);
+      const parsed = parseCsv(picked.content);
+      if (parsed.headers.length === 0) {
+        setPickError('That file has no column names in its first row.');
+        return;
+      }
+
+      const guessed = guessMapping(parsed.headers);
+      setFile(picked);
+      /* The guess is a starting point, not a decision — step 2 shows it. */
+      setMapping(guessed);
+
+      /* Infer the date order from the file, and remember whether the file could
+         actually settle it — an unconfident guess has to be shown, not applied
+         silently. */
+      const dates =
+        guessed.date === null ? [] : parsed.rows.map((row) => row[guessed.date!] ?? '');
+      const inferred = inferDateOrder(dates);
+      setDateOrder(inferred.order);
+      setOrderConfident(inferred.confident);
+
+      setStep(1);
+    } catch (cause) {
+      setPickError(cause instanceof Error ? cause.message : String(cause));
+    }
   };
 
   const assign = (field: ImportField, column: number | null) =>
@@ -120,8 +157,22 @@ export default function ImportScreen() {
       return next;
     });
 
+  /** The first readable date, spelled out the way the chosen order reads it. */
+  const firstDatePreview = useMemo(() => {
+    const row = rows.find((candidate) => candidate.occurredAt !== null);
+    if (row === undefined) return null;
+    return `“${row.date}” will be read as ${formatDateLong(row.occurredAt!)}`;
+  }, [rows]);
+
   const canContinue =
     step === 1 ? mapping !== null && isMappingComplete(mapping) : step === 2 && summary.ready > 0;
+
+  const runTheImport = async () => {
+    const outcome = await importAction.run(rows, { skipDuplicates });
+    if (!outcome.ok) return;
+    setResult(outcome.value);
+    setStep(3);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -143,35 +194,34 @@ export default function ImportScreen() {
         {/* ---- 1. Choose a file ---------------------------------------- */}
         {step === 0 && (
           <View className="gap-3">
-            <SectionHeader label="On this device" />
-            <View className="rounded-3xl bg-surface">
-              {pickableFiles.map((candidate, index) => (
-                <Pressable
-                  key={candidate.id}
-                  accessibilityRole="button"
-                  onPress={() => choose(candidate)}
-                  className={
-                    index === 0
-                      ? 'flex-row items-center gap-3 px-4 py-3.5 active:opacity-60'
-                      : 'flex-row items-center gap-3 border-t border-border px-4 py-3.5 active:opacity-60'
-                  }>
-                  <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
-                    <Icon icon={FileSpreadsheet} color="iris" size={16} />
-                  </View>
-                  <View className="flex-1 gap-0.5">
-                    <Typography type="body-sm" weight="medium" truncate>
-                      {candidate.name}
-                    </Typography>
-                    <Typography type="body-xs" color="muted">
-                      {candidate.size}
-                    </Typography>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
+            <SectionHeader label="Choose a file" />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Choose a CSV file"
+              onPress={choose}
+              className="flex-row items-center gap-3 rounded-3xl bg-surface px-4 py-4 active:opacity-60">
+              <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
+                <Icon icon={FileSpreadsheet} color="iris" size={16} />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Typography type="body-sm" weight="medium">
+                  {file === null ? 'Pick a CSV file' : file.name}
+                </Typography>
+                <Typography type="body-xs" color="muted">
+                  Exported from your spreadsheet or bank
+                </Typography>
+              </View>
+            </Pressable>
+
+            {pickError !== null && (
+              <Typography type="body-xs" className="text-danger px-1">
+                {pickError}
+              </Typography>
+            )}
+
             <Typography type="body-xs" color="muted" className="px-1">
-              Pick the file you exported from your spreadsheet. The first row is read as column
-              names.
+              The first row is read as column names. Nothing is written until you have seen what
+              will be imported.
             </Typography>
           </View>
         )}
@@ -234,6 +284,52 @@ export default function ImportScreen() {
               </View>
             ))}
 
+            <View className="gap-2 border-t border-border pt-4">
+              <View className="flex-row items-center gap-2">
+                <Typography type="body-sm" weight="medium">
+                  Date format
+                </Typography>
+                {!orderConfident && (
+                  <Typography type="body-xs" className="text-warning">
+                    please check
+                  </Typography>
+                )}
+              </View>
+
+              <View className="flex-row flex-wrap gap-2">
+                {(Object.keys(DATE_ORDER_LABELS) as DateOrder[]).map((order) => (
+                  <Pressable
+                    key={order}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: dateOrder === order }}
+                    onPress={() => setDateOrder(order)}
+                    className={dateOrder === order ? CHIP.on : CHIP.off}>
+                    <Typography
+                      type="body-xs"
+                      weight="medium"
+                      className={dateOrder === order ? CHIP_LABEL.on : CHIP_LABEL.off}>
+                      {DATE_ORDER_LABELS[order]}
+                    </Typography>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Reading 03/04 the wrong way round files every row in the wrong
+                  month, silently. Showing the first date as it will actually be
+                  read is the only way the user can catch that. */}
+              {firstDatePreview !== null && (
+                <Typography type="body-xs" color="muted">
+                  {firstDatePreview}
+                </Typography>
+              )}
+              {!orderConfident && (
+                <Typography type="body-xs" className="text-warning">
+                  Every date in this file could be read either way round. Check the example above
+                  before continuing.
+                </Typography>
+              )}
+            </View>
+
             {!isMappingComplete(mapping) && (
               <Typography type="body-xs" className="text-danger">
                 Date, Item and Amount all need a column — an expense can’t exist without them.
@@ -288,6 +384,58 @@ export default function ImportScreen() {
               </Typography>
             )}
 
+            {plan !== null && (plan.newAccounts.length > 0 || plan.newCategories.length > 0) && (
+              <View className="gap-1 rounded-3xl bg-surface px-4 py-3">
+                <Typography type="body-sm" weight="semibold">
+                  Will also be created
+                </Typography>
+                {plan.newAccounts.length > 0 && (
+                  <Typography type="body-xs" color="muted">
+                    {`${plan.newAccounts.length === 1 ? 'Account' : 'Accounts'}: ${plan.newAccounts.join(', ')}`}
+                  </Typography>
+                )}
+                {plan.newCategories.length > 0 && (
+                  <Typography type="body-xs" color="muted">
+                    {`${plan.newCategories.length === 1 ? 'Category' : 'Categories'}: ${plan.newCategories.join(', ')}`}
+                  </Typography>
+                )}
+                <Typography type="body-xs" color="muted">
+                  Imported accounts are added as bank accounts — a statement doesn’t say what kind
+                  it is, and a card needs a credit limit the file can’t supply.
+                </Typography>
+              </View>
+            )}
+
+            {plan !== null && plan.duplicates.length > 0 && (
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityState={{ checked: skipDuplicates }}
+                onPress={() => setSkipDuplicates((current) => !current)}
+                className="gap-1 rounded-3xl bg-surface px-4 py-3 active:opacity-60">
+                <View className="flex-row items-center justify-between gap-3">
+                  <Typography type="body-sm" weight="semibold" className="flex-1">
+                    {`Skip ${plan.duplicates.length} that look already recorded`}
+                  </Typography>
+                  <Typography
+                    type="body-xs"
+                    weight="semibold"
+                    className={skipDuplicates ? 'text-accent' : 'text-muted'}>
+                    {skipDuplicates ? 'Skipping' : 'Importing'}
+                  </Typography>
+                </View>
+                <Typography type="body-xs" color="muted">
+                  Same date, description and amount as an expense you already have. Two identical
+                  coffees on one day look the same as one imported twice, so this is your call.
+                </Typography>
+              </Pressable>
+            )}
+
+            {importAction.errorMessage !== null && (
+              <Typography type="body-xs" className="text-danger px-1">
+                {importAction.errorMessage}
+              </Typography>
+            )}
+
             <Typography type="body-xs" color="muted" className="px-1">
               Rows with a problem are skipped, not guessed at. Fix them in the spreadsheet and
               import again — nothing already recorded is touched either way.
@@ -302,12 +450,23 @@ export default function ImportScreen() {
               <Icon icon={CircleCheck} color="accent" size={28} />
             </View>
             <Typography type="h5" weight="semibold">
-              {`${summary.ready} expenses imported`}
+              {`${result?.imported ?? 0} expenses imported`}
             </Typography>
             <Typography type="body-sm" color="muted" align="center">
-              {summary.blocked > 0
-                ? `${summary.blocked} rows were skipped because of the problems listed on the previous step.`
-                : 'Every row came across cleanly.'}
+              {/* What actually happened, not what was predicted. The design pass
+                  claimed a number here having written nothing at all. */}
+              {[
+                summary.blocked > 0 ? `${summary.blocked} rows had problems` : null,
+                (result?.skipped ?? 0) > 0 ? `${result?.skipped} looked already recorded` : null,
+                (result?.createdAccounts ?? 0) > 0
+                  ? `${result?.createdAccounts} accounts created`
+                  : null,
+                (result?.createdCategories ?? 0) > 0
+                  ? `${result?.createdCategories} categories created`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ') || 'Every row came across cleanly.'}
             </Typography>
           </View>
         )}
@@ -325,9 +484,18 @@ export default function ImportScreen() {
             <Button label="Done" onPress={() => router.back()} />
           ) : (
             <Button
-              label={step === 2 ? `Import ${summary.ready}` : 'Continue'}
-              isDisabled={step === 0 || !canContinue}
-              onPress={() => setStep((s) => s + 1)}
+              label={
+                importAction.isPending
+                  ? 'Importing…'
+                  : step === 2
+                    ? `Import ${summary.ready}`
+                    : 'Continue'
+              }
+              isDisabled={step === 0 || !canContinue || importAction.isPending}
+              onPress={() => {
+                if (step === 2) void runTheImport();
+                else setStep((s) => s + 1);
+              }}
             />
           )}
         </View>

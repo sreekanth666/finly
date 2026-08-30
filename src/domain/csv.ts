@@ -8,6 +8,7 @@
  */
 
 import { absMinor, parseMinor, type Minor } from './money';
+import { clampDayToMonth, daysInMonth } from './period';
 
 export type CsvTable = {
   headers: string[];
@@ -111,11 +112,28 @@ export function parseCsv(text: string): CsvTable {
 }
 
 /** Header names we recognise, in the order they are tried. */
+/**
+ * Header words that suggest a field.
+ *
+ * The bank-statement vocabulary is here as well as the spreadsheet one — D8 is
+ * about getting existing history across, and a statement writes "Debit" and
+ * "Narration" where a hand-kept sheet writes "Amount" and "Items".
+ */
 const FIELD_HINTS: Record<ImportField, string[]> = {
-  date: ['date', 'when', 'day'],
-  item: ['item', 'items', 'description', 'merchant', 'what'],
-  amount: ['amount', 'value', 'cost', 'price', 'spent'],
-  account: ['from', 'account', 'paid from', 'source', 'card'],
+  date: ['date', 'when', 'day', 'transaction date', 'txn date', 'value date'],
+  item: [
+    'item',
+    'items',
+    'description',
+    'merchant',
+    'what',
+    'narration',
+    'particulars',
+    'details',
+    'payee',
+  ],
+  amount: ['amount', 'value', 'cost', 'price', 'spent', 'debit', 'withdrawal', 'paid', 'charge'],
+  account: ['from', 'account', 'paid from', 'source', 'card', 'account name'],
   category: ['category', 'type', 'group'],
   note: ['note', 'notes', 'comment', 'remarks'],
 };
@@ -157,6 +175,8 @@ export type ImportRow = {
   date: string;
   item: string;
   amount: Minor | null;
+  /** Epoch ms, or null when the date could not be read. */
+  occurredAt: number | null;
   /** As written in the file, for showing the reader what was rejected. */
   rawAmount: string;
   account: string;
@@ -166,11 +186,103 @@ export type ImportRow = {
   issues: string[];
 };
 
-const DATE_PATTERNS = [
-  /^\d{4}-\d{2}-\d{2}$/, // 2026-08-24
-  /^\d{1,2}\/\d{1,2}\/\d{4}$/, // 24/08/2026
-  /^\d{1,2}-\d{1,2}-\d{4}$/, // 24-08-2026
-];
+/**
+ * Which way round a numeric date is written.
+ *
+ * This matters more than it looks. The design pass validated dates with a regex
+ * and never parsed them, so `15/08/2026` and `08/15/2026` both passed and one of
+ * them was silently filed in the wrong month — for every row in the file, with
+ * nothing on screen to suggest anything had gone wrong.
+ */
+export type DateOrder = 'dmy' | 'mdy' | 'ymd';
+
+export const DATE_ORDER_LABELS: Record<DateOrder, string> = {
+  dmy: 'DD/MM/YYYY',
+  mdy: 'MM/DD/YYYY',
+  ymd: 'YYYY-MM-DD',
+};
+
+const ISO_DATE = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/;
+const NUMERIC_DATE = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/;
+
+/**
+ * Reads a date in a known order, and rejects one that does not exist.
+ *
+ * Returns local midday rather than midnight: the instant is only ever used for
+ * its calendar date, and midday cannot be pushed across a day boundary by a
+ * daylight-saving shift.
+ */
+export function parseCsvDate(raw: string, order: DateOrder): number | null {
+  const text = raw.trim();
+
+  const iso = ISO_DATE.exec(text);
+  const numeric = NUMERIC_DATE.exec(text);
+
+  let year: number;
+  let month: number;
+  let day: number;
+
+  if (iso !== null) {
+    year = Number(iso[1]);
+    month = Number(iso[2]);
+    day = Number(iso[3]);
+  } else if (numeric !== null) {
+    const first = Number(numeric[1]);
+    const second = Number(numeric[2]);
+    year = Number(numeric[3]);
+    // 'ymd' cannot apply to a d/m/yyyy shape; fall back to day-first, which is
+    // what the sheet this app replaces writes.
+    month = order === 'mdy' ? first : second;
+    day = order === 'mdy' ? second : first;
+  } else {
+    return null;
+  }
+
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > daysInMonth(year, month)) return null;
+  if (year < 1900 || year > 2200) return null;
+
+  return new Date(year, month - 1, day, 12, 0).getTime();
+}
+
+export type DateOrderGuess = {
+  order: DateOrder;
+  /** False when the sample cannot distinguish DD/MM from MM/DD. */
+  confident: boolean;
+};
+
+/**
+ * Infers the order from the data itself.
+ *
+ * A component above 12 can only be a day, which settles it. When nothing in the
+ * file is above 12 the two readings are genuinely indistinguishable, and the
+ * honest answer is to say so and let the user choose — defaulting silently is
+ * how every row ends up in the wrong month.
+ */
+export function inferDateOrder(samples: readonly string[]): DateOrderGuess {
+  const values = samples.map((sample) => sample.trim()).filter((sample) => sample.length > 0);
+  if (values.length === 0) return { order: 'dmy', confident: false };
+
+  if (values.every((value) => ISO_DATE.test(value))) {
+    return { order: 'ymd', confident: true };
+  }
+
+  let firstOverTwelve = false;
+  let secondOverTwelve = false;
+
+  for (const value of values) {
+    const match = NUMERIC_DATE.exec(value);
+    if (match === null) continue;
+    if (Number(match[1]) > 12) firstOverTwelve = true;
+    if (Number(match[2]) > 12) secondOverTwelve = true;
+  }
+
+  if (firstOverTwelve && !secondOverTwelve) return { order: 'dmy', confident: true };
+  if (secondOverTwelve && !firstOverTwelve) return { order: 'mdy', confident: true };
+
+  // Either both look like days (the file is inconsistent) or neither does.
+  return { order: 'dmy', confident: false };
+}
 
 /**
  * Strips grouping and any currency mark, and returns paise.
@@ -189,11 +301,16 @@ const cell = (row: string[], index: number | null) =>
   index === null ? '' : (row[index] ?? '').trim();
 
 /** Applies a mapping to the table, reporting per-row problems rather than throwing. */
-export function buildRows(table: CsvTable, mapping: ColumnMapping): ImportRow[] {
+export function buildRows(
+  table: CsvTable,
+  mapping: ColumnMapping,
+  dateOrder: DateOrder,
+): ImportRow[] {
   return table.rows.map((row, index) => {
     const rawAmount = cell(row, mapping.amount);
     const amount = parseAmount(rawAmount);
     const date = cell(row, mapping.date);
+    const occurredAt = parseCsvDate(date, dateOrder);
     const item = cell(row, mapping.item);
     const issues: string[] = [];
 
@@ -205,12 +322,12 @@ export function buildRows(table: CsvTable, mapping: ColumnMapping): ImportRow[] 
     else if (amount === 0) issues.push('Amount is zero');
 
     if (mapping.date === null) issues.push('No column mapped to Date');
-    else if (!DATE_PATTERNS.some((pattern) => pattern.test(date)))
-      issues.push(`Date “${date}” is not a date`);
+    else if (occurredAt === null) issues.push(`Date “${date}” is not a date`);
 
     return {
       index,
       date,
+      occurredAt,
       item,
       amount,
       rawAmount,
@@ -233,3 +350,35 @@ export const summarise = (rows: ImportRow[]): ImportSummary => {
 /** Whether the mapping covers everything an expense cannot be created without. */
 export const isMappingComplete = (mapping: ColumnMapping) =>
   REQUIRED_FIELDS.every((field) => mapping[field] !== null);
+
+/* -------------------------------------------------------------------------- */
+/* Writing                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** A field that could be read as a formula when the file is opened elsewhere. */
+const FORMULA_START = /^[=+\-@\t\r]/;
+
+/**
+ * Escapes one field.
+ *
+ * The leading apostrophe on anything that starts like a formula is not
+ * decoration: this file exists to be opened in a spreadsheet, and a description
+ * beginning with `=` or `+` is executed there. Quoting alone does not prevent
+ * that.
+ */
+export function escapeCsvField(value: string): string {
+  const guarded = FORMULA_START.test(value) ? `'${value}` : value;
+  const needsQuotes = /[",\n\r]/.test(guarded) || guarded !== guarded.trim();
+
+  return needsQuotes ? `"${guarded.replace(/"/g, '""')}"` : guarded;
+}
+
+/** Byte-order mark, so Excel opens UTF-8 without mangling the rupee sign. */
+export const UTF8_BOM = '\uFEFF';
+
+export function serialiseCsv(headers: readonly string[], rows: readonly (readonly string[])[]): string {
+  const lines = [headers, ...rows].map((row) => row.map(escapeCsvField).join(','));
+
+  // CRLF per RFC4180; every spreadsheet reads it and some older ones need it.
+  return `${UTF8_BOM}${lines.join('\r\n')}\r\n`;
+}
