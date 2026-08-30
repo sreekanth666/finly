@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { ArrowLeft, Plus, Trash2, Undo2 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddSettlementSheet } from '@/components/add-settlement-sheet';
@@ -14,7 +14,11 @@ import { IconButton } from '@/components/icon-button';
 import { NotFound } from '@/components/not-found';
 import { SectionHeader } from '@/components/section-header';
 import { softDeleteExpense } from '@/db/repositories/expenses';
-import { addSettlement, type SettlementListItem } from '@/db/repositories/settlements';
+import {
+  addSettlement,
+  softDeleteSettlement,
+  type SettlementListItem,
+} from '@/db/repositories/settlements';
 import { useAction } from '@/db/use-action';
 import { formatMinor } from '@/domain/money';
 import { formatDateLong, formatDayLabel, formatTime } from '@/domain/period';
@@ -46,7 +50,13 @@ function DetailRow({ label, isFirst, children }: DetailRowProps) {
   );
 }
 
-function SettlementRow({ settlement }: { settlement: SettlementListItem }) {
+function SettlementRow({
+  settlement,
+  onDelete,
+}: {
+  settlement: SettlementListItem;
+  onDelete: () => void;
+}) {
   return (
     <View className="flex-row items-center gap-3 px-2 py-2">
       <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
@@ -70,6 +80,18 @@ function SettlementRow({ settlement }: { settlement: SettlementListItem }) {
         className="type-amount-sm text-income"
         fractionClassName="type-amount-sm"
       />
+
+      {/* A settlement entered by mistake has to be removable, or the expense is
+          stuck reading a figure that never happened. Soft delete, so the
+          expense's own history stays intact. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Remove this settlement"
+        hitSlop={8}
+        onPress={onDelete}
+        className="size-8 items-center justify-center rounded-lg active:bg-surface-secondary">
+        <Icon icon={Trash2} color="muted" size={14} />
+      </Pressable>
     </View>
   );
 }
@@ -90,6 +112,7 @@ export default function ExpenseDetailScreen() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const settle = useAction(addSettlement);
   const remove = useAction(softDeleteExpense);
+  const removeSettlement = useAction(softDeleteSettlement);
 
   const failure = detail.error ?? accounts.error;
   if (failure !== null && failure !== undefined) {
@@ -268,14 +291,29 @@ export default function ExpenseDetailScreen() {
           {settlements.length > 0 && (
             <View className="rounded-3xl bg-surface p-2">
               {settlements.map((settlement) => (
-                <SettlementRow key={settlement.id} settlement={settlement} />
+                <SettlementRow
+                  key={settlement.id}
+                  settlement={settlement}
+                  onDelete={() => {
+                    Alert.alert('Remove this settlement?', 'The expense goes back to its full amount.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Remove',
+                        style: 'destructive',
+                        onPress: () => {
+                          void removeSettlement.run(settlement.id);
+                        },
+                      },
+                    ]);
+                  }}
+                />
               ))}
             </View>
           )}
 
-          {settle.errorMessage !== null && (
+          {(settle.errorMessage ?? removeSettlement.errorMessage) !== null && (
             <Typography type="body-xs" className="text-danger">
-              {settle.errorMessage}
+              {settle.errorMessage ?? removeSettlement.errorMessage}
             </Typography>
           )}
 

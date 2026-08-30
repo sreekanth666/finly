@@ -11,8 +11,12 @@ import { ErrorState } from '@/components/error-state';
 import { FilterChipBar, type FilterOption } from '@/components/filter-chip-bar';
 import { Icon } from '@/components/icon';
 import { ScreenHeader } from '@/components/screen-header';
+import { SwipeToDelete } from '@/components/swipe-to-delete';
 import { TransactionRow, TRANSACTION_ROW_HEIGHT } from '@/components/transaction-row';
+import { UndoToast } from '@/components/undo-toast';
+import { restoreExpense, softDeleteExpense } from '@/db/repositories/expenses';
 import type { ExpenseListItem } from '@/db/repositories/expenses';
+import { useAction } from '@/db/use-action';
 import { flattenGroups, type FeedRow } from '@/domain/feed';
 import { useCategories } from '@/features/catalog/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
@@ -29,6 +33,7 @@ export default function TransactionsScreen() {
   const [search, setSearch] = useState('');
   const [budgetOnly, setBudgetOnly] = useState(false);
   const [limit, setLimit] = useState(PAGE_SIZE);
+  const [undoable, setUndoable] = useState<{ id: string; item: string } | null>(null);
 
   /*
    * Deferring the search keeps typing responsive: the query runs against the
@@ -60,6 +65,9 @@ export default function TransactionsScreen() {
     () => (feed.data === undefined ? [] : flattenGroups(feed.data.groups)),
     [feed.data],
   );
+
+  const remove = useAction(softDeleteExpense);
+  const restore = useAction(restoreExpense);
 
   const isFiltered = filter !== 'all' || search.trim().length > 0 || budgetOnly;
 
@@ -152,10 +160,20 @@ export default function TransactionsScreen() {
                 </Typography>
               </View>
             ) : (
-              <TransactionRow
-                expense={item.item}
-                onPress={() => router.push(`/expense/${item.item.id}`)}
-              />
+              <SwipeToDelete
+                accessibilityLabel={item.item.item}
+                onDelete={async () => {
+                  const outcome = await remove.run(item.item.id);
+                  /* Offer the undo only once the delete actually landed —
+                     otherwise a failed write leaves an Undo for something that
+                     was never deleted. */
+                  if (outcome.ok) setUndoable({ id: item.item.id, item: item.item.item });
+                }}>
+                <TransactionRow
+                  expense={item.item}
+                  onPress={() => router.push(`/expense/${item.item.id}`)}
+                />
+              </SwipeToDelete>
             )
           }
           /* Uniform row heights are the whole reason the feed is flattened: a
@@ -203,6 +221,17 @@ export default function TransactionsScreen() {
               />
             )
           }
+        />
+      )}
+
+      {undoable !== null && (
+        <UndoToast
+          message={`Deleted “${undoable.item}”`}
+          onUndo={async () => {
+            await restore.run(undoable.id);
+            setUndoable(null);
+          }}
+          onExpire={() => setUndoable(null)}
         />
       )}
     </SafeAreaView>
