@@ -193,5 +193,17 @@ export function formatEntry(entry: string): string {
   return `${CURRENCY_SYMBOL}${grouped}.${fraction}`;
 }
 
+/**
+ * Plain decimal rupees: `124050` → `'1240.50'`.
+ *
+ * No symbol and no grouping, because this is for a machine — a CSV cell that a
+ * spreadsheet has to read back as a number. Built from the digits rather than by
+ * dividing, so it cannot drift.
+ */
+export function formatMinorPlain(value: Minor): string {
+  const { whole, fraction } = splitDigits(String(Math.abs(value)));
+  return `${value < 0 ? '-' : ''}${whole}.${fraction}`;
+}
+
 /** Major units in, paise out. For seeds and fixtures only — never user input. */
 export const rupees = (major: number): Minor => asMinor(Math.round(major * MINOR_PER_MAJOR));

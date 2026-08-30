@@ -6,6 +6,7 @@ import {
   formatEntry,
   formatMinor,
   formatMinorParts,
+  formatMinorPlain,
   groupIndian,
   minorToEntry,
   parseMinor,
@@ -157,5 +158,21 @@ describe('speakMinor', () => {
     expect(speakMinor(asMinor(500000))).toBe('5,000 rupees');
     expect(speakMinor(asMinor(124050))).toBe('1,240 rupees 50 paise');
     expect(speakMinor(asMinor(-80000))).toBe('minus 800 rupees');
+  });
+});
+
+describe('formatMinorPlain', () => {
+  it('writes a number a spreadsheet can read back', () => {
+    expect(formatMinorPlain(asMinor(124050))).toBe('1240.50');
+    expect(formatMinorPlain(asMinor(5))).toBe('0.05');
+    expect(formatMinorPlain(ZERO_MINOR)).toBe('0.00');
+    expect(formatMinorPlain(asMinor(-80000))).toBe('-800.00');
+  });
+
+  it('carries no symbol and no grouping', () => {
+    const text = formatMinorPlain(asMinor(12345678));
+    expect(text).toBe('123456.78');
+    expect(text).not.toContain(',');
+    expect(text).not.toContain('₹');
   });
 });
