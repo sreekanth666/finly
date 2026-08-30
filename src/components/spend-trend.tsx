@@ -3,10 +3,10 @@ import { View } from 'react-native';
 
 import { Amount } from './amount';
 import { TrendBars, type TrendBar } from './trend-bars';
-import type { Minor } from '@/domain/money';
+import { speakMinor, type Minor } from '@/domain/money';
 
 export type SpendTrendProps = {
-  data: TrendBar[];
+  data: readonly TrendBar[];
   budget: Minor;
   width: number;
 };
@@ -16,9 +16,18 @@ export type SpendTrendProps = {
  * colour alone, and the budget line is labelled with the figure it represents.
  */
 export function SpendTrend({ data, budget, width }: SpendTrendProps) {
+  /* A bar chart is nothing at all to a screen reader, and the legend below only
+     explains the colours. The figures themselves are read out here. */
+  const spoken = [
+    `Monthly spend against a budget of ${speakMinor(budget)}.`,
+    ...data.map((bar) => `${bar.label}: ${speakMinor(bar.value)}`),
+  ].join(' ');
+
   return (
     <View className="gap-4 rounded-3xl bg-surface p-4">
-      <TrendBars data={data} reference={budget} width={width} />
+      <View accessible accessibilityRole="image" accessibilityLabel={spoken}>
+        <TrendBars data={data} reference={budget} width={width} />
+      </View>
 
       <View className="flex-row flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3">
         <View className="flex-row items-center gap-1.5">

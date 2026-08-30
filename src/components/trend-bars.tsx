@@ -12,7 +12,7 @@ export type TrendBar = {
 };
 
 export type TrendBarsProps = {
-  data: TrendBar[];
+  data: readonly TrendBar[];
   /** The budget each month is judged against. */
   reference: Minor;
   width: number;

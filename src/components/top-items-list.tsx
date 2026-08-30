@@ -6,7 +6,7 @@ import { Icon } from './icon';
 
 import { iconFor } from './icon-registry';
 
-import type { TopItem } from '@/data/insights';
+import type { TopItem } from '@/db/repositories/insights';
 import { toAppColor } from '@/theme';
 
 /**
@@ -14,13 +14,17 @@ import { toAppColor } from '@/theme';
  * answer "what did I keep buying" directly; encoding them as another five
  * colours would add a legend without adding an answer.
  */
-export function TopItemsList({ items }: { items: TopItem[] }) {
+export function TopItemsList({ items }: { items: readonly TopItem[] }) {
   return (
     <View className="gap-1 rounded-3xl bg-surface p-2">
       {items.map((item, index) => {
-        /* Insights is still a fixture until M6; the row carries its own display
-           fields so this component is already shaped for real query results. */
-        const category = { icon: iconFor(item.categoryIcon), tone: toAppColor(item.categoryTone, 'muted'), label: item.categoryLabel };
+        /* The row carries its own display fields, resolved by the query, so
+           this component never has to look a category up. */
+        const category = {
+          icon: iconFor(item.categoryIcon),
+          tone: toAppColor(item.categoryTone, 'muted'),
+          label: item.categoryLabel,
+        };
 
         return (
           <View key={item.id} className="flex-row items-center gap-3 px-2 py-2">
@@ -42,7 +46,7 @@ export function TopItemsList({ items }: { items: TopItem[] }) {
             </View>
 
             <Amount
-              value={item.amount}
+              value={item.amountMinor}
               className="type-amount-sm text-foreground"
               fractionClassName="type-amount-sm"
             />
