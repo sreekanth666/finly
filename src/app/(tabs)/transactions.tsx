@@ -12,13 +12,14 @@ import { Icon } from '@/components/icon';
 import { SafeAreaView } from '@/components/safe-area-view';
 import { ScreenHeader } from '@/components/screen-header';
 import { SwipeToDelete } from '@/components/swipe-to-delete';
+import { TransactionFilters } from '@/components/transaction-filters';
 import { TransactionRow, TRANSACTION_ROW_HEIGHT } from '@/components/transaction-row';
 import { UndoToast } from '@/components/undo-toast';
 import { restoreExpense, softDeleteExpense } from '@/db/repositories/expenses';
 import type { ExpenseListItem } from '@/db/repositories/expenses';
 import { useAction } from '@/db/use-action';
 import { flattenGroups, type FeedRow } from '@/domain/feed';
-import { addPeriods, currentPeriod, formatPeriodLong } from '@/domain/period';
+import { addPeriods, currentPeriod } from '@/domain/period';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
 import { useAppColor } from '@/theme';
@@ -116,106 +117,56 @@ export default function TransactionsScreen() {
           />
         </View>
 
-        <View className="mx-5 flex-row items-center gap-2 rounded-2xl bg-surface px-3">
-          <Icon icon={Search} color="muted" size={16} />
-          <TextInput
-            className="type-body-sm flex-1 py-2.5 text-foreground"
-            placeholder="Search item or note"
-            placeholderTextColor={mutedColor}
-            value={search}
-            onChangeText={setSearch}
-            autoCorrect={false}
-            returnKeyType="search"
-            accessibilityLabel="Search transactions"
+        {/* items-stretch, so the filter trigger takes its height from the field
+            beside it rather than needing one hard-coded to match. */}
+        <View className="flex-row items-stretch gap-2 px-5">
+          <View className="flex-1 flex-row items-center gap-2 rounded-2xl bg-surface px-3">
+            <Icon icon={Search} color="muted" size={16} />
+            <TextInput
+              className="type-body-sm flex-1 py-2.5 text-foreground"
+              placeholder="Search item or note"
+              placeholderTextColor={mutedColor}
+              value={search}
+              onChangeText={setSearch}
+              autoCorrect={false}
+              returnKeyType="search"
+              accessibilityLabel="Search transactions"
+            />
+            {search.length > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                hitSlop={8}
+                onPress={() => setSearch('')}>
+                <Icon icon={X} color="muted" size={16} />
+              </Pressable>
+            )}
+          </View>
+
+          <TransactionFilters
+            monthsBack={monthsBack}
+            onMonthsBackChange={setMonthsBack}
+            accountId={accountId}
+            onAccountIdChange={setAccountId}
+            budgetOnly={budgetOnly}
+            onBudgetOnlyChange={setBudgetOnly}
+            accounts={accounts.data ?? []}
+            resultCount={feed.data?.total}
           />
-          {search.length > 0 && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Clear search"
-              hitSlop={8}
-              onPress={() => setSearch('')}>
-              <Icon icon={X} color="muted" size={16} />
-            </Pressable>
-          )}
         </View>
 
         <FilterChipBar options={filters} selectedId={filter} onSelect={setFilter} />
 
-        {/* Month and account sit below the categories rather than beside them:
-            three chip rows in a row reads as one undifferentiated wall. */}
-        <View className="flex-row items-center gap-2 px-5">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: monthsBack !== null }}
-            accessibilityLabel="Filter by month"
-            hitSlop={6}
-            onPress={() =>
-              setMonthsBack((current) => (current === null ? 0 : current >= 11 ? null : current + 1))
-            }
-            className={
-              monthsBack === null
-                ? 'rounded-full border border-border px-3 py-1.5'
-                : 'rounded-full border border-accent bg-accent px-3 py-1.5'
-            }>
-            <Typography
-              type="body-xs"
-              weight="medium"
-              className={monthsBack === null ? 'text-muted' : 'text-accent-foreground'}>
-              {period === undefined ? 'Any month' : formatPeriodLong(period)}
-            </Typography>
-          </Pressable>
-
-          {(accounts.data ?? []).length > 0 && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: accountId !== null }}
-              accessibilityLabel="Filter by account"
-              hitSlop={6}
-              onPress={() => {
-                const rows = accounts.data ?? [];
-                const index = rows.findIndex((row) => row.id === accountId);
-                setAccountId(index === rows.length - 1 ? null : (rows[index + 1]?.id ?? null));
-              }}
-              className={
-                accountId === null
-                  ? 'rounded-full border border-border px-3 py-1.5'
-                  : 'rounded-full border border-accent bg-accent px-3 py-1.5'
-              }>
-              <Typography
-                type="body-xs"
-                weight="medium"
-                className={accountId === null ? 'text-muted' : 'text-accent-foreground'}>
-                {(accounts.data ?? []).find((row) => row.id === accountId)?.name ?? 'Any account'}
-              </Typography>
-            </Pressable>
-          )}
-        </View>
-
-        <View className="flex-row items-center gap-2 px-5">
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityState={{ checked: budgetOnly }}
-            accessibilityLabel="Show only expenses that count toward the budget"
-            hitSlop={6}
-            onPress={() => setBudgetOnly((current) => !current)}
-            className={
-              budgetOnly
-                ? 'rounded-full border border-accent bg-accent px-3 py-1.5'
-                : 'rounded-full border border-border px-3 py-1.5'
-            }>
-            <Typography
-              type="body-xs"
-              weight="medium"
-              className={budgetOnly ? 'text-accent-foreground' : 'text-muted'}>
-              Budget only
-            </Typography>
-          </Pressable>
-          {feed.data !== undefined && (
+        {/* The count sat on the end of the budget-only row; with that row gone
+            it lives under the categories, where it still answers "how much did
+            the filters just cut away?". */}
+        {feed.data !== undefined && (
+          <View className="px-5">
             <Typography type="body-xs" color="muted">
               {feed.data.total === 1 ? '1 expense' : `${feed.data.total} expenses`}
             </Typography>
-          )}
-        </View>
+          </View>
+        )}
       </View>
 
       {feed.error !== null ? (
