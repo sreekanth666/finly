@@ -62,12 +62,19 @@ export default function DataTransferScreen() {
     }),
   );
 
-  const contents = [
-    `${expenseCount.data ?? 0} expenses`,
-    `${accountCount.data ?? 0} accounts`,
-    `${catalogue.data?.categories ?? 0} categories`,
-    `${catalogue.data?.rules ?? 0} rules`,
-  ].join(' · ');
+  /* Every count here has to be real. "Covers 0 expenses" next to a Backup
+     button is an actively dangerous thing to show when the read simply failed. */
+  const counts = [
+    [expenseCount.data, 'expense', 'expenses'],
+    [accountCount.data, 'account', 'accounts'],
+    [catalogue.data?.categories, 'category', 'categories'],
+    [catalogue.data?.rules, 'rule', 'rules'],
+  ] as const;
+
+  const isCountable = counts.every(([value]) => value !== undefined);
+  const contents = counts
+    .map(([value, one, many]) => `${value} ${value === 1 ? one : many}`)
+    .join(' · ');
 
   const exportedAt = lastExportAt.data ?? null;
   const isStale = exportedAt === null || Date.now() - exportedAt > STALE_AFTER_MS;
@@ -180,7 +187,7 @@ export default function DataTransferScreen() {
           </View>
 
           <Typography type="body-xs" color="muted" className="px-1">
-            {`Covers ${contents}.`}
+            {isCountable ? `Covers ${contents}.` : 'Counting what this covers…'}
           </Typography>
 
           {notice !== null && (

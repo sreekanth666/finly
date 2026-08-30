@@ -26,9 +26,16 @@ type TransactionBody<T> = (tx: DbLike) => T;
 /**
  * Reads-then-writes that must not interleave. `immediate` takes the write lock
  * up front, so the transaction cannot fail partway through on a busy database.
+ *
+ * @param database the handle to run on. Defaults to the shared connection, but
+ * taking it is what makes `DbLike` mean what client.ts says it means: passing a
+ * transaction handle nests via a SAVEPOINT rather than silently escaping the
+ * caller's transaction. Previously every write ignored the handle it was given
+ * and committed through the global one — harmless only because nothing composed
+ * them yet.
  */
-export function writeTransaction<T>(body: TransactionBody<T>): T {
-  return db.transaction(body, { behavior: 'immediate' });
+export function writeTransaction<T>(body: TransactionBody<T>, database: DbLike = db): T {
+  return database.transaction(body, { behavior: 'immediate' });
 }
 
 /** Yield to the UI between batches of a long bulk write. */

@@ -3,7 +3,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ExpenseForm } from '@/components/expense-form';
 import { NotFound } from '@/components/not-found';
 import { updateExpense } from '@/db/repositories/expenses';
-import { recordRuleApplied } from '@/db/repositories/rules';
 import { useAction } from '@/db/use-action';
 import { minorToEntry } from '@/domain/money';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
@@ -66,6 +65,8 @@ export default function EditExpenseScreen() {
         const outcome = await save.run(expense.id, draft);
         if (outcome.ok) router.back();
       }}
+      /* Editing does not move a rule's use count: the rule did not decide this
+         expense, the user did, and it was already counted when it was added. */
       onClose={() => router.back()}
     />
   );

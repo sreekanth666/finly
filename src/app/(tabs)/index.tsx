@@ -174,11 +174,14 @@ export default function BalanceScreen() {
             amount={isCurrent ? perDay : absMinor(period.remaining)}
             icon={CalendarClock}
           />
+          {/* A failed read must not render as ₹0 — that is a number the user
+              would believe. */}
           <StatCard
             tone="iris"
             title="Off budget"
-            caption="tracked, outside the cap"
+            caption={offBudget.error === null ? 'tracked, outside the cap' : 'could not be read'}
             amount={offBudget.data ?? ZERO_MINOR}
+            isUnavailable={offBudget.error !== null}
             icon={Receipt}
           />
         </View>

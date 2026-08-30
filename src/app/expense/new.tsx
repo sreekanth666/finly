@@ -33,14 +33,17 @@ export default function NewExpenseScreen() {
       initial={{ accountId: defaults.data?.accountId ?? null }}
       isSubmitting={save.isPending}
       errorMessage={save.errorMessage}
-      onSubmit={async (draft) => {
+      onSubmit={async (draft, appliedRuleId) => {
         const outcome = await save.run(draft);
-        if (outcome.ok) router.back();
+        if (!outcome.ok) return;
+        if (appliedRuleId !== null) recordRuleApplied(appliedRuleId);
+        router.back();
       }}
       /* Save & add another stays on the form — the whole point is the next
          expense, so navigating away would undo the saving it does (§7.2). */
-      onSubmitAndContinue={(draft) => {
-        void save.run(draft);
+      onSubmitAndContinue={async (draft) => {
+        const outcome = await save.run(draft);
+        return outcome.ok;
       }}
       onClose={() => router.back()}
     />

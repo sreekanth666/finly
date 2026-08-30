@@ -38,12 +38,26 @@ export class NotFoundError extends RepositoryError {
  * §5: total settlements for an expense may not exceed its amount. SQLite cannot
  * express a constraint that spans rows, so the repository enforces it.
  */
+/**
+ * The rule can be broken from either side: by settling more than the expense is
+ * worth, or by editing the expense down below what has already come back. Both
+ * land here, and each needs its own sentence — "more than is outstanding" is
+ * meaningless when the user was editing an amount.
+ */
+export type SettlementCapBreach = 'settling-too-much' | 'lowering-below-settled';
+
 export class SettlementExceedsExpenseError extends RepositoryError {
   readonly userMessage: string;
 
-  constructor(readonly remainingMinor: number) {
-    super(`settlement exceeds the expense by more than ${remainingMinor} paise`);
-    this.userMessage = 'That is more than is still outstanding on this expense.';
+  constructor(
+    readonly boundaryMinor: number,
+    readonly breach: SettlementCapBreach = 'settling-too-much',
+  ) {
+    super(`settlement cap breached (${breach}) at ${boundaryMinor} paise`);
+    this.userMessage =
+      breach === 'settling-too-much'
+        ? 'That is more than is still outstanding on this expense.'
+        : 'This expense already has more returned against it than that. Remove a settlement first.';
   }
 }
 

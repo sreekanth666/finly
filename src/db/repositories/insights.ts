@@ -18,6 +18,20 @@ import { categories, expenses, settlements } from '../schema';
 /** Effective spend, settlements deducted — the same expression spentByPeriod uses. */
 const EFFECTIVE = sql<number>`sum(max(0, ${expenses.amountMinor} - coalesce(settled.settled_total, 0)))`;
 
+/**
+ * Every figure on this screen means §4.3's `spent(P)`: effective, and counting
+ * only what the budget counts.
+ *
+ * This has to be the same definition the trend chart uses, because they sit
+ * beside each other. When the headline and the donut included off-budget
+ * spending and the trend bar for the same month did not, one screen showed two
+ * different answers to one question — and a ₹45,000 laptop is exactly the kind
+ * of expense that makes the gap large enough to notice and impossible to
+ * explain. Off-budget spending is shown as its own figure instead.
+ */
+const inPeriod = (period: PeriodKey) =>
+  and(isNull(expenses.deletedAt), eq(expenses.countsToBudget, true), eq(expenses.budgetPeriod, period));
+
 const settledTotals = (database: DbLike) =>
   database
     .select({
@@ -65,7 +79,7 @@ export function spendByCategory(period: PeriodKey, database: DbLike = db): Categ
     .from(expenses)
     .leftJoin(settled, eq(settled.expenseId, expenses.id))
     .leftJoin(categories, eq(categories.id, expenses.categoryId))
-    .where(and(isNull(expenses.deletedAt), eq(expenses.budgetPeriod, period)))
+    .where(inPeriod(period))
     .groupBy(expenses.categoryId)
     .orderBy(desc(EFFECTIVE))
     .all();
@@ -180,7 +194,7 @@ export function topItems(period: PeriodKey, limit: number, database: DbLike = db
     })
     .from(expenses)
     .leftJoin(settled, eq(settled.expenseId, expenses.id))
-    .where(and(isNull(expenses.deletedAt), eq(expenses.budgetPeriod, period)))
+    .where(inPeriod(period))
     .groupBy(expenses.item)
     .orderBy(desc(EFFECTIVE))
     .limit(limit)
@@ -205,7 +219,7 @@ export function totalSpend(period: PeriodKey, database: DbLike = db): Minor {
     .select({ amount: EFFECTIVE })
     .from(expenses)
     .leftJoin(settled, eq(settled.expenseId, expenses.id))
-    .where(and(isNull(expenses.deletedAt), eq(expenses.budgetPeriod, period)))
+    .where(inPeriod(period))
     .get();
 
   return asMinor(row?.amount ?? 0);

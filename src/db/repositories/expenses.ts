@@ -20,7 +20,7 @@ import { summariseSettlements } from '@/domain/settlement';
 
 import { markCarryDirty, markCarryDirtyForMove } from '../carry-over';
 import { db, type DbLike } from '../client';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, SettlementExceedsExpenseError, ValidationError } from '../errors';
 import { newId } from '../id';
 import { accounts, categories, expenses, settlements, type ExpenseRow } from '../schema';
 import { writeTransaction } from '../transaction';
@@ -105,11 +105,20 @@ function buildWhere(filter: ExpenseFilter) {
 
   const search = filter.search?.trim();
   if (search !== undefined && search.length > 0) {
-    // LIKE will scan; at a few thousand rows that is about a millisecond. FTS5
-    // is the answer if this ever stops being true.
-    const pattern = `%${search.replace(/[%_]/g, (char) => `\\${char}`)}%`;
+    /*
+     * LIKE will scan; at a few thousand rows that is about a millisecond, and
+     * FTS5 is the answer if that ever stops being true.
+     *
+     * SQLite has no default escape character, so escaping the wildcards is only
+     * half the job — without the ESCAPE clause a search for a literal '%' looks
+     * for a backslash followed by '%' and finds nothing.
+     */
+    const pattern = `%${search.replace(/[%_\\]/g, (char) => `\\${char}`)}%`;
     clauses.push(
-      or(like(expenses.item, pattern), like(expenses.note, pattern)) ?? alive,
+      or(
+        sql`${expenses.item} like ${pattern} escape '\\'`,
+        sql`${expenses.note} like ${pattern} escape '\\'`,
+      )!,
     );
   }
 
@@ -210,13 +219,21 @@ export function getExpenseDetail(id: string, database: DbLike = db): ExpenseDeta
   };
 }
 
-/** Distinct recent descriptions, most recent first — the §7.2 suggestions. */
+/**
+ * Distinct recent descriptions, most recent first — the §7.2 suggestions.
+ *
+ * Grouped rather than `SELECT DISTINCT … ORDER BY occurred_at`: that form orders
+ * by a column outside the result set, which SQLite permits and answers with an
+ * arbitrary row per group, so the suggestions were not actually the recent ones.
+ * Ordering by `max(occurred_at)` asks the question that was meant.
+ */
 export const listRecentItems = (limit: number, database: DbLike = db): string[] =>
   database
-    .selectDistinct({ item: expenses.item })
+    .select({ item: expenses.item, lastUsed: sql<number>`max(${expenses.occurredAt})` })
     .from(expenses)
     .where(alive)
-    .orderBy(desc(expenses.occurredAt))
+    .groupBy(expenses.item)
+    .orderBy(desc(sql`max(${expenses.occurredAt})`))
     .limit(limit)
     .all()
     .map((row) => row.item);
@@ -372,7 +389,7 @@ export function createExpense(input: ExpenseInput, database: DbLike = db): strin
   writeTransaction((tx) => {
     tx.insert(expenses).values({ id, ...values, currency: 'INR', createdAt: now, updatedAt: now }).run();
     markCarryDirty(values.budgetPeriod, tx);
-  });
+  }, database);
 
   return id;
 }
@@ -380,12 +397,33 @@ export function createExpense(input: ExpenseInput, database: DbLike = db): strin
 export function updateExpense(id: string, input: ExpenseInput, database: DbLike = db): void {
   validate(input);
 
-  const existing = database.select().from(expenses).where(eq(expenses.id, id)).get();
+  const existing = database
+    .select()
+    .from(expenses)
+    .where(and(eq(expenses.id, id), alive))
+    .get();
   if (existing === undefined) throw new NotFoundError('Expense', id);
 
   const values = normalise(input);
 
   writeTransaction((tx) => {
+    /*
+     * §5's rule is that settlements may never exceed the expense, and lowering
+     * the amount can break it just as surely as adding a settlement can. Read
+     * the settled total inside the same transaction that writes, for the same
+     * reason addSettlement does.
+     */
+    const settled = tx
+      .select({ total: sql<number>`coalesce(sum(${settlements.amountMinor}), 0)` })
+      .from(settlements)
+      .where(and(eq(settlements.expenseId, id), isNull(settlements.deletedAt)))
+      .get();
+    const settledMinor = asMinor(settled?.total ?? 0);
+
+    if (values.amountMinor < settledMinor) {
+      throw new SettlementExceedsExpenseError(settledMinor, 'lowering-below-settled');
+    }
+
     tx.update(expenses)
       .set({ ...values, updatedAt: Date.now() })
       .where(eq(expenses.id, id))
@@ -404,7 +442,7 @@ export function updateExpense(id: string, input: ExpenseInput, database: DbLike 
     ) {
       markCarryDirtyForMove(existing.budgetPeriod, values.budgetPeriod, tx);
     }
-  });
+  }, database);
 }
 
 export function softDeleteExpense(id: string, database: DbLike = db): void {
@@ -414,7 +452,7 @@ export function softDeleteExpense(id: string, database: DbLike = db): void {
   writeTransaction((tx) => {
     tx.update(expenses).set({ deletedAt: Date.now(), updatedAt: Date.now() }).where(eq(expenses.id, id)).run();
     markCarryDirty(existing.budgetPeriod, tx);
-  });
+  }, database);
 }
 
 /** The undo behind the swipe. Soft delete is what makes it free. */
@@ -425,5 +463,5 @@ export function restoreExpense(id: string, database: DbLike = db): void {
   writeTransaction((tx) => {
     tx.update(expenses).set({ deletedAt: null, updatedAt: Date.now() }).where(eq(expenses.id, id)).run();
     markCarryDirty(existing.budgetPeriod, tx);
-  });
+  }, database);
 }

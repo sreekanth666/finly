@@ -138,6 +138,23 @@ export function formatPeriodShort(period: PeriodKey): string {
   return MONTHS_SHORT[month - 1]!;
 }
 
+/**
+ * Whether a newly-dirtied period should replace the one already recorded.
+ *
+ * Pure, and separated out because getting it wrong is invisible: an over-eager
+ * guard silently retires the recompute rather than producing a wrong number.
+ * A blank or absent marker means nothing is recorded yet, and a blank string is
+ * treated as absent deliberately — an earlier version cleared the marker by
+ * writing '', which reads back as a value and made every later mark a no-op.
+ *
+ * @param existing what is stored, or null when nothing is.
+ */
+export const shouldReplaceDirtyPeriod = (
+  existing: string | null,
+  period: PeriodKey,
+): boolean =>
+  existing === null || existing === '' || comparePeriods(period, existing) < 0;
+
 /* -------------------------------------------------------------------------- */
 /* Days                                                                         */
 /* -------------------------------------------------------------------------- */

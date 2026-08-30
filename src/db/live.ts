@@ -16,7 +16,7 @@
 import { addDatabaseChangeListener } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { DATABASE_NAME, db, type Db } from './client';
+import { db, sqlite, type Db } from './client';
 import { toError } from './errors';
 
 export type TableName =
@@ -129,7 +129,14 @@ export function useDbQuery<T>(
     };
 
     const subscription = addDatabaseChangeListener((event) => {
-      if (event.databaseName !== DATABASE_NAME) return;
+      /*
+       * `event.databaseName` is SQLite's SCHEMA name — 'main' for the primary
+       * database, and something else only for an ATTACHed one. It is NOT the
+       * file name. Comparing it against 'finly.db' silently discarded every
+       * event, which left the whole app showing stale data until a screen
+       * remounted. The absolute path is the field that identifies the file.
+       */
+      if (event.databaseFilePath !== sqlite.databasePath) return;
       if (!watched.has(event.tableName)) return;
       if (isInvalidationSuppressed()) return;
       schedule();

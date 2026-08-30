@@ -16,6 +16,8 @@ export type StatCardProps = {
   title: string;
   caption: string;
   amount: Minor;
+  /** Renders a dash instead of the amount, for a figure that could not be read. */
+  isUnavailable?: boolean;
   icon: LucideIcon;
 };
 
@@ -41,7 +43,14 @@ const TONES: Record<
   },
 };
 
-export function StatCard({ tone, title, caption, amount, icon }: StatCardProps) {
+export function StatCard({
+  tone,
+  title,
+  caption,
+  amount,
+  isUnavailable = false,
+  icon,
+}: StatCardProps) {
   const styles = TONES[tone];
 
   return (
@@ -59,7 +68,11 @@ export function StatCard({ tone, title, caption, amount, icon }: StatCardProps) 
         <Typography type="body-xs" className={styles.text}>
           {caption}
         </Typography>
-        <Amount value={amount} className={`type-amount ${styles.text}`} />
+        {isUnavailable ? (
+          <Typography className={`type-amount ${styles.text}`}>—</Typography>
+        ) : (
+          <Amount value={amount} className={`type-amount ${styles.text}`} />
+        )}
       </View>
     </View>
   );

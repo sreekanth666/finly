@@ -63,9 +63,14 @@ export type ExpenseFormProps = {
   submitLabel: string;
   isSubmitting?: boolean;
   errorMessage?: string | null;
-  onSubmit: (draft: ExpenseDraft) => void;
-  /** Add-only. Providing it shows the second action and clears the form after. */
-  onSubmitAndContinue?: (draft: ExpenseDraft) => void;
+  /** @param appliedRuleId the rule that decided a field, or null. */
+  onSubmit: (draft: ExpenseDraft, appliedRuleId: string | null) => void;
+  /**
+   * Add-only. Providing it shows the second action. Must resolve true when the
+   * expense was actually saved — the form only clears itself on a true result,
+   * because clearing after a failed write throws away what the user typed.
+   */
+  onSubmitAndContinue?: (draft: ExpenseDraft) => Promise<boolean>;
   onClose: () => void;
 };
 
@@ -218,10 +223,19 @@ export function ExpenseForm({
   };
 
   /** Save & add another keeps the date and the account, per §7.2. */
-  const handleSubmitAndContinue = () => {
+  const handleSubmitAndContinue = async () => {
     const ruleId = appliedRuleId();
+
+    /*
+     * Everything below wipes the form, so it waits for the write. The earlier
+     * version cleared synchronously while the insert was still in flight, which
+     * meant a failed save silently discarded the expense the user had just
+     * typed — and counted the rule that filled it in.
+     */
+    const saved = await onSubmitAndContinue?.(draft());
+    if (saved !== true) return;
+
     if (ruleId !== null) onRuleApplied?.(ruleId);
-    onSubmitAndContinue?.(draft());
 
     setOverridden({ category: false, account: activeAccountId !== null, counts: false });
     if (activeAccountId) setAccountId(activeAccountId);
@@ -431,7 +445,7 @@ export function ExpenseForm({
                 tone="secondary"
                 label="Save & add another"
                 isDisabled={!canSave}
-                onPress={handleSubmitAndContinue}
+                onPress={() => void handleSubmitAndContinue()}
               />
             </View>
           )}
@@ -440,9 +454,9 @@ export function ExpenseForm({
               label={isSubmitting ? 'Saving…' : submitLabel}
               isDisabled={!canSave}
               onPress={() => {
-                const ruleId = appliedRuleId();
-                if (ruleId !== null) onRuleApplied?.(ruleId);
-                onSubmit(draft());
+                /* onSubmit reports its own success; the rule counter is moved by
+                   the route once the write lands, for the same reason. */
+                onSubmit(draft(), appliedRuleId());
               }}
             />
           </View>
