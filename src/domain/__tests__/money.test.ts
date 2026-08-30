@@ -1,5 +1,9 @@
 import {
   addMinor,
+  CURRENCIES,
+  groupWestern,
+  setActiveCurrency,
+  toCurrency,
   asMinor,
   clampMinorAtZero,
   entryToMinor,
@@ -174,5 +178,60 @@ describe('formatMinorPlain', () => {
     expect(text).toBe('123456.78');
     expect(text).not.toContain(',');
     expect(text).not.toContain('₹');
+  });
+});
+
+describe('currency', () => {
+  const usd = CURRENCIES.USD;
+  const inr = CURRENCIES.INR;
+
+  it('groups by convention, not just by symbol', () => {
+    // The same integer, written the two ways. A symbol swap alone would put
+    // Indian grouping on a dollar amount.
+    expect(formatMinor(asMinor(12405050), { currency: inr })).toBe('₹1,24,050.50');
+    expect(formatMinor(asMinor(12405050), { currency: usd })).toBe('$124,050.50');
+  });
+
+  it('groups western amounts in threes at every magnitude', () => {
+    expect(groupWestern('5')).toBe('5');
+    expect(groupWestern('5000')).toBe('5,000');
+    expect(groupWestern('124050')).toBe('124,050');
+    expect(groupWestern('12345678')).toBe('12,345,678');
+  });
+
+  it('names the fractional unit the way the currency does', () => {
+    expect(speakMinor(asMinor(124050), inr)).toBe('1,240 rupees 50 paise');
+    expect(speakMinor(asMinor(124050), usd)).toBe('1,240 dollars 50 cents');
+  });
+
+  it('formats the live keypad entry in the chosen currency', () => {
+    expect(formatEntry('124050', inr)).toBe('₹1,24,050');
+    expect(formatEntry('124050', usd)).toBe('$124,050');
+  });
+
+  it('follows the active currency when none is given', () => {
+    setActiveCurrency(usd);
+    expect(formatMinor(asMinor(12405050))).toBe('$124,050.50');
+    setActiveCurrency(inr);
+    expect(formatMinor(asMinor(12405050))).toBe('₹1,24,050.50');
+  });
+
+  it('falls back rather than throwing on a code it does not know', () => {
+    // A restored backup could name a currency this build predates.
+    expect(toCurrency('JPY').code).toBe('INR');
+    expect(toCurrency(null).code).toBe('INR');
+    expect(toCurrency('USD').code).toBe('USD');
+  });
+
+  it('changes only the display — the stored integer is untouched', () => {
+    const stored = asMinor(500000);
+    setActiveCurrency(usd);
+    const asDollars = formatMinor(stored);
+    setActiveCurrency(inr);
+    const asRupees = formatMinor(stored);
+
+    expect(asDollars).toBe('$5,000.00');
+    expect(asRupees).toBe('₹5,000.00');
+    expect(stored).toBe(500000);
   });
 });

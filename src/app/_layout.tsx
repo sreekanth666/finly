@@ -2,7 +2,7 @@ import '@/global.css';
 
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { useFonts } from 'expo-font';
-import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, Redirect, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { HeroUINativeProvider } from 'heroui-native';
@@ -14,10 +14,11 @@ import migrations from '../../drizzle/migrations';
 import { scheduleCarryOverFlush } from '@/db/carry-over';
 import { db, openError } from '@/db/client';
 import { toError } from '@/db/errors';
-import { getFlag } from '@/db/repositories/settings';
+import { getCurrency, getFlag } from '@/db/repositories/settings';
 import { runSeed } from '@/db/seed';
 import { AppLock } from '@/features/security/app-lock';
 import { MigrationFailureScreen } from '@/features/recovery/migration-failure-screen';
+import { setActiveCurrency } from '@/domain/money';
 import { useAppColor } from '@/theme';
 import { appFonts } from '@/theme/fonts';
 
@@ -45,6 +46,7 @@ export default function RootLayout() {
   const [seedError, setSeedError] = useState<Error | null>(null);
   const [retryToken, setRetryToken] = useState(0);
   const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   const [background, surface, foreground, border, accent] = useAppColor([
     'background',
@@ -58,9 +60,15 @@ export default function RootLayout() {
     if (!migrated) return;
     try {
       runSeed();
+      /* Applied before the first render, so no screen ever paints in the wrong
+         currency and then corrects itself. */
+      setActiveCurrency(getCurrency());
       /* Read once at boot rather than live: re-reading would re-lock the app the
          moment the user turned the setting on. */
       setIsAppLockEnabled(getFlag('app_lock_enabled'));
+      /* Read once, not live: re-reading would bounce the user back into the
+         flow the instant it wrote onboarding_done. */
+      setNeedsOnboarding(!getFlag('onboarding_done'));
       setIsSeeded(true);
       setSeedError(null);
     } catch (cause) {
@@ -135,10 +143,15 @@ export default function RootLayout() {
               <Stack.Screen name="settings/accounts/index" />
               <Stack.Screen name="settings/accounts/new" />
               <Stack.Screen name="settings/accounts/[id]" />
+              <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
               <Stack.Screen name="settings/security" />
+              <Stack.Screen name="settings/currency" />
               <Stack.Screen name="settings/data" />
               {/* Import is a task with its own steps, so it comes up over settings. */}
               <Stack.Screen name="settings/import" options={{ presentation: 'modal' }} />
+              {/* §5: categories and a budget are seeded, accounts deliberately
+                  are not — "the user adds their own, prompted once". */}
+              {needsOnboarding && <Redirect href="/onboarding" />}
             </Stack>
             </AppLock>
           )}

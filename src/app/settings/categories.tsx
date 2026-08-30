@@ -1,17 +1,19 @@
 import { router } from 'expo-router';
 import { Input, Typography } from 'heroui-native';
-import { Archive, ArrowLeft, RotateCcw } from 'lucide-react-native';
+import { Archive, ArrowLeft, Plus, RotateCcw } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ErrorState } from '@/components/error-state';
 import { Icon } from '@/components/icon';
-import { iconFor } from '@/components/icon-registry';
+import { Button } from '@/components/button';
+import { ICON_NAMES, iconFor } from '@/components/icon-registry';
 import { IconButton } from '@/components/icon-button';
 import { ReorderButtons } from '@/components/reorder-buttons';
 import { SectionHeader } from '@/components/section-header';
 import {
+  createCategory,
   renameCategory,
   reorderCategories,
   setCategoryArchived,
@@ -44,7 +46,13 @@ export default function CategoriesSettingsScreen() {
   const rename = useAction(renameCategory);
   const reorder = useAction(reorderCategories);
   const archive = useAction(setCategoryArchived);
-  const failure = rename.errorMessage ?? reorder.errorMessage ?? archive.errorMessage;
+  /* §7.7 lists categories as manageable, but until now the only way to create
+     one was through a CSV import that happened to name an unknown category. */
+  const create = useAction(createCategory);
+  const [newName, setNewName] = useState('');
+  const [iconIndex, setIconIndex] = useState(0);
+  const failure =
+    rename.errorMessage ?? reorder.errorMessage ?? archive.errorMessage ?? create.errorMessage;
 
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const nameOf = (category: CategoryRow) => drafts[category.id] ?? category.name;
@@ -141,6 +149,49 @@ export default function CategoriesSettingsScreen() {
             ))}
           </View>
           )}
+
+          <View className="gap-2 rounded-3xl bg-surface p-4">
+            <Typography type="body-sm" weight="semibold">
+              Add a category
+            </Typography>
+            <View className="flex-row items-center gap-2">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Change the icon"
+                hitSlop={10}
+                onPress={() => setIconIndex((current) => (current + 1) % ICON_NAMES.length)}
+                className="size-10 items-center justify-center rounded-xl bg-surface-secondary active:opacity-60">
+                <Icon icon={iconFor(ICON_NAMES[iconIndex])} color="muted" size={16} />
+              </Pressable>
+              <View className="flex-1">
+                <Input
+                  placeholder="Pets, Travel, Gifts…"
+                  value={newName}
+                  onChangeText={setNewName}
+                  autoCapitalize="words"
+                  accessibilityLabel="New category name"
+                />
+              </View>
+            </View>
+            <Button
+              label="Add"
+              icon={Plus}
+              size="sm"
+              isDisabled={newName.trim().length === 0 || create.isPending}
+              onPress={async () => {
+                const outcome = await create.run({
+                  name: newName,
+                  icon: ICON_NAMES[iconIndex] ?? 'Ellipsis',
+                  colorToken: 'muted',
+                  chartTone: 'chart-5',
+                });
+                if (outcome.ok) {
+                  setNewName('');
+                  categories.refetch();
+                }
+              }}
+            />
+          </View>
 
           {failure !== null && (
             <Typography type="body-xs" className="px-1 text-danger">

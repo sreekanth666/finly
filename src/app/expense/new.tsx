@@ -5,12 +5,12 @@ import { NotFound } from '@/components/not-found';
 import { recordRuleApplied } from '@/db/repositories/rules';
 import { useAction } from '@/db/use-action';
 import { createExpense } from '@/db/repositories/expenses';
-import { useAccounts, useCategories } from '@/features/catalog/hooks';
+import { useAccounts, useCategoriesByUse } from '@/features/catalog/hooks';
 import { useActiveRules } from '@/features/rules/hooks';
 import { useEntryDefaults } from '@/features/expenses/hooks';
 
 export default function NewExpenseScreen() {
-  const categories = useCategories();
+  const categories = useCategoriesByUse();
   const accounts = useAccounts();
   const defaults = useEntryDefaults();
   const rules = useActiveRules();

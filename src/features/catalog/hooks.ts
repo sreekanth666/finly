@@ -8,6 +8,7 @@
  */
 
 import { listAccounts, listCreditCards } from '@/db/repositories/accounts';
+import { categoriesByUse } from '@/db/repositories/expenses';
 import { listCategories } from '@/db/repositories/categories';
 import { useDbQuery, type TableName } from '@/db/live';
 import type { AccountRow, CategoryRow } from '@/db/schema';
@@ -40,3 +41,25 @@ export function useCreditCards() {
 /** Chip options, which is the shape every picker in the app actually wants. */
 export const toOptions = <T extends { id: string; name: string }>(rows: readonly T[]) =>
   rows.map((row) => ({ id: row.id, label: row.name }));
+
+/**
+ * Categories with the ones actually used most at the front (§7.2).
+ *
+ * Falls back to the configured order for everything unused, so a fresh install
+ * still gets a sensible list rather than an arbitrary one.
+ */
+export function useCategoriesByUse(limit = 40) {
+  return useDbQuery<CategoryRow[]>(
+    `categories:by-use:${limit}`,
+    ['categories', 'expenses'],
+    (database) => {
+      const rows = listCategories({}, database);
+      const ranked = categoriesByUse(limit, database);
+      const rank = new Map(ranked.map((id, index) => [id, index]));
+
+      return [...rows].sort(
+        (a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+      );
+    },
+  );
+}

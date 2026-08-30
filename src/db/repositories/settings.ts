@@ -7,7 +7,7 @@
 
 import { eq } from 'drizzle-orm';
 
-import { asMinor, type Minor } from '@/domain/money';
+import { asMinor, toCurrency, type Currency, type Minor } from '@/domain/money';
 
 import { db, type DbLike } from '../client';
 import { settings, type SettingKey } from '../schema';
@@ -47,3 +47,10 @@ export function getMinorSetting(key: SettingKey, fallback: Minor, database: DbLi
 
 export const setMinorSetting = (key: SettingKey, value: Minor, database: DbLike = db): void =>
   setSetting(key, String(value), database);
+
+/** The app-wide display currency. Falls back rather than throwing on an unknown code. */
+export const getCurrency = (database: DbLike = db): Currency =>
+  toCurrency(getSetting('currency', database));
+
+export const setCurrency = (currency: Currency, database: DbLike = db): void =>
+  setSetting('currency', currency.code, database);

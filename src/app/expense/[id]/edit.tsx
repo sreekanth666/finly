@@ -5,7 +5,7 @@ import { NotFound } from '@/components/not-found';
 import { updateExpense } from '@/db/repositories/expenses';
 import { useAction } from '@/db/use-action';
 import { minorToEntry } from '@/domain/money';
-import { useAccounts, useCategories } from '@/features/catalog/hooks';
+import { useAccounts, useCategoriesByUse } from '@/features/catalog/hooks';
 import { useActiveRules } from '@/features/rules/hooks';
 import { useExpenseDetail } from '@/features/expenses/hooks';
 
@@ -19,7 +19,7 @@ export default function EditExpenseScreen() {
    * between renders, and a hook underneath would change the hook count.
    */
   const detail = useExpenseDetail(id);
-  const categories = useCategories();
+  const categories = useCategoriesByUse();
   const accounts = useAccounts();
   const rules = useActiveRules();
   const save = useAction(updateExpense);

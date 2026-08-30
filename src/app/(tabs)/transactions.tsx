@@ -18,7 +18,8 @@ import { restoreExpense, softDeleteExpense } from '@/db/repositories/expenses';
 import type { ExpenseListItem } from '@/db/repositories/expenses';
 import { useAction } from '@/db/use-action';
 import { flattenGroups, type FeedRow } from '@/domain/feed';
-import { useCategories } from '@/features/catalog/hooks';
+import { addPeriods, currentPeriod, formatPeriodLong } from '@/domain/period';
+import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
 import { useAppColor } from '@/theme';
 
@@ -32,6 +33,10 @@ export default function TransactionsScreen() {
   const [filter, setFilter] = useState<FilterId>('all');
   const [search, setSearch] = useState('');
   const [budgetOnly, setBudgetOnly] = useState(false);
+  /* §7.3 names three filters. The repository has supported period and account
+     since M1; only the category chips were ever wired up. */
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [monthsBack, setMonthsBack] = useState<number | null>(null);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [undoable, setUndoable] = useState<{ id: string; item: string } | null>(null);
 
@@ -43,6 +48,9 @@ export default function TransactionsScreen() {
   const mutedColor = useAppColor('muted');
 
   const categories = useCategories();
+  const accounts = useAccounts();
+
+  const period = monthsBack === null ? undefined : addPeriods(currentPeriod(), -monthsBack);
 
   const filters = useMemo<FilterOption<FilterId>[]>(
     () => [
@@ -54,7 +62,9 @@ export default function TransactionsScreen() {
 
   const feed = useExpenseFeed(
     {
+      period,
       categoryIds: filter === 'all' ? undefined : [filter],
+      accountIds: accountId === null ? undefined : [accountId],
       search: deferredSearch,
       budgetOnly,
     },
@@ -69,7 +79,20 @@ export default function TransactionsScreen() {
   const remove = useAction(softDeleteExpense);
   const restore = useAction(restoreExpense);
 
-  const isFiltered = filter !== 'all' || search.trim().length > 0 || budgetOnly;
+  const isFiltered =
+    filter !== 'all' ||
+    search.trim().length > 0 ||
+    budgetOnly ||
+    accountId !== null ||
+    monthsBack !== null;
+
+  const clearFilters = () => {
+    setFilter('all');
+    setSearch('');
+    setBudgetOnly(false);
+    setAccountId(null);
+    setMonthsBack(null);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -117,6 +140,56 @@ export default function TransactionsScreen() {
         </View>
 
         <FilterChipBar options={filters} selectedId={filter} onSelect={setFilter} />
+
+        {/* Month and account sit below the categories rather than beside them:
+            three chip rows in a row reads as one undifferentiated wall. */}
+        <View className="flex-row items-center gap-2 px-5">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: monthsBack !== null }}
+            accessibilityLabel="Filter by month"
+            hitSlop={6}
+            onPress={() =>
+              setMonthsBack((current) => (current === null ? 0 : current >= 11 ? null : current + 1))
+            }
+            className={
+              monthsBack === null
+                ? 'rounded-full border border-border px-3 py-1.5'
+                : 'rounded-full border border-accent bg-accent px-3 py-1.5'
+            }>
+            <Typography
+              type="body-xs"
+              weight="medium"
+              className={monthsBack === null ? 'text-muted' : 'text-accent-foreground'}>
+              {period === undefined ? 'Any month' : formatPeriodLong(period)}
+            </Typography>
+          </Pressable>
+
+          {(accounts.data ?? []).length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: accountId !== null }}
+              accessibilityLabel="Filter by account"
+              hitSlop={6}
+              onPress={() => {
+                const rows = accounts.data ?? [];
+                const index = rows.findIndex((row) => row.id === accountId);
+                setAccountId(index === rows.length - 1 ? null : (rows[index + 1]?.id ?? null));
+              }}
+              className={
+                accountId === null
+                  ? 'rounded-full border border-border px-3 py-1.5'
+                  : 'rounded-full border border-accent bg-accent px-3 py-1.5'
+              }>
+              <Typography
+                type="body-xs"
+                weight="medium"
+                className={accountId === null ? 'text-muted' : 'text-accent-foreground'}>
+                {(accounts.data ?? []).find((row) => row.id === accountId)?.name ?? 'Any account'}
+              </Typography>
+            </Pressable>
+          )}
+        </View>
 
         <View className="flex-row items-center gap-2 px-5">
           <Pressable
@@ -203,14 +276,7 @@ export default function TransactionsScreen() {
                 icon={Search}
                 title="Nothing matches"
                 description="No expenses match this filter. Try widening it."
-                action={{
-                  label: 'Clear filters',
-                  onPress: () => {
-                    setFilter('all');
-                    setSearch('');
-                    setBudgetOnly(false);
-                  },
-                }}
+                action={{ label: 'Clear filters', onPress: clearFilters }}
               />
             ) : (
               <EmptyState

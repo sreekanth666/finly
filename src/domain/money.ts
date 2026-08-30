@@ -12,13 +12,74 @@
  * Formatting lives here too, and only here. No component formats money itself.
  */
 
-/** An integer count of minor units (paise). */
+/** An integer count of minor units (paise, cents, …). */
 export type Minor = number & { readonly __brand: 'Minor' };
-
-export const CURRENCY_SYMBOL = '₹';
 
 const MINOR_PER_MAJOR = 100;
 const FRACTION_DIGITS = 2;
+
+/* -------------------------------------------------------------------------- */
+/* Currency                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One display currency for the whole app.
+ *
+ * This is not multi-currency, which §2 lists as a non-goal: every amount is
+ * still one integer in one currency, and the `currency` column still records
+ * what that was. What this adds is the ability to say which one.
+ *
+ * Grouping is part of the currency, not decoration. ₹1,24,050 and $124,050 are
+ * the same number written by different conventions, so a symbol swap alone
+ * would produce Indian grouping on a dollar amount.
+ */
+export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AUD' | 'CAD' | 'SGD' | 'AED';
+
+export type Currency = {
+  code: CurrencyCode;
+  symbol: string;
+  name: string;
+  /** How the whole part is punctuated. */
+  grouping: 'indian' | 'western';
+  /** What the fractional unit is called, for a screen reader. */
+  minorName: string;
+  majorName: string;
+};
+
+export const CURRENCIES: Record<CurrencyCode, Currency> = {
+  INR: { code: 'INR', symbol: '₹', name: 'Indian rupee', grouping: 'indian', majorName: 'rupees', minorName: 'paise' },
+  USD: { code: 'USD', symbol: '$', name: 'US dollar', grouping: 'western', majorName: 'dollars', minorName: 'cents' },
+  EUR: { code: 'EUR', symbol: '€', name: 'Euro', grouping: 'western', majorName: 'euros', minorName: 'cents' },
+  GBP: { code: 'GBP', symbol: '£', name: 'Pound sterling', grouping: 'western', majorName: 'pounds', minorName: 'pence' },
+  AUD: { code: 'AUD', symbol: 'A$', name: 'Australian dollar', grouping: 'western', majorName: 'dollars', minorName: 'cents' },
+  CAD: { code: 'CAD', symbol: 'C$', name: 'Canadian dollar', grouping: 'western', majorName: 'dollars', minorName: 'cents' },
+  SGD: { code: 'SGD', symbol: 'S$', name: 'Singapore dollar', grouping: 'western', majorName: 'dollars', minorName: 'cents' },
+  AED: { code: 'AED', symbol: 'AED ', name: 'UAE dirham', grouping: 'western', majorName: 'dirhams', minorName: 'fils' },
+};
+
+export const DEFAULT_CURRENCY = CURRENCIES.INR;
+
+export const isCurrencyCode = (value: string): value is CurrencyCode =>
+  Object.prototype.hasOwnProperty.call(CURRENCIES, value);
+
+export const toCurrency = (code: string | null | undefined): Currency =>
+  code != null && isCurrencyCode(code) ? CURRENCIES[code] : DEFAULT_CURRENCY;
+
+/**
+ * The currency every unqualified format call uses.
+ *
+ * Module-level rather than threaded through, because it is genuinely global —
+ * one setting, read once at boot — and because passing it to each of the forty
+ * call sites would add noise without adding a decision anyone makes locally.
+ * Tests pass it explicitly.
+ */
+let activeCurrency: Currency = DEFAULT_CURRENCY;
+
+export const setActiveCurrency = (currency: Currency): void => {
+  activeCurrency = currency;
+};
+
+export const getActiveCurrency = (): Currency => activeCurrency;
 
 /**
  * The unsafe constructor. Only row mappers, this module and tests should call
@@ -54,6 +115,13 @@ export const ratio = (part: Minor, whole: Minor): number => (whole > 0 ? part / 
 export const groupIndian = (digits: string): string =>
   digits.replace(/(\d)(?=(\d\d)+\d$)/g, '$1,');
 
+/** Groups of three throughout: `124050` → `124,050`. */
+export const groupWestern = (digits: string): string =>
+  digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+export const groupFor = (currency: Currency): ((digits: string) => string) =>
+  currency.grouping === 'indian' ? groupIndian : groupWestern;
+
 /**
  * Splits a string of digits into whole and fractional halves without ever
  * building a float. `'124050'` → `{ whole: '1240', fraction: '50' }`.
@@ -75,6 +143,8 @@ export type MoneyFormatOptions = {
   sign?: MoneySign;
   /** Set false for a bare number, e.g. inside a sentence that already said ₹. */
   symbol?: boolean;
+  /** Defaults to the app's active currency; tests and previews pass it. */
+  currency?: Currency;
 };
 
 export type MoneyParts = {
@@ -90,7 +160,12 @@ export type MoneyParts = {
  */
 export function formatMinorParts(
   value: Minor,
-  { showFraction = true, sign = 'negative', symbol = true }: MoneyFormatOptions = {},
+  {
+    showFraction = true,
+    sign = 'negative',
+    symbol = true,
+    currency = activeCurrency,
+  }: MoneyFormatOptions = {},
 ): MoneyParts {
   const magnitude = Math.abs(value);
   const { whole, fraction } = splitDigits(String(magnitude));
@@ -104,8 +179,8 @@ export function formatMinorParts(
 
   return {
     sign: signText,
-    symbol: symbol ? CURRENCY_SYMBOL : '',
-    whole: groupIndian(whole),
+    symbol: symbol ? currency.symbol : '',
+    whole: groupFor(currency)(whole),
     fraction: showFraction ? fraction : '',
   };
 }
@@ -116,10 +191,10 @@ export function formatMinor(value: Minor, options: MoneyFormatOptions = {}): str
 }
 
 /** What a screen reader should say. `₹1,24,050.50` reads as rupees and paise. */
-export function speakMinor(value: Minor): string {
+export function speakMinor(value: Minor, currency: Currency = activeCurrency): string {
   const { whole, fraction } = splitDigits(String(Math.abs(value)));
-  const rupees = `${value < 0 ? 'minus ' : ''}${groupIndian(whole)} rupees`;
-  return fraction === '00' ? rupees : `${rupees} ${Number(fraction)} paise`;
+  const major = `${value < 0 ? 'minus ' : ''}${groupFor(currency)(whole)} ${currency.majorName}`;
+  return fraction === '00' ? major : `${major} ${Number(fraction)} ${currency.minorName}`;
 }
 
 /**
@@ -184,13 +259,14 @@ export function minorToEntry(value: Minor): string {
  * The live keypad display. Groups the rupees the Indian way and keeps a
  * trailing '.' the user typed, so the caret doesn't appear to swallow it.
  */
-export function formatEntry(entry: string): string {
-  if (entry === '') return `${CURRENCY_SYMBOL}0`;
+export function formatEntry(entry: string, currency: Currency = activeCurrency): string {
+  const { symbol } = currency;
+  if (entry === '') return `${symbol}0`;
 
   const [whole = '', fraction] = entry.split('.');
-  const grouped = groupIndian(whole === '' ? '0' : whole);
-  if (fraction === undefined) return `${CURRENCY_SYMBOL}${grouped}`;
-  return `${CURRENCY_SYMBOL}${grouped}.${fraction}`;
+  const grouped = groupFor(currency)(whole === '' ? '0' : whole);
+  if (fraction === undefined) return `${symbol}${grouped}`;
+  return `${symbol}${grouped}.${fraction}`;
 }
 
 /**
