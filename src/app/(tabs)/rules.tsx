@@ -1,8 +1,11 @@
+import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
+import { Plus } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/button';
 import { RuleCard } from '@/components/rule-card';
 import { ScreenHeader } from '@/components/screen-header';
 import { SectionHeader } from '@/components/section-header';
@@ -39,9 +42,18 @@ export default function RulesScreen() {
         </View>
 
         <View className="gap-1 px-5">
-          <Typography.Heading type="h2" weight="bold">
-            Rules
-          </Typography.Heading>
+          <View className="flex-row items-center justify-between gap-3">
+            <Typography.Heading type="h2" weight="bold" className="flex-1" truncate>
+              Rules
+            </Typography.Heading>
+            <Button
+              icon={Plus}
+              label="New"
+              size="sm"
+              accessibilityLabel="New rule"
+              onPress={() => router.push('/rule/new')}
+            />
+          </View>
           <Typography type="body-sm" color="muted">
             Checked top to bottom — the first match wins.
           </Typography>
@@ -70,6 +82,7 @@ export default function RulesScreen() {
                   rule={rule}
                   rank={section.id === 'active' ? index + 1 : null}
                   onToggle={(isEnabled) => toggleRule(rule.id, isEnabled)}
+                  onPress={() => router.push(`/rule/${rule.id}`)}
                 />
               ))}
             </View>

@@ -19,9 +19,10 @@ export type RuleFill = {
   countsToBudget?: boolean;
 };
 
-type Draft = { item: string; note: string };
+/** What a rule is tested against: the free-text fields of an expense. */
+export type MatchTarget = { item: string; note: string };
 
-const testCondition = ({ field, operator, value }: RuleCondition, draft: Draft) => {
+const testCondition = ({ field, operator, value }: RuleCondition, draft: MatchTarget) => {
   const subject = draft[field].trim().toLowerCase();
   const needle = value.trim().toLowerCase();
 
@@ -50,18 +51,37 @@ const toFill = (rule: Rule): RuleFill =>
   }, { rule });
 
 /**
+ * Whether a rule's conditions hold for a target, ignoring whether it is
+ * enabled — the editor's match preview has to work on a draft that is still
+ * switched off. A rule with no conditions matches nothing rather than
+ * everything, so an unfinished rule can't claim the whole ledger.
+ */
+export function ruleMatches(
+  rule: Pick<Rule, 'matchMode' | 'conditions'>,
+  target: MatchTarget
+): boolean {
+  if (rule.conditions.length === 0) return false;
+
+  return rule.matchMode === 'all'
+    ? rule.conditions.every((condition) => testCondition(condition, target))
+    : rule.conditions.some((condition) => testCondition(condition, target));
+}
+
+/**
  * The highest-priority enabled rule whose conditions the draft satisfies, or
  * null. Disabled rules are never consulted.
  */
-export function matchRule(rules: Rule[], draft: Draft): RuleFill | null {
+export function matchRule(rules: Rule[], draft: MatchTarget): RuleFill | null {
   const candidate = [...rules]
     .filter((rule) => rule.isEnabled)
     .sort((a, b) => b.priority - a.priority)
-    .find((rule) =>
-      rule.matchMode === 'all'
-        ? rule.conditions.every((condition) => testCondition(condition, draft))
-        : rule.conditions.some((condition) => testCondition(condition, draft))
-    );
+    .find((rule) => ruleMatches(rule, draft));
 
   return candidate ? toFill(candidate) : null;
 }
+
+/** How many of a set of expenses a rule would claim — the editor's preview. */
+export const countMatches = (
+  rule: Pick<Rule, 'matchMode' | 'conditions'>,
+  targets: MatchTarget[]
+) => targets.filter((target) => ruleMatches(rule, target)).length;
