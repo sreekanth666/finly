@@ -9,15 +9,22 @@ import { Button } from '@/components/button';
 import { RuleCard } from '@/components/rule-card';
 import { ScreenHeader } from '@/components/screen-header';
 import { SectionHeader } from '@/components/section-header';
-import { rules as seedRules } from '@/data/rules';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
+import { setRuleEnabled } from '@/db/repositories/rules';
+import { useAccounts, useCategories } from '@/features/catalog/hooks';
+import { useRules } from '@/features/rules/hooks';
 
 export default function RulesScreen() {
-  const [ruleList, setRuleList] = useState(seedRules);
+  const rules = useRules();
+  const categories = useCategories(true);
+  const accounts = useAccounts(true);
+  const ruleList = rules.data ?? [];
 
+  /* The design pass toggled local state, so a rule switched off came back on
+     the moment you navigated away. This writes. */
   const toggleRule = useCallback((id: string, isEnabled: boolean) => {
-    setRuleList((current) =>
-      current.map((rule) => (rule.id === id ? { ...rule, isEnabled } : rule))
-    );
+    setRuleEnabled(id, isEnabled);
   }, []);
 
   /**
@@ -80,6 +87,8 @@ export default function RulesScreen() {
                 <RuleCard
                   key={rule.id}
                   rule={rule}
+                  categories={categories.data ?? []}
+                  accounts={accounts.data ?? []}
                   rank={section.id === 'active' ? index + 1 : null}
                   onToggle={(isEnabled) => toggleRule(rule.id, isEnabled)}
                   onPress={() => router.push(`/rule/${rule.id}`)}
@@ -91,14 +100,16 @@ export default function RulesScreen() {
         contentContainerClassName="gap-6 px-5 pb-8"
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View className="items-center gap-1 py-16">
-            <Typography type="body" weight="medium">
-              No rules yet
-            </Typography>
-            <Typography type="body-sm" color="muted">
-              Rules fill in a category and account as you type.
-            </Typography>
-          </View>
+          rules.error !== null ? (
+            <ErrorState error={rules.error} onRetry={rules.refetch} />
+          ) : (
+            <EmptyState
+              icon={Plus}
+              title="No rules yet"
+              description="A rule fills in the category and account as you type, so a repeat expense takes four taps."
+              action={{ label: 'Create a rule', icon: Plus, onPress: () => router.push('/rule/new') }}
+            />
+          )
         }
       />
     </SafeAreaView>

@@ -17,6 +17,7 @@ import { db, type DbLike } from './client';
 import { createAccount } from './repositories/accounts';
 import { listCategories } from './repositories/categories';
 import { countExpenses, createExpense } from './repositories/expenses';
+import { createRule } from './repositories/rules';
 import { addSettlement } from './repositories/settlements';
 
 /** Local midday on a given day of a period, so nothing drifts across a date. */
@@ -25,7 +26,7 @@ function dayIn(period: string, day: number): number {
   return new Date(year, month - 1, day, 12, 0).getTime();
 }
 
-export type DevSeedResult = { expenses: number; accounts: number; settlements: number };
+export type DevSeedResult = { expenses: number; accounts: number; settlements: number; rules: number };
 
 export function runDevSeed(database: DbLike = db): DevSeedResult {
   const categories = listCategories({}, database);
@@ -125,7 +126,29 @@ export function runDevSeed(database: DbLike = db): DevSeedResult {
     settlements = 1;
   }
 
-  return { expenses: rows.length, accounts: 2, settlements };
+  /* §9's M5 acceptance check is "a swiggy rule fills category and account while
+     typing", so the seed provides exactly that to try. */
+  createRule(
+    {
+      name: 'Food delivery',
+      priority: 100,
+      isEnabled: true,
+      matchMode: 'any',
+      conditions: [
+        { field: 'item', operator: 'contains', value: 'swiggy' },
+        { field: 'item', operator: 'contains', value: 'zomato' },
+      ],
+      actions: [
+        ...(byName('Food') === null
+          ? []
+          : [{ type: 'set_category' as const, categoryId: byName('Food')! }]),
+        { type: 'set_account' as const, accountId: millennia },
+      ],
+    },
+    database,
+  );
+
+  return { expenses: rows.length, accounts: 2, settlements, rules: 1 };
 }
 
 export const hasAnyExpenses = (database: DbLike = db): boolean =>

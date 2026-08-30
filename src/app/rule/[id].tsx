@@ -1,53 +1,57 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Typography } from 'heroui-native';
-import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert } from 'react-native';
 
-import { Button } from '@/components/button';
-import { RuleEditor, type RuleDraft } from '@/components/rule-editor';
-import { rules } from '@/data/rules';
-
-import type { Rule } from '@/data/rules';
-
-const toDraft = (rule: Rule): Partial<RuleDraft> => ({
-  name: rule.name,
-  isEnabled: rule.isEnabled,
-  priority: String(rule.priority),
-  matchMode: rule.matchMode,
-  conditions: rule.conditions,
-  categoryId:
-    rule.actions.find((action) => action.type === 'set_category')?.categoryId ?? null,
-  accountName: rule.actions.find((action) => action.type === 'set_account')?.label ?? null,
-  countsToBudget:
-    rule.actions.find((action) => action.type === 'set_counts_to_budget')?.countsToBudget ?? null,
-});
+import { NotFound } from '@/components/not-found';
+import { RuleEditor } from '@/components/rule-editor';
+import { softDeleteRule, updateRule } from '@/db/repositories/rules';
+import { useAction } from '@/db/use-action';
+import { draftToInput, ruleToDraft } from '@/features/rules/mappers';
+import { useRule } from '@/features/rules/hooks';
 
 export default function EditRuleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const rule = rules.find((candidate) => candidate.id === id);
 
-  if (!rule) {
+  /* Hooks above returns — the lookup is a query and flips between renders. */
+  const rule = useRule(id);
+  const save = useAction(updateRule);
+  const remove = useAction(softDeleteRule);
+
+  if (rule.error !== null) {
+    return <NotFound title="Can't open this rule" description={rule.error.message} />;
+  }
+
+  const found = rule.data;
+  if (found === null) {
     return (
-      <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-        <View className="flex-1 items-center justify-center gap-3 px-5">
-          <Typography type="body" weight="medium">
-            Rule not found
-          </Typography>
-          <Typography type="body-sm" color="muted" align="center">
-            It may have been deleted since this screen was opened.
-          </Typography>
-          <Button tone="secondary" label="Go back" onPress={() => router.back()} />
-        </View>
-      </SafeAreaView>
+      <NotFound title="Rule not found" description="It may have been deleted from another screen." />
     );
   }
+  if (found === undefined) return null;
 
   return (
     <RuleEditor
       title="Edit rule"
-      initial={toDraft(rule)}
       submitLabel="Save changes"
-      onSubmit={() => router.back()}
+      initial={ruleToDraft(found)}
+      isSubmitting={save.isPending}
+      errorMessage={save.errorMessage ?? remove.errorMessage}
+      onDelete={() => {
+        Alert.alert('Delete this rule?', 'Expenses it already filled in are not affected.', [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              const outcome = await remove.run(found.id);
+              if (outcome.ok) router.back();
+            },
+          },
+        ]);
+      }}
+      onSubmit={async (draft) => {
+        const outcome = await save.run(found.id, draftToInput(draft));
+        if (outcome.ok) router.back();
+      }}
       onClose={() => router.back()}
     />
   );

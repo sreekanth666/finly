@@ -15,10 +15,12 @@
  * pinning tones per category in the repository rather than per response.
  */
 
-import type { CategoryId } from './categories';
 
 import type { Minor } from '@/domain/money';
 import type { ChartTone } from '@/theme/chart';
+
+/** A category id. Free text now that categories are rows rather than a union. */
+type CategoryId = string;
 
 /**
  * Stands in for the stored monthly budget while Insights is still a fixture.
@@ -54,6 +56,9 @@ export type TopItem = {
   id: string;
   item: string;
   categoryId: CategoryId;
+  categoryLabel: string;
+  categoryIcon: string;
+  categoryTone: string;
   count: number;
   amount: Minor;
 };
@@ -92,10 +97,10 @@ export const insightsOverview: InsightsOverview = {
     { id: 'c-2', name: 'ICICI Amazon Pay', cycleSpend: 261050 as Minor, creditLimit: 300000 as Minor, daysToStatement: 21 },
   ],
   topItems: [
-    { id: 't-1', item: 'Rent', categoryId: 'housing', count: 1, amount: 85000 as Minor },
-    { id: 't-2', item: 'Swiggy', categoryId: 'food', count: 11, amount: 38420 as Minor },
-    { id: 't-3', item: 'Groceries', categoryId: 'shopping', count: 6, amount: 31260 as Minor },
-    { id: 't-4', item: 'Electricity Bill', categoryId: 'bills', count: 1, amount: 24540 as Minor },
-    { id: 't-5', item: 'Uber', categoryId: 'transport', count: 14, amount: 19875 as Minor },
+    { id: 't-1', item: 'Rent', categoryId: 'housing', categoryLabel: 'Housing', categoryIcon: 'House', categoryTone: 'iris', count: 1, amount: 85000 as Minor },
+    { id: 't-2', item: 'Swiggy', categoryId: 'food', categoryLabel: 'Food', categoryIcon: 'UtensilsCrossed', categoryTone: 'accent', count: 11, amount: 38420 as Minor },
+    { id: 't-3', item: 'Groceries', categoryId: 'shopping', categoryLabel: 'Shopping', categoryIcon: 'ShoppingBag', categoryTone: 'foreground', count: 6, amount: 31260 as Minor },
+    { id: 't-4', item: 'Electricity Bill', categoryId: 'bills', categoryLabel: 'Bills', categoryIcon: 'Lightbulb', categoryTone: 'warning', count: 1, amount: 24540 as Minor },
+    { id: 't-5', item: 'Uber', categoryId: 'transport', categoryLabel: 'Transport', categoryIcon: 'Car', categoryTone: 'foreground', count: 14, amount: 19875 as Minor },
   ],
 };

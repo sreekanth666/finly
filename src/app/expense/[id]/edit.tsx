@@ -3,9 +3,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ExpenseForm } from '@/components/expense-form';
 import { NotFound } from '@/components/not-found';
 import { updateExpense } from '@/db/repositories/expenses';
+import { recordRuleApplied } from '@/db/repositories/rules';
 import { useAction } from '@/db/use-action';
 import { minorToEntry } from '@/domain/money';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
+import { useActiveRules } from '@/features/rules/hooks';
 import { useExpenseDetail } from '@/features/expenses/hooks';
 
 export default function EditExpenseScreen() {
@@ -20,6 +22,7 @@ export default function EditExpenseScreen() {
   const detail = useExpenseDetail(id);
   const categories = useCategories();
   const accounts = useAccounts();
+  const rules = useActiveRules();
   const save = useAction(updateExpense);
 
   const failure = detail.error ?? categories.error ?? accounts.error;
@@ -47,6 +50,7 @@ export default function EditExpenseScreen() {
       isPrefilled
       categories={categories.data ?? []}
       accounts={accounts.data ?? []}
+      rules={rules.data ?? []}
       initial={{
         entry: minorToEntry(expense.amountMinor),
         item: expense.item,

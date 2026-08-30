@@ -10,10 +10,10 @@ import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { SectionHeader } from '@/components/section-header';
 import { SettingsRow } from '@/components/settings-row';
-import { CATEGORIES } from '@/data/categories';
-import { rules } from '@/data/rules';
 import { useDbQuery, type TableName } from '@/db/live';
 import { listAccounts } from '@/db/repositories/accounts';
+import { listCategories } from '@/db/repositories/categories';
+import { listRules } from '@/db/repositories/rules';
 import { countExpenses } from '@/db/repositories/expenses';
 
 type ExportFormat = 'json' | 'csv';
@@ -33,12 +33,20 @@ export default function DataTransferScreen() {
   const accountCount = useDbQuery('data:account-count', ['accounts'], (database) =>
     listAccounts({ includeArchived: true }, database).length,
   );
+  const catalogue = useDbQuery(
+    'data:catalogue-counts',
+    ['categories', 'rules'],
+    (database) => ({
+      categories: listCategories({ includeArchived: true }, database).length,
+      rules: listRules(database).length,
+    }),
+  );
 
   const contents = [
     `${expenseCount.data ?? 0} expenses`,
     `${accountCount.data ?? 0} accounts`,
-    `${Object.keys(CATEGORIES).length} categories`,
-    `${rules.length} rules`,
+    `${catalogue.data?.categories ?? 0} categories`,
+    `${catalogue.data?.rules ?? 0} rules`,
   ].join(' · ');
 
   return (

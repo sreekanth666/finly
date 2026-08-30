@@ -1,5 +1,5 @@
 import { Input, Switch, Typography } from 'heroui-native';
-import { Minus, Plus, Sparkles, X } from 'lucide-react-native';
+import { Minus, Plus, Sparkles, Trash2, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,15 +10,15 @@ import { Icon } from './icon';
 import { IconButton } from './icon-button';
 import { SectionHeader } from './section-header';
 
-import { CATEGORIES, type CategoryId } from '@/data/categories';
-import {
-  OPERATOR_LABELS,
-  type RuleCondition,
-  type RuleConditionField,
-  type RuleConditionOperator,
-} from '@/data/rules';
+import type {
+  RuleCondition,
+  RuleConditionField,
+  RuleConditionOperator,
+} from '@/domain/rules';
+import { OPERATOR_LABELS, OPERATOR_OPTIONS } from '@/features/rules/presentation';
 import { useDbQuery, type TableName } from '@/db/live';
 import { listAccounts } from '@/db/repositories/accounts';
+import { listCategories } from '@/db/repositories/categories';
 import { listMatchTargets } from '@/db/repositories/expenses';
 import { countMatches, ruleMatches } from '@/domain/rules';
 
@@ -28,8 +28,8 @@ export type RuleDraft = {
   priority: string;
   matchMode: 'all' | 'any';
   conditions: RuleCondition[];
-  categoryId: CategoryId | null;
-  accountName: string | null;
+  categoryId: string | null;
+  accountId: string | null;
   /** null leaves the budget flag alone; a rule need not touch every field. */
   countsToBudget: boolean | null;
 };
@@ -43,7 +43,7 @@ const EMPTY_DRAFT: RuleDraft = {
   matchMode: 'all',
   conditions: [EMPTY_CONDITION],
   categoryId: null,
-  accountName: null,
+  accountId: null,
   countsToBudget: null,
 };
 
@@ -57,14 +57,8 @@ const FIELDS = [
   { id: 'note' as const, label: 'Note' },
 ];
 
-const OPERATORS = (Object.keys(OPERATOR_LABELS) as RuleConditionOperator[]).map((id) => ({
-  id,
-  label: OPERATOR_LABELS[id],
-}));
+const OPERATORS = OPERATOR_OPTIONS;
 
-const CATEGORY_OPTIONS = (Object.keys(CATEGORIES) as CategoryId[])
-  .filter((id) => !CATEGORIES[id].isArchived)
-  .map((id) => ({ id, label: CATEGORIES[id].label }));
 
 
 
@@ -93,6 +87,10 @@ export type RuleEditorProps = {
   title: string;
   initial?: Partial<RuleDraft>;
   submitLabel: string;
+  isSubmitting?: boolean;
+  errorMessage?: string | null;
+  /** Edit-only. Providing it shows the destructive action. */
+  onDelete?: () => void;
   onSubmit: (draft: RuleDraft) => void;
   onClose: () => void;
 };
@@ -104,7 +102,16 @@ export type RuleEditorProps = {
  * judged before it is saved, so the count and its examples recompute on every
  * keystroke rather than waiting for a save.
  */
-export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: RuleEditorProps) {
+export function RuleEditor({
+  title,
+  initial,
+  submitLabel,
+  isSubmitting = false,
+  errorMessage = null,
+  onDelete,
+  onSubmit,
+  onClose,
+}: RuleEditorProps) {
   const [draft, setDraft] = useState<RuleDraft>({ ...EMPTY_DRAFT, ...initial });
 
   const targetsQuery = useDbQuery(`match-targets:${MATCH_TARGET_LIMIT}`, TARGET_TABLES, (database) =>
@@ -112,12 +119,17 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
   );
   const targets = targetsQuery.data ?? [];
 
-  /* Rules still name an account rather than referencing one; M5 moves the
-     rules tables onto account ids along with the rest of that milestone. */
   const accountsQuery = useDbQuery('rule-editor:accounts', ['accounts'], (database) =>
     listAccounts({}, database),
   );
-  const accountOptions = (accountsQuery.data ?? []).map(({ name }) => ({ id: name, label: name }));
+  /* Actions reference accounts by id now. Keying on the display name meant a
+     renamed card silently detached every rule that filled it in. */
+  const accountOptions = (accountsQuery.data ?? []).map(({ id, name }) => ({ id, label: name }));
+
+  const categoriesQuery = useDbQuery('rule-editor:categories', ['categories'], (database) =>
+    listCategories({}, database),
+  );
+  const categoryOptions = (categoriesQuery.data ?? []).map(({ id, name }) => ({ id, label: name }));
 
   const set = <K extends keyof RuleDraft>(key: K, value: RuleDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
@@ -146,7 +158,7 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
   const matchCount = useMemo(() => countMatches(draft, targets), [draft, targets]);
 
   const hasAction =
-    draft.categoryId !== null || draft.accountName !== null || draft.countsToBudget !== null;
+    draft.categoryId !== null || draft.accountId !== null || draft.countsToBudget !== null;
   const canSave =
     draft.name.trim().length > 0 &&
     draft.conditions.some((condition) => condition.value.trim().length > 0) &&
@@ -305,7 +317,7 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
               Category
             </Typography>
             <FilterChipBar
-              options={CATEGORY_OPTIONS}
+              options={categoryOptions}
               selectedId={draft.categoryId}
               onSelect={(id) => set('categoryId', draft.categoryId === id ? null : id)}
             />
@@ -317,8 +329,8 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
             </Typography>
             <FilterChipBar
               options={accountOptions}
-              selectedId={draft.accountName}
-              onSelect={(id) => set('accountName', draft.accountName === id ? null : id)}
+              selectedId={draft.accountId}
+              onSelect={(id) => set('accountId', draft.accountId === id ? null : id)}
             />
           </View>
 
@@ -399,8 +411,20 @@ export function RuleEditor({ title, initial, submitLabel, onSubmit, onClose }: R
         </View>
       </ScrollView>
 
-      <View className="border-t border-border px-5 pt-3">
-        <Button label={submitLabel} isDisabled={!canSave} onPress={() => onSubmit(draft)} />
+      <View className="gap-3 border-t border-border px-5 pt-3">
+        {errorMessage !== null && (
+          <Typography type="body-xs" className="text-danger">
+            {errorMessage}
+          </Typography>
+        )}
+        <Button
+          label={isSubmitting ? 'Saving…' : submitLabel}
+          isDisabled={!canSave || isSubmitting}
+          onPress={() => onSubmit(draft)}
+        />
+        {onDelete && (
+          <Button label="Delete rule" tone="secondary" icon={Trash2} onPress={onDelete} />
+        )}
       </View>
     </SafeAreaView>
   );
