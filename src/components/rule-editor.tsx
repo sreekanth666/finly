@@ -2,12 +2,12 @@ import { Input, Switch, Typography } from 'heroui-native';
 import { Minus, Plus, Sparkles, Trash2, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from './button';
 import { FilterChipBar } from './filter-chip-bar';
 import { Icon } from './icon';
 import { IconButton } from './icon-button';
+import { SafeAreaView } from './safe-area-view';
 import { SectionHeader } from './section-header';
 
 import type {

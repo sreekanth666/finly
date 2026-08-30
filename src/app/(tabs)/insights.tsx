@@ -2,7 +2,6 @@ import { Typography } from 'heroui-native';
 import { ChartPie } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CardUtilisationList } from '@/components/card-utilisation-list';
 import { CategoryBreakdown } from '@/components/category-breakdown';
@@ -10,6 +9,7 @@ import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { InlineError } from '@/components/inline-error';
 import { MonthSwitcher } from '@/components/month-switcher';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { ScreenHeader } from '@/components/screen-header';
 import { SectionHeader } from '@/components/section-header';
 import { SpendTrend } from '@/components/spend-trend';

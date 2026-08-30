@@ -3,12 +3,12 @@ import { Typography } from 'heroui-native';
 import { Archive, ArrowLeft, Plus, RotateCcw } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { ReorderButtons } from '@/components/reorder-buttons';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { SectionHeader } from '@/components/section-header';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';

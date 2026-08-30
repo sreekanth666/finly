@@ -3,10 +3,10 @@ import { Typography } from 'heroui-native';
 import { ArrowLeft, Fingerprint, KeyRound, TriangleAlert } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, ScrollView, Switch, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { SectionHeader } from '@/components/section-header';
 import { useDbQuery } from '@/db/live';
 import { getFlag, getSetting, setFlag } from '@/db/repositories/settings';

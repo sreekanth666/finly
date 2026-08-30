@@ -3,7 +3,6 @@ import { Typography } from 'heroui-native';
 import { ArrowLeft, Plus, Trash2, Undo2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddSettlementSheet } from '@/components/add-settlement-sheet';
 import { Amount } from '@/components/amount';
@@ -12,6 +11,7 @@ import { Icon } from '@/components/icon';
 import { iconFor } from '@/components/icon-registry';
 import { IconButton } from '@/components/icon-button';
 import { NotFound } from '@/components/not-found';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { SectionHeader } from '@/components/section-header';
 import { softDeleteExpense } from '@/db/repositories/expenses';
 import {

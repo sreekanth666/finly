@@ -10,11 +10,11 @@ import {
 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { SectionHeader } from '@/components/section-header';
 import { SettingsRow } from '@/components/settings-row';
 import { useDbQuery, type TableName } from '@/db/live';

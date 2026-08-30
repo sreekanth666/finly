@@ -2,11 +2,11 @@ import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { ArrowLeft, TriangleAlert } from 'lucide-react-native';
 import { Alert, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CurrencyPicker } from '@/components/currency-picker';
 import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { SectionHeader } from '@/components/section-header';
 import { useDbQuery } from '@/db/live';
 import { getCurrency, setCurrency } from '@/db/repositories/settings';

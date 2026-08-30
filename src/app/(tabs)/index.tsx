@@ -3,7 +3,6 @@ import { Typography } from 'heroui-native';
 import { CalendarClock, Plus, Receipt, Undo2, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount } from '@/components/amount';
 import { Button } from '@/components/button';
@@ -13,6 +12,7 @@ import { InlineError } from '@/components/inline-error';
 import { Icon } from '@/components/icon';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { ProgressRing } from '@/components/progress-ring';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { ScreenHeader } from '@/components/screen-header';
 import { CardUtilisationList } from '@/components/card-utilisation-list';
 import { StatCard } from '@/components/stat-card';

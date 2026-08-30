@@ -3,10 +3,10 @@ import { Typography } from 'heroui-native';
 import { Plus } from 'lucide-react-native';
 import { useCallback, useMemo } from 'react';
 import { FlatList, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { RuleCard } from '@/components/rule-card';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { ScreenHeader } from '@/components/screen-header';
 import { SectionHeader } from '@/components/section-header';
 import { EmptyState } from '@/components/empty-state';

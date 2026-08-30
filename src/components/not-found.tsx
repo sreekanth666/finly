@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from './button';
+import { SafeAreaView } from './safe-area-view';
 
 export type NotFoundProps = {
   title: string;

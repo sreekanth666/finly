@@ -3,12 +3,12 @@ import { Typography } from 'heroui-native';
 import { CircleCheck, FileSpreadsheet, TriangleAlert, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount } from '@/components/amount';
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { SectionHeader } from '@/components/section-header';
 import { StepIndicator } from '@/components/step-indicator';
 import { formatDateLong } from '@/domain/period';

@@ -3,13 +3,13 @@ import { Typography } from 'heroui-native';
 import { Plus, Receipt, Search, X } from 'lucide-react-native';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { FlatList, Pressable, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { FilterChipBar, type FilterOption } from '@/components/filter-chip-bar';
 import { Icon } from '@/components/icon';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { ScreenHeader } from '@/components/screen-header';
 import { SwipeToDelete } from '@/components/swipe-to-delete';
 import { TransactionRow, TRANSACTION_ROW_HEIGHT } from '@/components/transaction-row';

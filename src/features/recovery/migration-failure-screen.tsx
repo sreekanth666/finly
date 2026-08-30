@@ -17,10 +17,10 @@ import { Typography } from 'heroui-native';
 import { DatabaseBackup, RotateCw, TriangleAlert } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { DATABASE_NAME } from '@/db/client';
 
 type ExportState = 'idle' | 'working' | 'shared' | 'failed';

@@ -3,12 +3,12 @@ import { Input, Typography } from 'heroui-native';
 import { ArrowRight, FileSpreadsheet, Wallet } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmountKeypad } from '@/components/amount-keypad';
 import { Button } from '@/components/button';
 import { CurrencyPicker } from '@/components/currency-picker';
 import { Icon } from '@/components/icon';
+import { SafeAreaView } from '@/components/safe-area-view';
 import { StepIndicator } from '@/components/step-indicator';
 import { createAccount } from '@/db/repositories/accounts';
 import { setDefaultMonthlyBudget } from '@/db/repositories/budgets';

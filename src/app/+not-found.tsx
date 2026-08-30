@@ -2,10 +2,10 @@ import { router, Stack } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { Compass } from 'lucide-react-native';
 import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
+import { SafeAreaView } from '@/components/safe-area-view';
 
 /**
  * expo-router's catch-all, for a path that matches no route.

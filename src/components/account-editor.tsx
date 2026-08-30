@@ -2,12 +2,12 @@ import { Input, Typography } from 'heroui-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from './button';
 import { FilterChipBar } from './filter-chip-bar';
 import { Icon } from './icon';
 import { IconButton } from './icon-button';
+import { SafeAreaView } from './safe-area-view';
 import { SectionHeader } from './section-header';
 
 import type { AccountType } from '@/db/schema';

@@ -16,10 +16,10 @@ import { Typography } from 'heroui-native';
 import { Lock } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
+import { SafeAreaView } from '@/components/safe-area-view';
 
 /** Long enough to answer a message, short enough to still be a lock. */
 const GRACE_MS = 60_000;
