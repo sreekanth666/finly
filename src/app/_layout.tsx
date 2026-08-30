@@ -2,7 +2,7 @@ import '@/global.css';
 
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { useFonts } from 'expo-font';
-import { DarkTheme, Redirect, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { HeroUINativeProvider } from 'heroui-native';
@@ -47,6 +47,7 @@ export default function RootLayout() {
   const [retryToken, setRetryToken] = useState(0);
   const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const router = useRouter();
 
   const [background, surface, foreground, border, accent] = useAppColor([
     'background',
@@ -92,6 +93,21 @@ export default function RootLayout() {
        over while the app was closed. */
     if (databaseSettled && fatal === null) scheduleCarryOverFlush();
   }, [databaseSettled, fatal]);
+
+  useEffect(() => {
+    /* §5: categories and a budget are seeded, accounts deliberately are not —
+       "the user adds their own, prompted once". This is that prompt.
+
+       Navigated to imperatively rather than with a <Redirect>. A layout drops
+       every child that isn't a Screen (expo-router warns "Layout children must
+       be of type Screen, all other children are ignored" and returns null), so
+       a <Redirect> placed inside the Stack never ran and first launch went
+       straight to the tabs. The effect fires after the Stack has mounted, and
+       `needsOnboarding` is read once at boot, so it fires exactly once. */
+    if (!fontsSettled || !databaseSettled || fatal !== null) return;
+    if (!needsOnboarding) return;
+    router.replace('/onboarding');
+  }, [fontsSettled, databaseSettled, fatal, needsOnboarding, router]);
 
   if (!fontsSettled || !databaseSettled) {
     return null;
@@ -149,9 +165,6 @@ export default function RootLayout() {
               <Stack.Screen name="settings/data" />
               {/* Import is a task with its own steps, so it comes up over settings. */}
               <Stack.Screen name="settings/import" options={{ presentation: 'modal' }} />
-              {/* §5: categories and a budget are seeded, accounts deliberately
-                  are not — "the user adds their own, prompted once". */}
-              {needsOnboarding && <Redirect href="/onboarding" />}
             </Stack>
             </AppLock>
           )}
