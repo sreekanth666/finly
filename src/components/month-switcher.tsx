@@ -38,6 +38,7 @@ export function MonthSwitcher({
   return (
     <View className="flex-row items-center justify-center gap-1">
       <Pressable
+        hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel="Previous month"
         accessibilityState={{ disabled: !canGoBack }}
@@ -48,6 +49,7 @@ export function MonthSwitcher({
       </Pressable>
 
       <Pressable
+        hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel={onReturnToCurrent ? `${label}. Return to this month` : label}
         disabled={!onReturnToCurrent}
@@ -64,6 +66,7 @@ export function MonthSwitcher({
       </Pressable>
 
       <Pressable
+        hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel="Next month"
         accessibilityState={{ disabled: !canGoForward }}

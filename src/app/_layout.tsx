@@ -14,7 +14,9 @@ import migrations from '../../drizzle/migrations';
 import { scheduleCarryOverFlush } from '@/db/carry-over';
 import { db, openError } from '@/db/client';
 import { toError } from '@/db/errors';
+import { getFlag } from '@/db/repositories/settings';
 import { runSeed } from '@/db/seed';
+import { AppLock } from '@/features/security/app-lock';
 import { MigrationFailureScreen } from '@/features/recovery/migration-failure-screen';
 import { useAppColor } from '@/theme';
 import { appFonts } from '@/theme/fonts';
@@ -42,6 +44,7 @@ export default function RootLayout() {
   const [isSeeded, setIsSeeded] = useState(false);
   const [seedError, setSeedError] = useState<Error | null>(null);
   const [retryToken, setRetryToken] = useState(0);
+  const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
 
   const [background, surface, foreground, border, accent] = useAppColor([
     'background',
@@ -55,6 +58,9 @@ export default function RootLayout() {
     if (!migrated) return;
     try {
       runSeed();
+      /* Read once at boot rather than live: re-reading would re-lock the app the
+         moment the user turned the setting on. */
+      setIsAppLockEnabled(getFlag('app_lock_enabled'));
       setIsSeeded(true);
       setSeedError(null);
     } catch (cause) {
@@ -112,6 +118,7 @@ export default function RootLayout() {
               }}
             />
           ) : (
+            <AppLock isEnabled={isAppLockEnabled}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" />
               {/* Entry is a task, not a destination — it comes up over the tabs. */}
@@ -128,10 +135,12 @@ export default function RootLayout() {
               <Stack.Screen name="settings/accounts/index" />
               <Stack.Screen name="settings/accounts/new" />
               <Stack.Screen name="settings/accounts/[id]" />
+              <Stack.Screen name="settings/security" />
               <Stack.Screen name="settings/data" />
               {/* Import is a task with its own steps, so it comes up over settings. */}
               <Stack.Screen name="settings/import" options={{ presentation: 'modal' }} />
             </Stack>
+            </AppLock>
           )}
         </ThemeProvider>
       </HeroUINativeProvider>

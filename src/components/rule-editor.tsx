@@ -227,6 +227,7 @@ export function RuleEditor({
                   </Typography>
                   {draft.conditions.length > 1 && (
                     <Pressable
+                      hitSlop={10}
                       accessibilityRole="button"
                       accessibilityLabel={`Remove condition ${index + 1}`}
                       onPress={() => removeCondition(index)}
@@ -240,6 +241,7 @@ export function RuleEditor({
                   {FIELDS.map((field) => (
                     <Pressable
                       key={field.id}
+                      hitSlop={10}
                       accessibilityRole="button"
                       accessibilityState={{ selected: condition.field === field.id }}
                       onPress={() =>
@@ -264,6 +266,7 @@ export function RuleEditor({
                   {OPERATORS.map((operator) => (
                     <Pressable
                       key={operator.id}
+                      hitSlop={10}
                       accessibilityRole="button"
                       accessibilityState={{ selected: condition.operator === operator.id }}
                       onPress={() => setCondition(index, { operator: operator.id })}

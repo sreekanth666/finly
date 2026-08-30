@@ -5,6 +5,15 @@ import { View } from 'react-native';
 
 import { TabBarSurface, TabItem } from '@/components/tab-bar';
 
+/**
+ * Contains a crash to the tabs rather than the whole app.
+ *
+ * The root layout exports one too, but a boundary only catches what is *below*
+ * it — so without this, a render throw in Insights replaced the entire app,
+ * navigation and all, and the user's only way back was to force-quit.
+ */
+export { ErrorBoundary } from 'expo-router';
+
 type TabDefinition = {
   name: string;
   href: Href;

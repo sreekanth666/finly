@@ -16,6 +16,12 @@ export type ProgressRingProps = {
   direction?: 'clockwise' | 'anticlockwise';
   trackColor?: AppColor;
   progressColor?: AppColor;
+  /**
+   * What the arc means, spoken. The children are read out as loose fragments
+   * otherwise, and the arc itself — the actual progress — conveys nothing at
+   * all to a screen reader.
+   */
+  accessibilityLabel?: string;
   children?: ReactNode;
 };
 
@@ -48,6 +54,7 @@ export function ProgressRing({
   direction = 'anticlockwise',
   trackColor = 'border',
   progressColor = 'foreground',
+  accessibilityLabel,
   children,
 }: ProgressRingProps) {
   const [track, arc] = useAppColor([trackColor, progressColor]);
@@ -58,7 +65,17 @@ export function ProgressRing({
   const start = polarToCartesian(center, radius, startAngle);
 
   return (
-    <View className="items-center justify-center" style={{ width: size, height: size }}>
+    <View
+      className="items-center justify-center"
+      style={{ width: size, height: size }}
+      accessible={accessibilityLabel !== undefined}
+      accessibilityRole={accessibilityLabel === undefined ? undefined : 'progressbar'}
+      accessibilityValue={
+        accessibilityLabel === undefined
+          ? undefined
+          : { min: 0, max: 100, now: Math.round(progress * 100) }
+      }
+      accessibilityLabel={accessibilityLabel}>
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
         <Circle cx={center} cy={center} r={radius} stroke={track} strokeWidth={strokeWidth} fill="none" />
         <Path

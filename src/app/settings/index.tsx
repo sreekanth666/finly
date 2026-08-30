@@ -7,6 +7,7 @@ import {
   CircleDollarSign,
   Info,
   Shapes,
+  ShieldCheck,
   Wallet,
 } from 'lucide-react-native';
 import { Alert, ScrollView, View } from 'react-native';
@@ -80,6 +81,20 @@ export default function SettingsScreen() {
               description="Rename, reorder and archive"
               value={categoryCount === null ? '—' : plural(categoryCount, 'category', 'categories')}
               onPress={() => router.push('/settings/categories')}
+            />
+          </View>
+        </View>
+
+        <View className="gap-3">
+          <SectionHeader label="Security" />
+          <View className="rounded-3xl bg-surface">
+            <SettingsRow
+              isFirst
+              icon={ShieldCheck}
+              iconTone="accent"
+              label="App lock & encryption"
+              description="Both off by default"
+              onPress={() => router.push('/settings/security')}
             />
           </View>
         </View>

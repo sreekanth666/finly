@@ -9,6 +9,7 @@ import { Amount } from '@/components/amount';
 import { Button } from '@/components/button';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
+import { InlineError } from '@/components/inline-error';
 import { Icon } from '@/components/icon';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { ProgressRing } from '@/components/progress-ring';
@@ -18,7 +19,7 @@ import { StatCard } from '@/components/stat-card';
 import { TransactionRow } from '@/components/transaction-row';
 import { useDbQuery, type TableName } from '@/db/live';
 import { offBudgetSpend } from '@/db/repositories/expenses';
-import { absMinor, asMinor, formatMinor, ZERO_MINOR } from '@/domain/money';
+import { absMinor, asMinor, formatMinor, speakMinor, ZERO_MINOR } from '@/domain/money';
 import { currentPeriod, daysRemainingIn, formatPeriodLong } from '@/domain/period';
 import {
   dismissCarryOverNotice,
@@ -130,7 +131,14 @@ export default function BalanceScreen() {
           <View
             className="items-center justify-center rounded-full bg-surface"
             style={{ width: ringSize, height: ringSize }}>
-            <ProgressRing size={ringSize - 16} progress={progress}>
+            <ProgressRing
+              size={ringSize - 16}
+              progress={progress}
+              accessibilityLabel={
+                period.isOverspent
+                  ? `Overspent by ${speakMinor(absMinor(period.remaining))} of ${speakMinor(period.available)} available`
+                  : `${speakMinor(absMinor(period.remaining))} safe to spend of ${speakMinor(period.available)} available`
+              }>
               <View className="items-center gap-1 px-8">
                 <Typography type="body" weight="medium">
                   {period.isOverspent ? 'Overspent' : 'Safe to Spend'}
@@ -189,13 +197,22 @@ export default function BalanceScreen() {
         {/* §7.1: cycle spend, utilisation and days to statement per card.
             Utilisation is a billing-cycle figure, not a monthly one, so it does
             not follow the month switcher above. */}
-        {(cards.data ?? []).length > 0 && (
+        {cards.error !== null ? (
           <View className="gap-2">
             <Typography type="body-sm" weight="semibold">
               Cards
             </Typography>
-            <CardUtilisationList cards={cards.data ?? []} />
+            <InlineError message="Your cards couldn't be loaded." onRetry={cards.refetch} />
           </View>
+        ) : (
+          (cards.data ?? []).length > 0 && (
+            <View className="gap-2">
+              <Typography type="body-sm" weight="semibold">
+                Cards
+              </Typography>
+              <CardUtilisationList cards={cards.data ?? []} />
+            </View>
+          )
         )}
 
         <View className="gap-2">
@@ -213,7 +230,9 @@ export default function BalanceScreen() {
             </Pressable>
           </View>
 
-          {recentRows.length === 0 ? (
+          {recent.error !== null ? (
+            <InlineError message="Recent expenses couldn't be loaded." onRetry={recent.refetch} />
+          ) : recentRows.length === 0 ? (
             <EmptyState
               icon={Receipt}
               title="Nothing this month"

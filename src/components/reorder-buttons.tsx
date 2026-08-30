@@ -32,6 +32,7 @@ export function ReorderButtons({
   return (
     <View className="flex-row items-center">
       <Pressable
+        hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel={`Move ${label} up`}
         accessibilityState={{ disabled: !canMoveUp }}
@@ -42,6 +43,7 @@ export function ReorderButtons({
       </Pressable>
 
       <Pressable
+        hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel={`Move ${label} down`}
         accessibilityState={{ disabled: !canMoveDown }}

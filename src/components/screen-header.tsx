@@ -1,31 +1,33 @@
 import { router } from 'expo-router';
-import { Avatar, Typography } from 'heroui-native';
-import { Bell, EllipsisVertical } from 'lucide-react-native';
+import { Typography } from 'heroui-native';
+import { EllipsisVertical } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { IconButton } from './icon-button';
 
 export type ScreenHeaderProps = {
-  /** Initials shown until a real profile image exists. */
-  initials?: string;
+  /** The screen's name, so each tab announces itself. */
+  title?: string;
 };
 
 /**
- * The account row every tab opens with: avatar on the left, notifications and
- * overflow on the right. Shared so the tabs can't drift apart.
+ * The row every tab opens with.
+ *
+ * It used to carry an avatar showing the hardcoded initials "SK" and a bell with
+ * no handler. There is no user table for the first — §1 is explicit that there
+ * is no account — and notifications are an explicit §2 non-goal, so the bell was
+ * a permanently dead control shipping on all four tabs. Both are gone; what is
+ * left is the one thing that does something.
  */
-export function ScreenHeader({ initials = 'SK' }: ScreenHeaderProps) {
+export function ScreenHeader({ title }: ScreenHeaderProps) {
   return (
     <View className="flex-row items-center">
-      <Avatar size="sm">
-        <Avatar.Fallback>
-          <Typography type="body-sm" weight="semibold">
-            {initials}
-          </Typography>
-        </Avatar.Fallback>
-      </Avatar>
+      {title !== undefined && (
+        <Typography type="body-sm" weight="semibold" color="muted">
+          {title}
+        </Typography>
+      )}
       <View className="flex-1" />
-      <IconButton icon={Bell} label="Notifications" />
       {/* App chrome, so it routes directly rather than making all four tabs
           pass the same handler down. */}
       <IconButton

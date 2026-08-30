@@ -15,6 +15,7 @@ import { ErrorState } from '@/components/error-state';
 import { reorderAccounts, setAccountArchived } from '@/db/repositories/accounts';
 import type { AccountRow } from '@/db/schema';
 import { isAtEdge, moveItem } from '@/domain/reorder';
+import { useAction } from '@/db/use-action';
 import { useAccounts } from '@/features/catalog/hooks';
 import { ACCOUNT_TYPE_ICONS, ACCOUNT_TYPE_LABELS } from '@/features/accounts/presentation';
 import { toAppColor } from '@/theme';
@@ -33,6 +34,10 @@ export default function AccountsSettingsScreen() {
   const accounts = useAccounts(true);
   const list = accounts.data ?? [];
 
+  const reorder = useAction(reorderAccounts);
+  const archive = useAction(setAccountArchived);
+  const failure = reorder.errorMessage ?? archive.errorMessage;
+
   /* Order is kept on the whole list; the sections are just a view of it. */
   const active = useMemo(() => list.filter((account) => !account.isArchived), [list]);
   const archived = useMemo(() => list.filter((account) => account.isArchived), [list]);
@@ -45,13 +50,11 @@ export default function AccountsSettingsScreen() {
   const move = (account: AccountRow, direction: -1 | 1) => {
     const index = active.findIndex((candidate) => candidate.id === account.id);
     const reordered = moveItem(active, index, direction);
-    reorderAccounts([...reordered, ...archived].map((row) => row.id));
-    accounts.refetch();
+    void reorder.run([...reordered, ...archived].map((row) => row.id));
   };
 
   const setArchived = (id: string, isArchived: boolean) => {
-    setAccountArchived(id, isArchived);
-    accounts.refetch();
+    void archive.run(id, isArchived);
   };
 
   return (
@@ -105,6 +108,7 @@ export default function AccountsSettingsScreen() {
               {active.map((account, index) => (
               <View key={account.id} className={index === 0 ? ROW.first : ROW.rest}>
                 <Pressable
+                  hitSlop={10}
                   accessibilityRole="button"
                   onPress={() => router.push(`/settings/accounts/${account.id}`)}
                   className="flex-1 flex-row items-center gap-3 active:opacity-60">
@@ -134,6 +138,7 @@ export default function AccountsSettingsScreen() {
                 />
 
                 <Pressable
+                  hitSlop={10}
                   accessibilityRole="button"
                   accessibilityLabel={`Archive ${account.name}`}
                   onPress={() => setArchived(account.id, true)}
@@ -143,6 +148,12 @@ export default function AccountsSettingsScreen() {
               </View>
             ))}
             </View>
+          )}
+
+          {failure !== null && (
+            <Typography type="body-xs" className="px-1 text-danger">
+              {failure}
+            </Typography>
           )}
 
           <Typography type="body-xs" color="muted" className="px-1">
@@ -177,6 +188,7 @@ export default function AccountsSettingsScreen() {
                     </Typography>
                   </View>
                   <Pressable
+                    hitSlop={10}
                     accessibilityRole="button"
                     accessibilityLabel={`Restore ${account.name}`}
                     onPress={() => setArchived(account.id, false)}
