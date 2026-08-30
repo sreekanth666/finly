@@ -1,14 +1,17 @@
-# pnpm blocks dependency build scripts by default. Skia's postinstall copies the
-# native libraries the Android and iOS builds link against, so it must run.
+# pnpm blocks dependency build scripts by default.
+#
+# Nothing needs to run one any more: the Skia entry that used to live here went
+# with @shopify/react-native-skia, which was only ever present as victory-native's
+# peer — the charts were hand-rolled on react-native-svg and neither package was
+# ever imported.
 #
 # The rest are declined rather than left undecided, because an undecided build
-# script makes pnpm refuse to run `pnpm exec` at all. esbuild arrives three times
-# through drizzle-kit's toolchain and its postinstall only version-checks a CLI
-# shim by shelling out to `esbuild` on PATH — with three copies installed it finds
-# the wrong one and fails. Nothing needs that shim: drizzle-kit drives esbuild
-# through its JS API, which loads @esbuild/linux-x64 directly.
+# script makes pnpm refuse to run `pnpm exec` at all. esbuild arrives through
+# drizzle-kit's toolchain and its postinstall only version-checks a CLI shim by
+# shelling out to `esbuild` on PATH — with several copies installed it finds the
+# wrong one and fails. Nothing needs that shim: drizzle-kit drives esbuild
+# through its JS API, which loads the platform package directly.
 allowBuilds:
-  '@shopify/react-native-skia': true
   esbuild: false
   '@parcel/watcher': false
   unrs-resolver: false

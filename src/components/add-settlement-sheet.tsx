@@ -2,7 +2,7 @@ import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { BottomSheet, Input, Typography, useBottomSheetAwareHandlers } from 'heroui-native';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { AmountKeypad } from './amount-keypad';
 import { Amount } from './amount';

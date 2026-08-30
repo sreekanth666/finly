@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { Archive, ArrowLeft, Plus, RotateCcw } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,15 +32,20 @@ const describe = (account: AccountRow) =>
 
 export default function AccountsSettingsScreen() {
   const accounts = useAccounts(true);
-  const list = accounts.data ?? [];
 
   const reorder = useAction(reorderAccounts);
   const archive = useAction(setAccountArchived);
   const failure = reorder.errorMessage ?? archive.errorMessage;
 
   /* Order is kept on the whole list; the sections are just a view of it. */
-  const active = useMemo(() => list.filter((account) => !account.isArchived), [list]);
-  const archived = useMemo(() => list.filter((account) => account.isArchived), [list]);
+  const active = useMemo(
+    () => (accounts.data ?? []).filter((account) => !account.isArchived),
+    [accounts.data],
+  );
+  const archived = useMemo(
+    () => (accounts.data ?? []).filter((account) => account.isArchived),
+    [accounts.data],
+  );
 
   /*
    * moveItem reorders the array; sort_order has to be written back or the order

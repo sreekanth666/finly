@@ -31,7 +31,6 @@ const ROW = {
 
 export default function CategoriesSettingsScreen() {
   const categories = useCategories(true);
-  const list = categories.data ?? [];
 
   /*
    * Renames are held locally and committed on blur, deliberately.
@@ -67,8 +66,14 @@ export default function CategoriesSettingsScreen() {
     void rename.run(category.id, next);
   };
 
-  const active = useMemo(() => list.filter((category) => !category.isArchived), [list]);
-  const archived = useMemo(() => list.filter((category) => category.isArchived), [list]);
+  const active = useMemo(
+    () => (categories.data ?? []).filter((category) => !category.isArchived),
+    [categories.data],
+  );
+  const archived = useMemo(
+    () => (categories.data ?? []).filter((category) => category.isArchived),
+    [categories.data],
+  );
 
   /* moveItem reorders the array; sort_order has to be written back or the order
      resets on the next read. */

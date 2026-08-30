@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { Plus } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { FlatList, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,7 +20,6 @@ export default function RulesScreen() {
   const rules = useRules();
   const categories = useCategories(true);
   const accounts = useAccounts(true);
-  const ruleList = rules.data ?? [];
 
   /* The design pass toggled local state, so a rule switched off came back on
      the moment you navigated away. This writes — through useAction, so a failed
@@ -39,13 +38,13 @@ export default function RulesScreen() {
    * still exist, they just aren't consulted.
    */
   const sections = useMemo(() => {
-    const byPriority = [...ruleList].sort((a, b) => b.priority - a.priority);
+    const byPriority = [...(rules.data ?? [])].sort((a, b) => b.priority - a.priority);
 
     return [
       { id: 'active', label: 'Active', rules: byPriority.filter((rule) => rule.isEnabled) },
       { id: 'paused', label: 'Paused', rules: byPriority.filter((rule) => !rule.isEnabled) },
     ].filter((section) => section.rules.length > 0);
-  }, [ruleList]);
+  }, [rules.data]);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>

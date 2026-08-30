@@ -1,7 +1,6 @@
 import {
   buildRows,
   escapeCsvField,
-  EMPTY_MAPPING,
   guessMapping,
   inferDateOrder,
   isMappingComplete,
