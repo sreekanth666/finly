@@ -13,6 +13,7 @@ import { Icon } from '@/components/icon';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { ProgressRing } from '@/components/progress-ring';
 import { ScreenHeader } from '@/components/screen-header';
+import { CardUtilisationList } from '@/components/card-utilisation-list';
 import { StatCard } from '@/components/stat-card';
 import { TransactionRow } from '@/components/transaction-row';
 import { useDbQuery, type TableName } from '@/db/live';
@@ -24,6 +25,7 @@ import {
   useBudgetHistory,
   useCarryOverNotice,
 } from '@/features/budget/hooks';
+import { useCardStandings } from '@/features/accounts/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
 
 const RING_MAX_SIZE = 320;
@@ -52,6 +54,7 @@ export default function BalanceScreen() {
     offBudgetSpend(periodKey, database),
   );
 
+  const cards = useCardStandings();
   const recent = useExpenseFeed({ period: periodKey }, RECENT_COUNT);
   const recentRows = useMemo(
     () => (recent.data?.groups ?? []).flatMap((group) => group.items).slice(0, RECENT_COUNT),
@@ -179,6 +182,18 @@ export default function BalanceScreen() {
             icon={Receipt}
           />
         </View>
+
+        {/* §7.1: cycle spend, utilisation and days to statement per card.
+            Utilisation is a billing-cycle figure, not a monthly one, so it does
+            not follow the month switcher above. */}
+        {(cards.data ?? []).length > 0 && (
+          <View className="gap-2">
+            <Typography type="body-sm" weight="semibold">
+              Cards
+            </Typography>
+            <CardUtilisationList cards={cards.data ?? []} />
+          </View>
+        )}
 
         <View className="gap-2">
           <View className="flex-row items-center justify-between">

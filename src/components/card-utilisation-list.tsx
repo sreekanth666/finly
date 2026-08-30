@@ -6,7 +6,9 @@ import { Amount } from './amount';
 import { Icon } from './icon';
 import { Meter, type MeterTone } from './meter';
 
-import type { CardUtilisation } from '@/data/insights';
+import type { CardStanding } from '@/features/accounts/hooks';
+import type { UtilisationBand } from '@/domain/utilisation';
+import { speakMinor } from '@/domain/money';
 import type { AppColor } from '@/theme';
 
 type UtilisationStatus = {
@@ -21,7 +23,7 @@ type UtilisationStatus = {
  * Utilisation is a status, so it ships with an icon and a word — never the bar
  * colour on its own. Class strings are spelled out per state.
  */
-const STATUSES: Record<'healthy' | 'high' | 'critical', UtilisationStatus> = {
+const STATUSES: Record<UtilisationBand, UtilisationStatus> = {
   healthy: {
     meter: 'accent',
     icon: CircleCheck,
@@ -45,46 +47,47 @@ const STATUSES: Record<'healthy' | 'high' | 'critical', UtilisationStatus> = {
   },
 };
 
-const toStatus = (utilisation: number) => {
-  if (utilisation >= 0.85) return STATUSES.critical;
-  if (utilisation >= 0.6) return STATUSES.high;
-
-  return STATUSES.healthy;
-};
-
-export function CardUtilisationList({ cards }: { cards: CardUtilisation[] }) {
+export function CardUtilisationList({ cards }: { cards: readonly CardStanding[] }) {
   return (
     <View className="gap-4 rounded-3xl bg-surface p-4">
       {cards.map((card, index) => {
-        const utilisation = card.creditLimit > 0 ? card.cycleSpend / card.creditLimit : 0;
-        const status = toStatus(utilisation);
+        /* The band comes from domain/utilisation.ts now — the thresholds used to
+           be magic numbers here, where nothing could test them. */
+        const status = STATUSES[card.band];
+        const percent = Math.round(card.utilisation * 100);
 
         return (
           <View
             key={card.id}
+            /* The bar and the icon are both visual; the label carries the same
+               information in words for a screen reader. */
+            accessible
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 0, max: 100, now: percent }}
+            accessibilityLabel={`${card.name}: ${speakMinor(card.cycleSpendMinor)} of ${speakMinor(card.creditLimitMinor)} used, ${status.label}, ${card.daysToStatement} days to statement`}
             className={index === 0 ? 'gap-2.5' : 'gap-2.5 border-t border-border pt-4'}>
             <View className="flex-row items-center justify-between gap-3">
               <Typography type="body-sm" weight="semibold" className="flex-1" truncate>
                 {card.name}
               </Typography>
               <Typography type="body-xs" color="muted">
-                {card.daysToStatement}d to statement
+                {card.daysToStatement === 1 ? '1 day to statement' : `${card.daysToStatement}d to statement`}
               </Typography>
             </View>
 
-            <Meter progress={utilisation} tone={status.meter} />
+            <Meter progress={card.utilisation} tone={status.meter} />
 
             <View className="flex-row items-center justify-between gap-3">
               <View className="flex-row items-center gap-1.5">
                 <Icon icon={status.icon} color={status.iconTone} size={12} />
                 <Typography type="body-xs" className={status.text}>
-                  {`${status.label} · ${Math.round(utilisation * 100)}%`}
+                  {`${status.label} · ${percent}%`}
                 </Typography>
               </View>
 
               <View className="flex-row items-center gap-1">
                 <Amount
-                  value={card.cycleSpend}
+                  value={card.cycleSpendMinor}
                   className="type-amount-sm text-foreground"
                   fractionClassName="type-amount-sm"
                   showFraction={false}
@@ -92,7 +95,11 @@ export function CardUtilisationList({ cards }: { cards: CardUtilisation[] }) {
                 <Typography type="body-xs" color="muted">
                   of
                 </Typography>
-                <Amount value={card.creditLimit} className="type-amount-sm text-muted" showFraction={false} />
+                <Amount
+                  value={card.creditLimitMinor}
+                  className="type-amount-sm text-muted"
+                  showFraction={false}
+                />
               </View>
             </View>
           </View>

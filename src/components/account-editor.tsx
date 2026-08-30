@@ -10,13 +10,14 @@ import { Icon } from './icon';
 import { IconButton } from './icon-button';
 import { SectionHeader } from './section-header';
 
+import type { AccountType } from '@/db/schema';
 import {
   ACCOUNT_COLOR_TOKENS,
   ACCOUNT_TYPE_ICONS,
   ACCOUNT_TYPE_LABELS,
+  ACCOUNT_TYPE_OPTIONS,
   type AccountColorToken,
-  type AccountType,
-} from '@/data/accounts';
+} from '@/features/accounts/presentation';
 import { useAppColor } from '@/theme';
 
 export type AccountDraft = {
@@ -39,11 +40,6 @@ const EMPTY_DRAFT: AccountDraft = {
   colorToken: 'accent',
 };
 
-const TYPE_OPTIONS = (Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[]).map((id) => ({
-  id,
-  label: ACCOUNT_TYPE_LABELS[id],
-}));
-
 const isValidStatementDay = (value: string) => {
   if (value.length === 0) return true;
   const day = Number(value);
@@ -55,6 +51,8 @@ export type AccountEditorProps = {
   title: string;
   initial?: Partial<AccountDraft>;
   submitLabel: string;
+  isSubmitting?: boolean;
+  errorMessage?: string | null;
   onSubmit: (draft: AccountDraft) => void;
   onClose: () => void;
 };
@@ -70,6 +68,8 @@ export function AccountEditor({
   title,
   initial,
   submitLabel,
+  isSubmitting = false,
+  errorMessage = null,
   onSubmit,
   onClose,
 }: AccountEditorProps) {
@@ -83,7 +83,11 @@ export function AccountEditor({
   const isCard = draft.type === 'credit_card';
   const last4Valid = draft.last4.length === 0 || draft.last4.length === 4;
   const statementDayValid = isValidStatementDay(draft.statementDay);
-  const canSave = draft.name.trim().length > 0 && last4Valid && statementDayValid;
+  /* A card must carry a limit — §5 has a CHECK for it, and refusing here beats
+     surfacing SQLITE_CONSTRAINT after the user hits Save. */
+  const limitValid = !isCard || Number(draft.creditLimit.replace(/[^\d.]/g, '')) > 0;
+  const canSave =
+    draft.name.trim().length > 0 && last4Valid && statementDayValid && limitValid && !isSubmitting;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -122,7 +126,7 @@ export function AccountEditor({
             <SectionHeader label="Type" />
           </View>
           <FilterChipBar
-            options={TYPE_OPTIONS}
+            options={ACCOUNT_TYPE_OPTIONS}
             selectedId={draft.type}
             onSelect={(type) => set('type', type)}
           />
@@ -216,8 +220,17 @@ export function AccountEditor({
         </View>
       </ScrollView>
 
-      <View className="border-t border-border px-5 pt-3">
-        <Button label={submitLabel} isDisabled={!canSave} onPress={() => onSubmit(draft)} />
+      <View className="gap-3 border-t border-border px-5 pt-3">
+        {errorMessage !== null && (
+          <Typography type="body-xs" className="text-danger">
+            {errorMessage}
+          </Typography>
+        )}
+        <Button
+          label={isSubmitting ? 'Saving…' : submitLabel}
+          isDisabled={!canSave}
+          onPress={() => onSubmit(draft)}
+        />
       </View>
     </SafeAreaView>
   );

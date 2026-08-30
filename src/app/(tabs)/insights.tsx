@@ -9,14 +9,19 @@ import { SectionHeader } from '@/components/section-header';
 import { SpendTrend } from '@/components/spend-trend';
 import { TopItemsList } from '@/components/top-items-list';
 import { insightsOverview } from '@/data/insights';
+import { useCardStandings } from '@/features/accounts/hooks';
 
 /** Screen padding (px-5 both sides) plus the card's own p-4 both sides. */
 const CONTENT_INSET = 72;
 const DONUT_MAX_SIZE = 220;
 
 export default function InsightsScreen() {
+  /* The card section is real from M3 onward; the rest of this screen is still
+     the design-pass fixture until M6. */
+  const cardStandings = useCardStandings();
+
   const { width } = useWindowDimensions();
-  const { period, totalSpent, monthlyBudget, byCategory, trend, cards, topItems } =
+  const { period, totalSpent, monthlyBudget, byCategory, trend, topItems } =
     insightsOverview;
 
   const plotWidth = width - CONTENT_INSET;
@@ -64,7 +69,7 @@ export default function InsightsScreen() {
               </Typography>
             }
           />
-          <CardUtilisationList cards={cards} />
+          <CardUtilisationList cards={cardStandings.data ?? []} />
         </View>
 
         <View className="gap-3">

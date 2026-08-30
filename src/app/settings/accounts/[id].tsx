@@ -1,48 +1,46 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Typography } from 'heroui-native';
-import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AccountEditor, type AccountDraft } from '@/components/account-editor';
-import { Button } from '@/components/button';
-import { findAccount, type Account, type AccountColorToken } from '@/data/accounts';
-
-const toDraft = (account: Account): AccountDraft => ({
-  name: account.name,
-  type: account.type,
-  issuer: account.issuer ?? '',
-  last4: account.last4 ?? '',
-  creditLimit: account.creditLimitMinor === undefined ? '' : String(account.creditLimitMinor),
-  statementDay: account.statementDay === undefined ? '' : String(account.statementDay),
-  colorToken: account.colorToken as AccountColorToken,
-});
+import { AccountEditor } from '@/components/account-editor';
+import { NotFound } from '@/components/not-found';
+import { updateAccount } from '@/db/repositories/accounts';
+import { useAction } from '@/db/use-action';
+import { useAccount } from '@/features/accounts/hooks';
+import { draftToInput, rowToDraft } from '@/features/accounts/mappers';
 
 export default function EditAccountScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const account = findAccount(id);
 
-  if (!account) {
+  /* Hooks above returns — the lookup is a query now, so it flips between
+     renders and a hook underneath would change the hook count. */
+  const account = useAccount(id);
+  const save = useAction(updateAccount);
+
+  if (account.error !== null) {
+    return <NotFound title="Can't open this account" description={account.error.message} />;
+  }
+
+  const row = account.data;
+  if (row === null) {
     return (
-      <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-        <View className="flex-1 items-center justify-center gap-3 px-5">
-          <Typography type="body" weight="medium">
-            Account not found
-          </Typography>
-          <Typography type="body-sm" color="muted" align="center">
-            It may have been removed since this screen was opened.
-          </Typography>
-          <Button tone="secondary" label="Go back" onPress={() => router.back()} />
-        </View>
-      </SafeAreaView>
+      <NotFound
+        title="Account not found"
+        description="It may have been deleted from another screen."
+      />
     );
   }
+  if (row === undefined) return null;
 
   return (
     <AccountEditor
       title="Edit account"
-      initial={toDraft(account)}
       submitLabel="Save changes"
-      onSubmit={() => router.back()}
+      initial={rowToDraft(row)}
+      isSubmitting={save.isPending}
+      errorMessage={save.errorMessage}
+      onSubmit={async (draft) => {
+        const outcome = await save.run(row.id, draftToInput(draft));
+        if (outcome.ok) router.back();
+      }}
       onClose={() => router.back()}
     />
   );

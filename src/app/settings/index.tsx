@@ -15,8 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/icon-button';
 import { SectionHeader } from '@/components/section-header';
 import { SettingsRow } from '@/components/settings-row';
-import { accounts } from '@/data/accounts';
 import { runDevSeed } from '@/db/dev-seed';
+import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useDefaultMonthlyBudget } from '@/features/budget/hooks';
 import { formatMinor } from '@/domain/money';
 import { CATEGORIES } from '@/data/categories';
@@ -26,8 +26,10 @@ const plural = (count: number, one: string, many: string) =>
 
 export default function SettingsScreen() {
   const budget = useDefaultMonthlyBudget();
+  const accountRows = useAccounts();
+  const categoryRows = useCategories();
 
-  const activeAccounts = accounts.filter((account) => !account.isArchived).length;
+  const activeAccounts = (accountRows.data ?? []).length;
   const categoryCount = Object.keys(CATEGORIES).length;
 
   return (
