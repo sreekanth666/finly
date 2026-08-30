@@ -43,3 +43,6 @@ yarn-error.*
 # ignored: it carries the reference that declares `className` on every React
 # Native component, so without it a fresh clone cannot typecheck until Metro has
 # been run once. Ten stable lines is a better trade than that.
+
+# build artifacts
+builds/
