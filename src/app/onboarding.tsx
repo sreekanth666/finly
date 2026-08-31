@@ -12,7 +12,12 @@ import { SafeAreaView } from '@/components/safe-area-view';
 import { StepIndicator } from '@/components/step-indicator';
 import { createAccount } from '@/db/repositories/accounts';
 import { setDefaultMonthlyBudget } from '@/db/repositories/budgets';
-import { getCurrency, setCurrency, setFlag } from '@/db/repositories/settings';
+import {
+  getCurrency,
+  setCurrency,
+  setFlag,
+  setProfileName,
+} from '@/db/repositories/settings';
 import { useAction } from '@/db/use-action';
 import { useDbQuery } from '@/db/live';
 import { appendKey, type KeypadKey } from '@/domain/amount-entry';
@@ -25,7 +30,7 @@ import {
   type Currency,
 } from '@/domain/money';
 
-const STEPS = ['Currency', 'Budget', 'Account'];
+const STEPS = ['You', 'Currency', 'Budget', 'Account'];
 
 /**
  * First run.
@@ -38,6 +43,10 @@ const STEPS = ['Currency', 'Budget', 'Account'];
  * Every step is skippable. Nothing here is information the app cannot work
  * without, and a wall between someone and their first expense is a worse
  * outcome than an unset budget.
+ *
+ * The name goes first because it is the only step that changes how the app
+ * speaks rather than what it calculates, and asking it after the money
+ * questions would read as an afterthought.
  */
 export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
@@ -48,11 +57,16 @@ export default function OnboardingScreen() {
   const [currency, setCurrencyChoice] = useState<Currency | null>(null);
   const active = currency ?? stored.data ?? null;
 
+  const [name, setName] = useState('');
   const [entry, setEntry] = useState(minorToEntry(rupees(5000)));
   const [accountName, setAccountName] = useState('');
 
   const finish = useAction(
-    (chosen: Currency | null, budgetEntry: string, cardName: string) => {
+    (profileName: string, chosen: Currency | null, budgetEntry: string, cardName: string) => {
+      /* Skipped is a real answer, and the repository turns an empty string into
+         a deleted key rather than a name that is blank. */
+      setProfileName(profileName);
+
       if (chosen !== null) {
         setCurrency(chosen);
         setActiveCurrency(chosen);
@@ -61,11 +75,13 @@ export default function OnboardingScreen() {
       const budget = entryToMinor(budgetEntry);
       if (budget > 0) setDefaultMonthlyBudget(budget);
 
-      const name = cardName.trim();
-      if (name.length > 0) {
+      /* Named `account` rather than `name`, which now belongs to the profile
+         step and would be shadowed here. */
+      const account = cardName.trim();
+      if (account.length > 0) {
         /* A bank account, not a card: a card needs a credit limit, and asking
            for one here would turn a two-tap step into a form. */
-        createAccount({ name, type: 'bank', colorToken: 'accent' }, undefined);
+        createAccount({ name: account, type: 'bank', colorToken: 'accent' }, undefined);
       }
 
       setFlag('onboarding_done', true);
@@ -73,7 +89,7 @@ export default function OnboardingScreen() {
   );
 
   const complete = async () => {
-    const outcome = await finish.run(currency, entry, accountName);
+    const outcome = await finish.run(name, currency, entry, accountName);
     if (!outcome.ok) return;
     /* Replaced rather than pushed: onboarding is the root of the stack, and
        nobody should be able to swipe back into a flow they have finished. */
@@ -88,7 +104,7 @@ export default function OnboardingScreen() {
             Welcome to Finly
           </Typography.Heading>
           <Typography type="body-sm" color="muted">
-            Three quick things. You can change all of them later.
+            Four quick things. You can change all of them later.
           </Typography>
         </View>
         <StepIndicator steps={STEPS} current={step} />
@@ -100,6 +116,19 @@ export default function OnboardingScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         {step === 0 && (
+          <View className="gap-3">
+            <Typography type="body-sm" weight="semibold">
+              What should we call you?
+            </Typography>
+            <NameField value={name} onChangeText={setName} />
+            <Typography type="body-xs" color="muted" className="px-1">
+              Only ever stored on this phone, and only used to say hello. Leave it
+              blank if you would rather not.
+            </Typography>
+          </View>
+        )}
+
+        {step === 1 && (
           <View className="gap-3">
             <Typography type="body-sm" weight="semibold">
               Which currency do you spend in?
@@ -118,7 +147,7 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {step === 1 && (
+        {step === 2 && (
           <View className="gap-3">
             <Typography type="body-sm" weight="semibold">
               How much do you want to spend a month?
@@ -136,7 +165,7 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <View className="gap-3">
             <Typography type="body-sm" weight="semibold">
               What do you usually pay from?
@@ -204,6 +233,26 @@ export default function OnboardingScreen() {
         </View>
       </View>
     </SafeAreaView>
+  );
+}
+
+/** Split out so the keyboard-aware input doesn't re-render the whole flow. */
+function NameField({
+  value,
+  onChangeText,
+}: {
+  value: string;
+  onChangeText: (next: string) => void;
+}) {
+  return (
+    <Input
+      placeholder="Your name"
+      value={value}
+      onChangeText={onChangeText}
+      autoCapitalize="words"
+      autoComplete="name"
+      accessibilityLabel="Your name"
+    />
   );
 }
 
