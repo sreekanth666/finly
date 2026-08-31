@@ -9,6 +9,7 @@ import { Amount } from './amount';
 import { Button } from './button';
 import { FilterChipBar } from './filter-chip-bar';
 import { SectionHeader } from './section-header';
+import { VERTICAL_ONLY_PAN } from './sheet-pan';
 
 import type { AccountRow } from '@/db/schema';
 import { appendKey, EMPTY_ENTRY, type KeypadKey } from '@/domain/amount-entry';
@@ -125,6 +126,7 @@ export function AddSettlementSheet({
         <BottomSheet.Content
           snapPoints={['88%']}
           enableOverDrag={false}
+          {...VERTICAL_ONLY_PAN}
           enableDynamicSizing={false}
           contentContainerClassName="h-full"
           keyboardBehavior="extend">

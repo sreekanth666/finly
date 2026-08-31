@@ -8,6 +8,7 @@ import { Button } from "./button";
 import { FilterChipBar, type FilterOption } from "./filter-chip-bar";
 import { Icon } from "./icon";
 import { SectionHeader } from "./section-header";
+import { VERTICAL_ONLY_PAN } from "./sheet-pan";
 
 import type { AccountRow } from "@/db/schema";
 import { addPeriods, currentPeriod, formatPeriodLong } from "@/domain/period";
@@ -200,6 +201,7 @@ export function TransactionFilters({
               snapPoints={snapPoints}
               enableDynamicSizing={false}
               enableOverDrag={false}
+              {...VERTICAL_ONLY_PAN}
               /* The scrollable needs a bounded parent to scroll inside, and the
                  bound has to sit on Content rather than on the scrollable
                  itself — without it the sheet swallows the vertical drag and
