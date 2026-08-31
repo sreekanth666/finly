@@ -10,8 +10,6 @@ import { greetingFor } from '@/domain/profile';
 import { useProfileName } from '@/features/profile/hooks';
 
 export type ScreenHeaderProps = {
-  /** The screen's name, so each tab announces itself. */
-  title?: string;
   /**
    * Whether to address the user by name beside the avatar. One screen's job —
    * a greeting repeated on all four tabs stops being a greeting.
@@ -29,7 +27,7 @@ export type ScreenHeaderProps = {
  * so it has a real name behind it and somewhere to go — which are the two things
  * it was missing.
  */
-export function ScreenHeader({ title, greeting = false }: ScreenHeaderProps) {
+export function ScreenHeader({ greeting = false }: ScreenHeaderProps) {
   const name = useProfileName();
 
   /* Undefined while the read is in flight. Rendering the greeting without the
@@ -57,12 +55,6 @@ export function ScreenHeader({ title, greeting = false }: ScreenHeaderProps) {
       {greeting && stored !== undefined && (
         <Typography type="body-sm" weight="semibold" className="shrink" numberOfLines={1}>
           {stored === null ? greetingFor() : `${greetingFor()}, ${stored}`}
-        </Typography>
-      )}
-
-      {title !== undefined && (
-        <Typography type="body-sm" weight="semibold" color="muted">
-          {title}
         </Typography>
       )}
 
