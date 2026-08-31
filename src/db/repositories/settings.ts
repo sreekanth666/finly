@@ -54,3 +54,19 @@ export const getCurrency = (database: DbLike = db): Currency =>
 
 export const setCurrency = (currency: Currency, database: DbLike = db): void =>
   setSetting('currency', currency.code, database);
+
+/** The name the app addresses the user by. Null when it has never been set. */
+export function getProfileName(database: DbLike = db): string | null {
+  const stored = getSetting('profile_name', database)?.trim() ?? '';
+  return stored.length > 0 ? stored : null;
+}
+
+/**
+ * Clearing the name deletes the key rather than storing '', so "never set" and
+ * "set to nothing" cannot drift apart into two states that read the same.
+ */
+export function setProfileName(name: string, database: DbLike = db): void {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) deleteSetting('profile_name', database);
+  else setSetting('profile_name', trimmed, database);
+}

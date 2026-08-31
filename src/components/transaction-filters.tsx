@@ -1,3 +1,4 @@
+import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { BottomSheet, Switch, Typography } from "heroui-native";
 import { SlidersHorizontal } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,6 +8,7 @@ import { Button } from "./button";
 import { FilterChipBar, type FilterOption } from "./filter-chip-bar";
 import { Icon } from "./icon";
 import { SectionHeader } from "./section-header";
+import { VERTICAL_ONLY_PAN } from "./sheet-pan";
 
 import type { AccountRow } from "@/db/schema";
 import { addPeriods, currentPeriod, formatPeriodLong } from "@/domain/period";
@@ -199,84 +201,94 @@ export function TransactionFilters({
               snapPoints={snapPoints}
               enableDynamicSizing={false}
               enableOverDrag={false}
+              {...VERTICAL_ONLY_PAN}
+              /* The scrollable needs a bounded parent to scroll inside, and the
+                 bound has to sit on Content rather than on the scrollable
+                 itself — without it the sheet swallows the vertical drag and
+                 anything past the snap point is simply unreachable. */
+              contentContainerClassName="h-full"
             >
-              <View className="gap-5">
-                <View className="flex-row items-center justify-between gap-3">
-                  <BottomSheet.Title>Filters</BottomSheet.Title>
-                  {activeCount > 0 && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Clear all filters"
-                      hitSlop={8}
-                      onPress={reset}
-                      className="active:opacity-60"
-                    >
-                      <Typography
-                        type="body-sm"
-                        weight="medium"
-                        className="text-link"
+              <BottomSheetScrollView>
+                {/* Padded at the foot so the Apply button clears the home
+                    indicator once the content is long enough to scroll. */}
+                <View className="gap-5 pb-8">
+                  <View className="flex-row items-center justify-between gap-3">
+                    <BottomSheet.Title>Filters</BottomSheet.Title>
+                    {activeCount > 0 && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear all filters"
+                        hitSlop={8}
+                        onPress={reset}
+                        className="active:opacity-60"
                       >
-                        Reset
-                      </Typography>
-                    </Pressable>
-                  )}
-                </View>
-
-                {/* The chip bars carry their own leading inset and are meant to
-                  run off the edge, so they are pulled back out of the sheet's
-                  own padding rather than nested inside it. */}
-                <View className="gap-2">
-                  <SectionHeader label="Month" />
-                  <View className="-mx-5">
-                    <FilterChipBar
-                      options={monthOptions}
-                      selectedId={
-                        monthsBack === null ? ANY : String(monthsBack)
-                      }
-                      onSelect={(id) =>
-                        onMonthsBackChange(id === ANY ? null : Number(id))
-                      }
-                    />
+                        <Typography
+                          type="body-sm"
+                          weight="medium"
+                          className="text-link"
+                        >
+                          Reset
+                        </Typography>
+                      </Pressable>
+                    )}
                   </View>
-                </View>
 
-                {/* No accounts yet means nothing to choose between — §5 seeds none. */}
-                {accounts.length > 0 && (
+                  {/* The chip bars carry their own leading inset and are meant
+                      to run off the edge, so they are pulled back out of the
+                      sheet's own padding rather than nested inside it. */}
                   <View className="gap-2">
-                    <SectionHeader label="Account" />
+                    <SectionHeader label="Month" />
                     <View className="-mx-5">
                       <FilterChipBar
-                        options={accountOptions}
-                        selectedId={accountId ?? ANY}
+                        options={monthOptions}
+                        selectedId={
+                          monthsBack === null ? ANY : String(monthsBack)
+                        }
                         onSelect={(id) =>
-                          onAccountIdChange(id === ANY ? null : id)
+                          onMonthsBackChange(id === ANY ? null : Number(id))
                         }
                       />
                     </View>
                   </View>
-                )}
 
-                <View className="flex-row items-center gap-3 rounded-3xl bg-surface px-4 py-3.5">
-                  <View className="flex-1 gap-0.5">
-                    <Typography type="body-sm" weight="semibold">
-                      Budget only
-                    </Typography>
-                    <Typography type="body-xs" color="muted">
-                      Hide anything set not to count toward the month.
-                    </Typography>
+                  {/* No accounts yet means nothing to choose between — §5 seeds none. */}
+                  {accounts.length > 0 && (
+                    <View className="gap-2">
+                      <SectionHeader label="Account" />
+                      <View className="-mx-5">
+                        <FilterChipBar
+                          options={accountOptions}
+                          selectedId={accountId ?? ANY}
+                          onSelect={(id) =>
+                            onAccountIdChange(id === ANY ? null : id)
+                          }
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  <View className="flex-row items-center gap-3 rounded-3xl bg-surface px-4 py-3.5">
+                    <View className="flex-1 gap-0.5">
+                      <Typography type="body-sm" weight="semibold">
+                        Budget only
+                      </Typography>
+                      <Typography type="body-xs" color="muted">
+                        Hide anything set not to count toward the month.
+                      </Typography>
+                    </View>
+                    <Switch
+                      isSelected={budgetOnly}
+                      onSelectedChange={onBudgetOnlyChange}
+                      accessibilityLabel="Show only expenses that count toward the budget"
+                    />
                   </View>
-                  <Switch
-                    isSelected={budgetOnly}
-                    onSelectedChange={onBudgetOnlyChange}
-                    accessibilityLabel="Show only expenses that count toward the budget"
-                  />
-                </View>
 
-                {/* The filters apply as they are tapped, so this only dismisses —
-                  but it says what is waiting behind the sheet, which is the
-                  question someone has while choosing. */}
-                <Button label={applyLabel} onPress={() => setIsOpen(false)} />
-              </View>
+                  {/* The filters apply as they are tapped, so this only dismisses —
+                      but it says what is waiting behind the sheet, which is
+                      the question someone has while choosing. */}
+                  <Button label={applyLabel} onPress={() => setIsOpen(false)} />
+                </View>
+              </BottomSheetScrollView>
             </BottomSheet.Content>
           </BottomSheet.Portal>
         </BottomSheet>

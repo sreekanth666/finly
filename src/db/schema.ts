@@ -228,6 +228,8 @@ export type RuleActionType = 'set_category' | 'set_account' | 'set_counts_to_bud
 export type SettingKey =
   | 'schema_seeded'
   | 'onboarding_done'
+  /** What the app calls the user. Not an account — see src/domain/profile.ts. */
+  | 'profile_name'
   | 'currency'
   | 'monthly_budget_minor'
   /** Earliest period whose carry-over snapshot is out of date. */

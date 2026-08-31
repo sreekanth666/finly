@@ -152,6 +152,9 @@ export default function RootLayout() {
               <Stack.Screen name="expense/[id]/edit" options={{ presentation: 'modal' }} />
               <Stack.Screen name="rule/new" options={{ presentation: 'modal' }} />
               <Stack.Screen name="rule/[id]" options={{ presentation: 'modal' }} />
+              {/* A destination reached from the avatar on every tab, so it
+                  pushes rather than coming up as a task. */}
+              <Stack.Screen name="profile" />
               {/* Settings is a section you navigate into, so every screen pushes. */}
               <Stack.Screen name="settings/index" />
               <Stack.Screen name="settings/budget" />
