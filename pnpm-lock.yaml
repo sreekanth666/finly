@@ -108,6 +108,9 @@ importers:
         specifier: ^1.11.0
         version: 1.11.0(@expo/metro-config@57.0.10(expo@57.0.16)(typescript@6.0.3))(metro-cache@0.84.5)(metro-transform-worker@0.84.5)(metro@0.84.5)(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.2(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(tailwindcss@4.3.3)
     devDependencies:
+      '@babel/core':
+        specifier: ^7.29.7
+        version: 7.29.7
       '@react-native/jest-preset':
         specifier: ^0.86.3
         version: 0.86.3(@babel/core@7.29.7)(react@19.2.3)
@@ -120,6 +123,9 @@ importers:
       babel-plugin-inline-import:
         specifier: ^3.0.0
         version: 3.0.0
+      babel-preset-expo:
+        specifier: ~57.0.8
+        version: 57.0.8(@babel/core@7.29.7)(@babel/runtime@7.29.7)(expo@57.0.16)(react-refresh@0.14.2)
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
