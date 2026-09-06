@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 
-import { AccountEditor } from '@/components/account-editor';
+import { AccountEditor, type AccountDraft } from '@/components/account-editor';
 import { NotFound } from '@/components/not-found';
 import { updateAccount } from '@/db/repositories/accounts';
-import { useAction } from '@/db/use-action';
+import { useAction, useSubmitOnce } from '@/db/use-action';
 import { useAccount } from '@/features/accounts/hooks';
 import { draftToInput, rowToDraft } from '@/features/accounts/mappers';
 
@@ -14,6 +14,14 @@ export default function EditAccountScreen() {
      renders and a hook underneath would change the hook count. */
   const account = useAccount(id);
   const save = useAction(updateAccount);
+  /* Above the early returns with the rest, so the account id is passed at press
+     time rather than closed over before the query has answered. */
+  const saveOnce = useSubmitOnce(async (rowId: string, draft: AccountDraft) => {
+    const outcome = await save.run(rowId, draftToInput(draft));
+    if (!outcome.ok) return false;
+    router.back();
+    return true;
+  });
 
   if (account.error !== null) {
     return <NotFound title="Can't open this account" description={account.error.message} />;
@@ -37,10 +45,7 @@ export default function EditAccountScreen() {
       initial={rowToDraft(row)}
       isSubmitting={save.isPending}
       errorMessage={save.errorMessage}
-      onSubmit={async (draft) => {
-        const outcome = await save.run(row.id, draftToInput(draft));
-        if (outcome.ok) router.back();
-      }}
+      onSubmit={(draft) => void saveOnce.submit(row.id, draft)}
       onClose={() => router.back()}
     />
   );

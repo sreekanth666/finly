@@ -2,14 +2,13 @@ import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { Input, Switch, Typography } from 'heroui-native';
 import { Sparkles, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Keyboard, Pressable, View } from 'react-native';
 
 import { AmountKeypad } from './amount-keypad';
 import { Button } from './button';
 import { FilterChipBar } from './filter-chip-bar';
+import { FormScreen } from './form-screen';
 import { Icon } from './icon';
-import { IconButton } from './icon-button';
-import { SafeAreaView } from './safe-area-view';
 import { SectionHeader } from './section-header';
 
 import type { AccountRow, CategoryRow } from '@/db/schema';
@@ -282,222 +281,223 @@ export function ExpenseForm({
   }, [item, recentItems]);
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-      <View className="flex-row items-center gap-1 px-3 pt-2">
-        <IconButton icon={X} label="Close" onPress={onClose} />
-        <Typography type="body" weight="semibold">
-          {title}
-        </Typography>
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Edit amount"
-        onPress={() => setIsKeypadOpen(true)}
-        className="items-center gap-1 px-5 py-6 active:opacity-60">
-        <Typography type="body-xs" color="muted">
-          Amount
-        </Typography>
-        <Typography
-          className={entry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'}>
-          {formatEntry(entry)}
-        </Typography>
-      </Pressable>
-
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="gap-5 pb-6"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <View className="gap-2 px-5">
-          <SectionHeader label="Item" />
-          <Input
-            placeholder="What did you buy?"
-            value={item}
-            onChangeText={setItem}
-            onFocus={() => setIsKeypadOpen(false)}
-            autoCapitalize="sentences"
-          />
-          {suggestions.length > 0 && (
-            <View className="flex-row flex-wrap gap-2">
-              {suggestions.map((suggestion) => (
-                <Pressable
-                  key={suggestion}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Use ${suggestion}`}
-                  onPress={() => setItem(suggestion)}
-                  className="rounded-full bg-surface px-3 py-1.5 active:opacity-60">
-                  <Typography type="body-xs" color="muted">
-                    {suggestion}
-                  </Typography>
-                </Pressable>
-              ))}
-            </View>
-          )}
-          {fill && (
-            <View className="flex-row items-center gap-2 rounded-2xl bg-surface px-3 py-2.5">
-              <Icon icon={Sparkles} color="accent" size={14} />
-              <Typography type="body-xs" color="muted" className="flex-1">
-                {isPrefilled
-                  ? `“${fill.rule.name}” matches this item. Nothing was changed for you.`
-                  : `Filled in by “${fill.rule.name}” — change anything below to override it.`}
-              </Typography>
-            </View>
-          )}
-        </View>
-
-        <View className="gap-2">
-          <View className="px-5">
-            <SectionHeader label="Category" trailing={ruleCategoryId ? <RuleBadge /> : undefined} />
-          </View>
-          <FilterChipBar
-            options={categoryOptions}
-            selectedId={activeCategoryId}
-            onSelect={(id) => {
-              setCategoryId(id);
-              setOverridden((current) => ({ ...current, category: true }));
-            }}
-          />
-        </View>
-
-        <View className="gap-2">
-          <View className="px-5">
-            <SectionHeader label="Account" trailing={appliedAccount ? <RuleBadge /> : undefined} />
-          </View>
-          {accountOptions.length > 0 ? (
-            <FilterChipBar
-              options={accountOptions}
-              selectedId={activeAccountId}
-              onSelect={(id) => {
-                setAccountId(id);
-                setOverridden((current) => ({ ...current, account: true }));
-              }}
-            />
-          ) : (
-            <Typography type="body-xs" color="muted" className="px-5">
-              No accounts yet — add one in Settings to track which card paid.
-            </Typography>
-          )}
-        </View>
-
-        <View className="gap-2">
-          <View className="px-5">
-            <SectionHeader label="Date" trailing={
-              <Typography type="body-xs" color="muted">
-                {formatDayLabel(occurredAt, now)}
-              </Typography>
-            } />
-          </View>
-          <FilterChipBar options={DAY_OPTIONS} selectedId={dayChoice} onSelect={setDay} />
-          {isPickerOpen && (
-            <View className="px-5">
-              <DateTimePicker
-                value={new Date(occurredAt)}
-                mode="date"
-                display="default"
-                accentColor={accentColor}
-                maximumDate={new Date(now)}
-                onValueChange={(_event, date) => {
-                  const clock = occurredAt - startOfLocalDay(occurredAt);
-                  setOccurredAt(startOfLocalDay(date.getTime()) + clock);
-                  setDayChoice(dayChoiceOf(date.getTime(), now));
-                  setIsPickerOpen(false);
-                }}
-                onDismiss={() => setIsPickerOpen(false)}
-              />
-            </View>
-          )}
-        </View>
-
-        <View className="gap-2 px-5">
-          <SectionHeader
-            label="Counts to budget"
-            trailing={ruleCounts !== undefined ? <RuleBadge /> : undefined}
-          />
-          <View className="flex-row items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3">
-            <Typography type="body-sm" color="muted" className="flex-1">
-              {activeCounts ? 'Part of the monthly budget' : 'Tracked, but outside the budget'}
-            </Typography>
-            <Switch
-              isSelected={activeCounts}
-              onSelectedChange={(next) => {
-                setCountsToBudget(next);
-                setOverridden((current) => ({ ...current, counts: true }));
-              }}
-              accessibilityLabel="Counts to budget"
-            />
-          </View>
-        </View>
-
-        <View className="gap-2 px-5">
-          {isNoteOpen ? (
-            <>
-              <SectionHeader label="Note" />
-              <Input
-                placeholder="Anything worth remembering"
-                value={note}
-                onChangeText={setNote}
-                onFocus={() => setIsKeypadOpen(false)}
-                multiline
-                numberOfLines={3}
-              />
-            </>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setIsNoteOpen(true)}
-              className="self-start active:opacity-60">
-              <Typography type="body-sm" className="text-link">
-                Add a note
-              </Typography>
-            </Pressable>
-          )}
-        </View>
-      </ScrollView>
-
-      <View className="gap-3 border-t border-border px-5 pt-3">
-        {errorMessage !== null && (
-          <Typography type="body-xs" className="text-danger">
-            {errorMessage}
-          </Typography>
-        )}
-
-        {errorMessage === null && blocker !== null && (
+    <FormScreen
+      title={title}
+      closeIcon={X}
+      closeLabel="Close"
+      onClose={onClose}
+      contentContainerClassName="gap-5 pb-6"
+      above={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit amount"
+          /* Puts the soft keyboard away first. The Inputs below close the keypad
+             when they take focus, but nothing used to close the keyboard coming
+             back the other way — so both could be up at once, and the action bar
+             then carried a full keypad up over the keyboard. */
+          onPress={() => {
+            Keyboard.dismiss();
+            setIsKeypadOpen(true);
+          }}
+          className="items-center gap-1 px-5 py-6 active:opacity-60">
           <Typography type="body-xs" color="muted">
-            {blocker}
+            Amount
           </Typography>
-        )}
+          <Typography
+            className={entry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'}>
+            {formatEntry(entry)}
+          </Typography>
+        </Pressable>
+      }
+      footer={
+        <>
+          {errorMessage !== null && (
+            <Typography type="body-xs" className="text-danger">
+              {errorMessage}
+            </Typography>
+          )}
 
-        <View className="flex-row gap-3">
-          {onSubmitAndContinue && (
+          {errorMessage === null && blocker !== null && (
+            <Typography type="body-xs" color="muted">
+              {blocker}
+            </Typography>
+          )}
+
+          <View className="flex-row gap-3">
+            {onSubmitAndContinue && (
+              <View className="flex-1">
+                <Button
+                  tone="secondary"
+                  label="Save & add another"
+                  isDisabled={!canSave}
+                  onPress={() => void handleSubmitAndContinue()}
+                />
+              </View>
+            )}
             <View className="flex-1">
               <Button
-                tone="secondary"
-                label="Save & add another"
+                label={isSubmitting ? 'Saving…' : submitLabel}
                 isDisabled={!canSave}
-                onPress={() => void handleSubmitAndContinue()}
+                onPress={() => {
+                  /* onSubmit reports its own success; the rule counter is moved
+                     by the route once the write lands, for the same reason. */
+                  onSubmit(draft(), appliedRuleId());
+                }}
               />
             </View>
-          )}
-          <View className="flex-1">
-            <Button
-              label={isSubmitting ? 'Saving…' : submitLabel}
-              isDisabled={!canSave}
-              onPress={() => {
-                /* onSubmit reports its own success; the rule counter is moved by
-                   the route once the write lands, for the same reason. */
-                onSubmit(draft(), appliedRuleId());
-              }}
-            />
           </View>
-        </View>
 
-        {isKeypadOpen && (
-          <AmountKeypad
-            onKeyPress={(key: KeypadKey) => setEntry((current) => appendKey(current, key))}
-          />
+          {isKeypadOpen && (
+            <AmountKeypad
+              onKeyPress={(key: KeypadKey) => setEntry((current) => appendKey(current, key))}
+            />
+          )}
+        </>
+      }>
+      <View className="gap-2 px-5">
+        <SectionHeader label="Item" />
+        <Input
+          placeholder="What did you buy?"
+          value={item}
+          onChangeText={setItem}
+          onFocus={() => setIsKeypadOpen(false)}
+          autoCapitalize="sentences"
+        />
+        {suggestions.length > 0 && (
+          <View className="flex-row flex-wrap gap-2">
+            {suggestions.map((suggestion) => (
+              <Pressable
+                key={suggestion}
+                accessibilityRole="button"
+                accessibilityLabel={`Use ${suggestion}`}
+                onPress={() => setItem(suggestion)}
+                className="rounded-full bg-surface px-3 py-1.5 active:opacity-60">
+                <Typography type="body-xs" color="muted">
+                  {suggestion}
+                </Typography>
+              </Pressable>
+            ))}
+          </View>
+        )}
+        {fill && (
+          <View className="flex-row items-center gap-2 rounded-2xl bg-surface px-3 py-2.5">
+            <Icon icon={Sparkles} color="accent" size={14} />
+            <Typography type="body-xs" color="muted" className="flex-1">
+              {isPrefilled
+                ? `“${fill.rule.name}” matches this item. Nothing was changed for you.`
+                : `Filled in by “${fill.rule.name}” — change anything below to override it.`}
+            </Typography>
+          </View>
         )}
       </View>
-    </SafeAreaView>
+
+      <View className="gap-2">
+        <View className="px-5">
+          <SectionHeader label="Category" trailing={ruleCategoryId ? <RuleBadge /> : undefined} />
+        </View>
+        <FilterChipBar
+          options={categoryOptions}
+          selectedId={activeCategoryId}
+          onSelect={(id) => {
+            setCategoryId(id);
+            setOverridden((current) => ({ ...current, category: true }));
+          }}
+        />
+      </View>
+
+      <View className="gap-2">
+        <View className="px-5">
+          <SectionHeader label="Account" trailing={appliedAccount ? <RuleBadge /> : undefined} />
+        </View>
+        {accountOptions.length > 0 ? (
+          <FilterChipBar
+            options={accountOptions}
+            selectedId={activeAccountId}
+            onSelect={(id) => {
+              setAccountId(id);
+              setOverridden((current) => ({ ...current, account: true }));
+            }}
+          />
+        ) : (
+          <Typography type="body-xs" color="muted" className="px-5">
+            No accounts yet — add one in Settings to track which card paid.
+          </Typography>
+        )}
+      </View>
+
+      <View className="gap-2">
+        <View className="px-5">
+          <SectionHeader label="Date" trailing={
+            <Typography type="body-xs" color="muted">
+              {formatDayLabel(occurredAt, now)}
+            </Typography>
+          } />
+        </View>
+        <FilterChipBar options={DAY_OPTIONS} selectedId={dayChoice} onSelect={setDay} />
+        {isPickerOpen && (
+          <View className="px-5">
+            <DateTimePicker
+              value={new Date(occurredAt)}
+              mode="date"
+              display="default"
+              accentColor={accentColor}
+              maximumDate={new Date(now)}
+              onValueChange={(_event, date) => {
+                const clock = occurredAt - startOfLocalDay(occurredAt);
+                setOccurredAt(startOfLocalDay(date.getTime()) + clock);
+                setDayChoice(dayChoiceOf(date.getTime(), now));
+                setIsPickerOpen(false);
+              }}
+              onDismiss={() => setIsPickerOpen(false)}
+            />
+          </View>
+        )}
+      </View>
+
+      <View className="gap-2 px-5">
+        <SectionHeader
+          label="Counts to budget"
+          trailing={ruleCounts !== undefined ? <RuleBadge /> : undefined}
+        />
+        <View className="flex-row items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3">
+          <Typography type="body-sm" color="muted" className="flex-1">
+            {activeCounts ? 'Part of the monthly budget' : 'Tracked, but outside the budget'}
+          </Typography>
+          <Switch
+            isSelected={activeCounts}
+            onSelectedChange={(next) => {
+              setCountsToBudget(next);
+              setOverridden((current) => ({ ...current, counts: true }));
+            }}
+            accessibilityLabel="Counts to budget"
+          />
+        </View>
+      </View>
+
+      <View className="gap-2 px-5">
+        {isNoteOpen ? (
+          <>
+            <SectionHeader label="Note" />
+            <Input
+              placeholder="Anything worth remembering"
+              value={note}
+              onChangeText={setNote}
+              onFocus={() => setIsKeypadOpen(false)}
+              multiline
+              numberOfLines={3}
+            />
+          </>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setIsNoteOpen(true)}
+            className="self-start active:opacity-60">
+            <Typography type="body-sm" className="text-link">
+              Add a note
+            </Typography>
+          </Pressable>
+        )}
+      </View>
+    </FormScreen>
   );
 }

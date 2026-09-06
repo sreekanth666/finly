@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { HeroUINativeProvider } from 'heroui-native';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { Uniwind } from 'uniwind';
 
 import migrations from '../../drizzle/migrations';
@@ -127,52 +128,63 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView className="flex-1 bg-background">
-      <HeroUINativeProvider>
-        <ThemeProvider value={navigationTheme}>
-          <StatusBar style="light" />
-          {/* The recovery screen renders inside the providers so it can use the
-              token layer, but instead of the Stack: no route may mount against a
-              database that failed to migrate. */}
-          {fatal !== null ? (
-            <MigrationFailureScreen
-              error={fatal}
-              onRetry={() => {
-                setSeedError(null);
-                setRetryToken((token) => token + 1);
-              }}
-            />
-          ) : (
-            <AppLock isEnabled={isAppLockEnabled}>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" />
-              {/* Entry is a task, not a destination — it comes up over the tabs. */}
-              <Stack.Screen name="expense/new" options={{ presentation: 'modal' }} />
-              {/* Detail is a destination, so it pushes; editing is a task, so it doesn't. */}
-              <Stack.Screen name="expense/[id]/index" />
-              <Stack.Screen name="expense/[id]/edit" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="rule/new" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="rule/[id]" options={{ presentation: 'modal' }} />
-              {/* A destination reached from the avatar on every tab, so it
-                  pushes rather than coming up as a task. */}
-              <Stack.Screen name="profile" />
-              {/* Settings is a section you navigate into, so every screen pushes. */}
-              <Stack.Screen name="settings/index" />
-              <Stack.Screen name="settings/budget" />
-              <Stack.Screen name="settings/categories" />
-              <Stack.Screen name="settings/accounts/index" />
-              <Stack.Screen name="settings/accounts/new" />
-              <Stack.Screen name="settings/accounts/[id]" />
-              <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
-              <Stack.Screen name="settings/security" />
-              <Stack.Screen name="settings/currency" />
-              <Stack.Screen name="settings/data" />
-              {/* Import is a task with its own steps, so it comes up over settings. */}
-              <Stack.Screen name="settings/import" options={{ presentation: 'modal' }} />
-            </Stack>
-            </AppLock>
-          )}
-        </ThemeProvider>
-      </HeroUINativeProvider>
+      {/* Inside the gesture root so the gesture arena still sits above it, and
+          outside the HeroUI provider so the portal host — and therefore every
+          bottom sheet — is within the keyboard context.
+
+          Both bars are transparent in styles.xml and gradle.properties has
+          edgeToEdgeEnabled, so the module has to be told: left to its defaults
+          it applies edge-to-edge again on top of what is already there and the
+          insets come out doubled. Adds no hook, so the rule about every hook
+          living above the single early return above is untouched. */}
+      <KeyboardProvider statusBarTranslucent navigationBarTranslucent preserveEdgeToEdge>
+        <HeroUINativeProvider>
+          <ThemeProvider value={navigationTheme}>
+            <StatusBar style="light" />
+            {/* The recovery screen renders inside the providers so it can use the
+                token layer, but instead of the Stack: no route may mount against a
+                database that failed to migrate. */}
+            {fatal !== null ? (
+              <MigrationFailureScreen
+                error={fatal}
+                onRetry={() => {
+                  setSeedError(null);
+                  setRetryToken((token) => token + 1);
+                }}
+              />
+            ) : (
+              <AppLock isEnabled={isAppLockEnabled}>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                {/* Entry is a task, not a destination — it comes up over the tabs. */}
+                <Stack.Screen name="expense/new" options={{ presentation: 'modal' }} />
+                {/* Detail is a destination, so it pushes; editing is a task, so it doesn't. */}
+                <Stack.Screen name="expense/[id]/index" />
+                <Stack.Screen name="expense/[id]/edit" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="rule/new" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="rule/[id]" options={{ presentation: 'modal' }} />
+                {/* A destination reached from the avatar on every tab, so it
+                    pushes rather than coming up as a task. */}
+                <Stack.Screen name="profile" />
+                {/* Settings is a section you navigate into, so every screen pushes. */}
+                <Stack.Screen name="settings/index" />
+                <Stack.Screen name="settings/budget" />
+                <Stack.Screen name="settings/categories" />
+                <Stack.Screen name="settings/accounts/index" />
+                <Stack.Screen name="settings/accounts/new" />
+                <Stack.Screen name="settings/accounts/[id]" />
+                <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+                <Stack.Screen name="settings/security" />
+                <Stack.Screen name="settings/currency" />
+                <Stack.Screen name="settings/data" />
+                {/* Import is a task with its own steps, so it comes up over settings. */}
+                <Stack.Screen name="settings/import" options={{ presentation: 'modal' }} />
+              </Stack>
+              </AppLock>
+            )}
+          </ThemeProvider>
+        </HeroUINativeProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

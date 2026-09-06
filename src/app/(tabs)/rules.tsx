@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { Plus } from 'lucide-react-native';
 import { useCallback, useMemo } from 'react';
@@ -15,8 +14,12 @@ import { setRuleEnabled } from '@/db/repositories/rules';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useAction } from '@/db/use-action';
 import { useRules } from '@/features/rules/hooks';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 
 export default function RulesScreen() {
+  /* One push per press: the row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
+
   const rules = useRules();
   const categories = useCategories(true);
   const accounts = useAccounts(true);
@@ -63,7 +66,7 @@ export default function RulesScreen() {
               label="New"
               size="sm"
               accessibilityLabel="New rule"
-              onPress={() => router.push('/rule/new')}
+              onPress={() => navigate('/rule/new')}
             />
           </View>
           <Typography type="body-sm" color="muted">
@@ -104,7 +107,7 @@ export default function RulesScreen() {
                   accounts={accounts.data ?? []}
                   rank={section.id === 'active' ? index + 1 : null}
                   onToggle={(isEnabled) => toggleRule(rule.id, isEnabled)}
-                  onPress={() => router.push(`/rule/${rule.id}`)}
+                  onPress={() => navigate(`/rule/${rule.id}`)}
                 />
               ))}
             </View>
@@ -120,7 +123,7 @@ export default function RulesScreen() {
               icon={Plus}
               title="No rules yet"
               description="A rule fills in the category and account as you type, so a repeat expense takes four taps."
-              action={{ label: 'Create a rule', icon: Plus, onPress: () => router.push('/rule/new') }}
+              action={{ label: 'Create a rule', icon: Plus, onPress: () => navigate('/rule/new') }}
             />
           )
         }

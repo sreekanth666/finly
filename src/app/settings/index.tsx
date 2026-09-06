@@ -22,12 +22,16 @@ import { getCurrency } from '@/db/repositories/settings';
 import { runDevSeed } from '@/db/dev-seed';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useDefaultMonthlyBudget } from '@/features/budget/hooks';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 import { formatMinor } from '@/domain/money';
 
 const plural = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
 
 export default function SettingsScreen() {
+  /* One push per press: the row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
+
   const budget = useDefaultMonthlyBudget();
   const currency = useDbQuery('settings:currency-code', ['settings'], (database) =>
     getCurrency(database),
@@ -62,7 +66,7 @@ export default function SettingsScreen() {
               label="Monthly budget"
               description="One overall cap, carried over when overspent"
               value={budget.data === undefined ? '—' : formatMinor(budget.data, { showFraction: false })}
-              onPress={() => router.push('/settings/budget')}
+              onPress={() => navigate('/settings/budget')}
             />
             <SettingsRow
               isFirst={false}
@@ -70,7 +74,7 @@ export default function SettingsScreen() {
               iconTone="iris"
               label="Currency"
               value={currency.data?.code ?? '—'}
-              onPress={() => router.push('/settings/currency')}
+              onPress={() => navigate('/settings/currency')}
             />
           </View>
         </View>
@@ -85,7 +89,7 @@ export default function SettingsScreen() {
               label="Accounts"
               description="Cards, banks, cash and wallets"
               value={activeAccounts === null ? '—' : plural(activeAccounts, 'account', 'accounts')}
-              onPress={() => router.push('/settings/accounts')}
+              onPress={() => navigate('/settings/accounts')}
             />
             <SettingsRow
               isFirst={false}
@@ -94,7 +98,7 @@ export default function SettingsScreen() {
               label="Categories"
               description="Rename, reorder and archive"
               value={categoryCount === null ? '—' : plural(categoryCount, 'category', 'categories')}
-              onPress={() => router.push('/settings/categories')}
+              onPress={() => navigate('/settings/categories')}
             />
           </View>
         </View>
@@ -108,7 +112,7 @@ export default function SettingsScreen() {
               iconTone="accent"
               label="App lock & encryption"
               description="Both off by default"
-              onPress={() => router.push('/settings/security')}
+              onPress={() => navigate('/settings/security')}
             />
           </View>
         </View>
@@ -122,7 +126,7 @@ export default function SettingsScreen() {
               iconTone="foreground"
               label="Import & export"
               description="CSV in, JSON or CSV out — this device is the only copy"
-              onPress={() => router.push('/settings/data')}
+              onPress={() => navigate('/settings/data')}
             />
           </View>
         </View>

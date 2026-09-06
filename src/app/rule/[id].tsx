@@ -2,9 +2,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Alert } from 'react-native';
 
 import { NotFound } from '@/components/not-found';
-import { RuleEditor } from '@/components/rule-editor';
+import { RuleEditor, type RuleDraft } from '@/components/rule-editor';
 import { softDeleteRule, updateRule } from '@/db/repositories/rules';
-import { useAction } from '@/db/use-action';
+import { useAction, useSubmitOnce } from '@/db/use-action';
 import { draftToInput, ruleToDraft } from '@/features/rules/mappers';
 import { useRule } from '@/features/rules/hooks';
 
@@ -15,6 +15,15 @@ export default function EditRuleScreen() {
   const rule = useRule(id);
   const save = useAction(updateRule);
   const remove = useAction(softDeleteRule);
+  /* Above the early returns with the rest, so the rule id is passed at press
+     time. Delete is not guarded here: its confirmation dialog dismisses on the
+     first press, which is a stronger guard than this one. */
+  const saveOnce = useSubmitOnce(async (id: string, draft: RuleDraft) => {
+    const outcome = await save.run(id, draftToInput(draft));
+    if (!outcome.ok) return false;
+    router.back();
+    return true;
+  });
 
   if (rule.error !== null) {
     return <NotFound title="Can't open this rule" description={rule.error.message} />;
@@ -48,10 +57,7 @@ export default function EditRuleScreen() {
           },
         ]);
       }}
-      onSubmit={async (draft) => {
-        const outcome = await save.run(found.id, draftToInput(draft));
-        if (outcome.ok) router.back();
-      }}
+      onSubmit={(draft) => void saveOnce.submit(found.id, draft)}
       onClose={() => router.back()}
     />
   );

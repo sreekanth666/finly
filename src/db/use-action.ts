@@ -13,6 +13,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { scheduleCarryOverFlush } from './carry-over';
 import { RepositoryError, toError } from './errors';
+import { createSubmitLatch } from './submit-latch';
 
 /**
  * Deliberately not `Result | undefined`. Half the repository writes return void,
@@ -40,7 +41,10 @@ export function useAction<Args extends unknown[], Result>(
 
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  // Guards the double tap. A disabled prop lands a frame too late to rely on.
+  /* Collapses calls that genuinely overlap — an async export, a restore. It is
+     not the double-tap guard it was once described as: the repository writes are
+     synchronous, so for those this is only ever true inside a single tick. See
+     `useSubmitOnce` below, and the note on `src/db/submit-latch.ts`. */
   const inFlight = useRef(false);
 
   const reset = useCallback(() => {
@@ -48,7 +52,6 @@ export function useAction<Args extends unknown[], Result>(
   }, []);
 
   const run = useCallback(async (...args: Args): Promise<ActionOutcome<Result>> => {
-    // A disabled prop lands a frame too late to stop a determined double tap.
     if (inFlight.current) {
       return { ok: false, error: new Error('Already saving.') };
     }
@@ -80,4 +83,41 @@ export function useAction<Args extends unknown[], Result>(
         : 'Something went wrong and nothing was saved.';
 
   return { run, isPending, error, errorMessage, reset };
+}
+
+export type SubmitOnce<Args extends unknown[]> = {
+  /** Safe to wire straight to `onPress`. Later taps are simply nothing. */
+  submit: (...args: Args) => Promise<void>;
+  /** Arms it again, for a surface the user is meant to use more than once. */
+  reset: () => void;
+};
+
+/**
+ * Wraps a whole save-and-leave handler so it happens once, however many times
+ * the button is pressed.
+ *
+ * The guard has to sit out here rather than inside `useAction`, for two reasons.
+ * The write and the navigation that follows it are one indivisible intent — a
+ * second tap duplicated the row *and* popped an extra screen, so guarding only
+ * the write would still leave the user two screens back. And a single action is
+ * often shared between a terminal button and a repeatable one: new-expense uses
+ * one `save` for both Save and Save & add another, and latching the action would
+ * take the second one away.
+ *
+ * `handler` returns whether the thing actually happened. Return `false` for a
+ * save that failed and the latch reopens, so the button still works.
+ */
+export function useSubmitOnce<Args extends unknown[]>(
+  handler: (...args: Args) => Promise<boolean> | boolean,
+): SubmitOnce<Args> {
+  /* The latch is state rather than a ref purely so it can be built once without
+     writing to a ref mid-render, which the compiler rules disallow. It is never
+     set again, so it never causes a render. */
+  const [latch] = useState(createSubmitLatch);
+
+  const submit = async (...args: Args) => {
+    await latch.run(() => handler(...args));
+  };
+
+  return { submit, reset: latch.reset };
 }

@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 
-import { ExpenseForm } from '@/components/expense-form';
+import { ExpenseForm, type ExpenseDraft } from '@/components/expense-form';
 import { NotFound } from '@/components/not-found';
 import { updateExpense } from '@/db/repositories/expenses';
-import { useAction } from '@/db/use-action';
+import { useAction, useSubmitOnce } from '@/db/use-action';
 import { minorToEntry } from '@/domain/money';
 import { useAccounts, useCategoriesByUse } from '@/features/catalog/hooks';
 import { useActiveRules } from '@/features/rules/hooks';
@@ -23,6 +23,15 @@ export default function EditExpenseScreen() {
   const accounts = useAccounts();
   const rules = useActiveRules();
   const save = useAction(updateExpense);
+  /* Above the early returns below, like every other hook here, and so it takes
+     the expense id at press time rather than closing over a row that does not
+     exist yet on the first render. */
+  const saveOnce = useSubmitOnce(async (id: string, draft: ExpenseDraft) => {
+    const outcome = await save.run(id, draft);
+    if (!outcome.ok) return false;
+    router.back();
+    return true;
+  });
 
   const failure = detail.error ?? categories.error ?? accounts.error;
   if (failure !== null && failure !== undefined) {
@@ -61,10 +70,7 @@ export default function EditExpenseScreen() {
       }}
       isSubmitting={save.isPending}
       errorMessage={save.errorMessage}
-      onSubmit={async (draft) => {
-        const outcome = await save.run(expense.id, draft);
-        if (outcome.ok) router.back();
-      }}
+      onSubmit={(draft) => void saveOnce.submit(expense.id, draft)}
       /* Editing does not move a rule's use count: the rule did not decide this
          expense, the user did, and it was already counted when it was added. */
       onClose={() => router.back()}

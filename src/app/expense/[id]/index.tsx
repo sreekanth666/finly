@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, Trash2, Undo2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 
-import { AddSettlementSheet } from '@/components/add-settlement-sheet';
+import { AddSettlementSheet, type SettlementDraft } from '@/components/add-settlement-sheet';
 import { Amount } from '@/components/amount';
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
@@ -19,12 +19,13 @@ import {
   softDeleteSettlement,
   type SettlementListItem,
 } from '@/db/repositories/settlements';
-import { useAction } from '@/db/use-action';
+import { useAction, useSubmitOnce } from '@/db/use-action';
 import { formatMinor } from '@/domain/money';
 import { formatDateLong, formatDayLabel, formatTime } from '@/domain/period';
 import { summariseSettlements } from '@/domain/settlement';
 import { useAccounts } from '@/features/catalog/hooks';
 import { useExpenseDetail } from '@/features/expenses/hooks';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 import { toAppColor } from '@/theme';
 
 /**
@@ -113,6 +114,35 @@ export default function ExpenseDetailScreen() {
   const settle = useAction(addSettlement);
   const remove = useAction(softDeleteExpense);
   const removeSettlement = useAction(softDeleteSettlement);
+  /* One push per press: Edit stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
+  /*
+   * Unlike every other guarded save, this one does not leave the screen — it
+   * only closes the sheet. So the latch has to be re-armed when the sheet is
+   * opened again, or a second, genuinely different settlement could never be
+   * entered. Two taps on Add would otherwise both land: each partial amount is
+   * individually under the outstanding total, so nothing downstream rejects the
+   * duplicate.
+   */
+  const addOnce = useSubmitOnce(async (expenseId: string, draft: SettlementDraft) => {
+    const outcome = await settle.run({
+      expenseId,
+      amountMinor: draft.amountMinor,
+      settledAt: draft.settledAt,
+      accountId: draft.accountId,
+      note: draft.note,
+    });
+    if (!outcome.ok) return false;
+    setIsSheetOpen(false);
+    return true;
+  });
+
+  /* Both the button and the sheet's own dismissal go through here, so the
+     re-arm above can never be skipped by opening it the other way. */
+  const setSheetOpen = (next: boolean) => {
+    if (next) addOnce.reset();
+    setIsSheetOpen(next);
+  };
 
   const failure = detail.error ?? accounts.error;
   if (failure !== null && failure !== undefined) {
@@ -225,7 +255,7 @@ export default function ExpenseDetailScreen() {
               label="Edit"
               tone="secondary"
               size="sm"
-              onPress={() => router.push(`/expense/${expense.id}/edit`)}
+              onPress={() => navigate(`/expense/${expense.id}/edit`)}
             />
           </View>
         </View>
@@ -326,7 +356,7 @@ export default function ExpenseDetailScreen() {
               icon={Plus}
               label="Add settlement"
               tone="secondary"
-              onPress={() => setIsSheetOpen(true)}
+              onPress={() => setSheetOpen(true)}
             />
           )}
         </View>
@@ -334,21 +364,12 @@ export default function ExpenseDetailScreen() {
 
       <AddSettlementSheet
         isOpen={isSheetOpen}
-        onOpenChange={setIsSheetOpen}
+        onOpenChange={setSheetOpen}
         expenseTitle={expense.item}
         outstanding={effectiveMinor}
         accounts={accounts.data ?? []}
         isSubmitting={settle.isPending}
-        onAdd={async (draft) => {
-          const outcome = await settle.run({
-            expenseId: expense.id,
-            amountMinor: draft.amountMinor,
-            settledAt: draft.settledAt,
-            accountId: draft.accountId,
-            note: draft.note,
-          });
-          if (outcome.ok) setIsSheetOpen(false);
-        }}
+        onAdd={(draft) => addOnce.submit(expense.id, draft)}
       />
     </SafeAreaView>
   );

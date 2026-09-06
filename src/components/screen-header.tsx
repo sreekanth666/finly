@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { EllipsisVertical } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
@@ -8,6 +7,7 @@ import { ProfileAvatar } from './profile-avatar';
 
 import { greetingFor } from '@/domain/profile';
 import { useProfileName } from '@/features/profile/hooks';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 
 export type ScreenHeaderProps = {
   /**
@@ -28,6 +28,9 @@ export type ScreenHeaderProps = {
  * it was missing.
  */
 export function ScreenHeader({ greeting = false }: ScreenHeaderProps) {
+  /* One push per press: the row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
+
   const name = useProfileName();
 
   /* Undefined while the read is in flight. Rendering the greeting without the
@@ -45,7 +48,7 @@ export function ScreenHeader({ greeting = false }: ScreenHeaderProps) {
         accessibilityRole="button"
         accessibilityLabel={label}
         hitSlop={8}
-        onPress={() => router.push('/profile')}
+        onPress={() => navigate('/profile')}
         className="active:opacity-60">
         <ProfileAvatar name={stored ?? null} />
       </Pressable>
@@ -62,7 +65,7 @@ export function ScreenHeader({ greeting = false }: ScreenHeaderProps) {
       <IconButton
         icon={EllipsisVertical}
         label="Settings"
-        onPress={() => router.push('/settings')}
+        onPress={() => navigate('/settings')}
       />
     </View>
   );

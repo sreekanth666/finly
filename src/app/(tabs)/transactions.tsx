@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { Plus, Receipt, Search, X } from 'lucide-react-native';
 import { useDeferredValue, useMemo, useState } from 'react';
@@ -22,6 +21,7 @@ import { flattenGroups, type FeedRow } from '@/domain/feed';
 import { addPeriods, currentPeriod } from '@/domain/period';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 import { useAppColor } from '@/theme';
 
 /** One page of the feed. The list asks for more as it reaches the end. */
@@ -31,6 +31,9 @@ const HEADER_HEIGHT = 36;
 type FilterId = 'all' | string;
 
 export default function TransactionsScreen() {
+  /* One push per press: the row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
+
   const [filter, setFilter] = useState<FilterId>('all');
   const [search, setSearch] = useState('');
   const [budgetOnly, setBudgetOnly] = useState(false);
@@ -113,7 +116,7 @@ export default function TransactionsScreen() {
             label="Add"
             size="sm"
             accessibilityLabel="Add expense"
-            onPress={() => router.push('/expense/new')}
+            onPress={() => navigate('/expense/new')}
           />
         </View>
 
@@ -174,6 +177,11 @@ export default function TransactionsScreen() {
       ) : (
         <FlatList
           className="flex-1"
+          /* Without these, tapping a result while the search keyboard is up is
+             spent dismissing the keyboard and the row never opens — the two-tap
+             select. `on-drag` keeps scrolling the list feeling like scrolling. */
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           data={rows}
           keyExtractor={(row) => row.key}
           renderItem={({ item }) =>
@@ -195,7 +203,7 @@ export default function TransactionsScreen() {
                 }}>
                 <TransactionRow
                   expense={item.item}
-                  onPress={() => router.push(`/expense/${item.item.id}`)}
+                  onPress={() => navigate(`/expense/${item.item.id}`)}
                 />
               </SwipeToDelete>
             )
@@ -234,7 +242,7 @@ export default function TransactionsScreen() {
                 icon={Receipt}
                 title="No expenses yet"
                 description="Add one by hand, or bring your history across from a spreadsheet in Settings."
-                action={{ label: 'Add expense', icon: Plus, onPress: () => router.push('/expense/new') }}
+                action={{ label: 'Add expense', icon: Plus, onPress: () => navigate('/expense/new') }}
               />
             )
           }

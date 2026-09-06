@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { CalendarClock, Plus, Receipt, Undo2, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
@@ -28,6 +27,7 @@ import {
 } from '@/features/budget/hooks';
 import { useCardStandings } from '@/features/accounts/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 
 const RING_MAX_SIZE = 320;
 const SCREEN_PADDING = 40;
@@ -36,6 +36,9 @@ const RECENT_COUNT = 4;
 const OFF_BUDGET_TABLES: readonly TableName[] = ['expenses', 'settlements'];
 
 export default function BalanceScreen() {
+  /* One push per press: the row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
+
   const { width } = useWindowDimensions();
   const ringSize = Math.min(width - SCREEN_PADDING, RING_MAX_SIZE);
 
@@ -222,7 +225,7 @@ export default function BalanceScreen() {
             </Typography>
             <Pressable
               accessibilityRole="button"
-              onPress={() => router.push('/transactions')}
+              onPress={() => navigate('/transactions')}
               className="active:opacity-60">
               <Typography type="body-xs" className="text-link">
                 See all
@@ -244,14 +247,14 @@ export default function BalanceScreen() {
                 <TransactionRow
                   key={expense.id}
                   expense={expense}
-                  onPress={() => router.push(`/expense/${expense.id}`)}
+                  onPress={() => navigate(`/expense/${expense.id}`)}
                 />
               ))}
             </View>
           )}
         </View>
 
-        <Button icon={Plus} label="Add expense" onPress={() => router.push('/expense/new')} />
+        <Button icon={Plus} label="Add expense" onPress={() => navigate('/expense/new')} />
       </ScrollView>
     </SafeAreaView>
   );

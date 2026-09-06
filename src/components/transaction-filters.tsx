@@ -1,7 +1,7 @@
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { BottomSheet, Switch, Typography } from "heroui-native";
 import { SlidersHorizontal } from "lucide-react-native";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { Button } from "./button";
@@ -15,9 +15,6 @@ import { addPeriods, currentPeriod, formatPeriodLong } from "@/domain/period";
 
 /** As far back as the month picker offers. A year covers every carry-over. */
 const MONTHS = 12;
-
-/** Long enough for the dismissal to finish before the sheet leaves the tree. */
-const CLOSE_MS = 400;
 
 /** The id the chip bars use for "not filtered", which is `null` everywhere else. */
 const ANY = "any";
@@ -59,20 +56,27 @@ export function TransactionFilters({
   accounts,
   resultCount,
 }: TransactionFiltersProps) {
-  const [isOpen, setIsOpen] = useState(false);
   /*
-   * Whether the sheet exists at all, which is separate from whether it is open.
+   * The sheet is mounted for the life of the screen and only opened and closed.
    *
-   * A closed BottomSheet is not nothing. Its Portal registers unconditionally
-   * and PortalHost renders the subtree as a bare fragment, so a dismissed sheet
-   * stays live in the tree — and on this screen it settled with its handle and
-   * top edge showing along the bottom, looking like a deliberate peek at
-   * filters nobody had asked for. Not rendering it until it is wanted is the
-   * one thing that reliably leaves no trace, whatever the resting geometry
-   * works out to.
+   * It used to be withheld from the tree until the button was first pressed,
+   * because a closed sheet had settled with its handle showing along the bottom
+   * of Transactions — a peek at filters nobody had asked for. That was worth
+   * fixing, but lazy mounting is not what fixes it: the pinned `snapPoints` and
+   * `enableDynamicSizing={false}` below are, and they landed afterwards. What
+   * lazy mounting bought instead was a button that needed two taps.
+   *
+   * Opening is an effect inside the sheet reacting to the false-to-true edge by
+   * calling gorhom's `snapToIndex`, and gorhom drops that call on the floor when
+   * the sheet has not been laid out yet — no error, no retry, and the index
+   * stays at -1 so nothing re-snaps later. A sheet mounted one frame ago has not
+   * had its native `onLayout` yet, so the first press opened nothing and left
+   * `isOpen` true behind a full-screen transparent overlay, which then ate the
+   * second press as a dismissal. Mounted from the start it is always laid out,
+   * and one press is one open — which is how the settlement sheet has always
+   * behaved.
    */
-  const [isMounted, setIsMounted] = useState(false);
-  const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   /* The month a "months back" offset counts from. Re-anchored when the sheet
      opens rather than fixed at mount: this tab stays mounted for the life of
@@ -80,29 +84,9 @@ export function TransactionFilters({
      option named for the wrong month. */
   const [monthAnchor, setMonthAnchor] = useState(currentPeriod);
 
-  useEffect(
-    () => () => {
-      if (unmountTimer.current !== null) clearTimeout(unmountTimer.current);
-    },
-    [],
-  );
-
   const open = () => {
-    if (unmountTimer.current !== null) clearTimeout(unmountTimer.current);
     setMonthAnchor(currentPeriod());
-    setIsMounted(true);
-    /* One frame closed before being told to open. The sheet animates on the
-       false-to-true transition and does nothing at all if it is mounted already
-       open, which would leave it in the tree and shut. */
-    requestAnimationFrame(() => setIsOpen(true));
-  };
-
-  const handleOpenChange = (next: boolean) => {
-    setIsOpen(next);
-    if (next) return;
-    /* Held for the dismissal, then dropped. Unmounting the instant it closes
-       would cut the animation and make the sheet vanish rather than slide. */
-    unmountTimer.current = setTimeout(() => setIsMounted(false), CLOSE_MS);
+    setIsOpen(true);
   };
 
   /* Only the three this sheet owns. Search and the category chips stay on the
@@ -193,106 +177,104 @@ export function TransactionFilters({
         )}
       </Pressable>
 
-      {isMounted && (
-        <BottomSheet isOpen={isOpen} onOpenChange={handleOpenChange}>
-          <BottomSheet.Portal>
-            <BottomSheet.Overlay />
-            <BottomSheet.Content
-              snapPoints={snapPoints}
-              enableDynamicSizing={false}
-              enableOverDrag={false}
-              {...VERTICAL_ONLY_PAN}
-              /* The scrollable needs a bounded parent to scroll inside, and the
-                 bound has to sit on Content rather than on the scrollable
-                 itself — without it the sheet swallows the vertical drag and
-                 anything past the snap point is simply unreachable. */
-              contentContainerClassName="h-full"
-            >
-              <BottomSheetScrollView>
-                {/* Padded at the foot so the Apply button clears the home
-                    indicator once the content is long enough to scroll. */}
-                <View className="gap-5 pb-8">
-                  <View className="flex-row items-center justify-between gap-3">
-                    <BottomSheet.Title>Filters</BottomSheet.Title>
-                    {activeCount > 0 && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Clear all filters"
-                        hitSlop={8}
-                        onPress={reset}
-                        className="active:opacity-60"
+      <BottomSheet isOpen={isOpen} onOpenChange={setIsOpen}>
+        <BottomSheet.Portal>
+          <BottomSheet.Overlay />
+          <BottomSheet.Content
+            snapPoints={snapPoints}
+            enableDynamicSizing={false}
+            enableOverDrag={false}
+            {...VERTICAL_ONLY_PAN}
+            /* The scrollable needs a bounded parent to scroll inside, and the
+               bound has to sit on Content rather than on the scrollable
+               itself — without it the sheet swallows the vertical drag and
+               anything past the snap point is simply unreachable. */
+            contentContainerClassName="h-full"
+          >
+            <BottomSheetScrollView>
+              {/* Padded at the foot so the Apply button clears the home
+                  indicator once the content is long enough to scroll. */}
+              <View className="gap-5 pb-8">
+                <View className="flex-row items-center justify-between gap-3">
+                  <BottomSheet.Title>Filters</BottomSheet.Title>
+                  {activeCount > 0 && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear all filters"
+                      hitSlop={8}
+                      onPress={reset}
+                      className="active:opacity-60"
+                    >
+                      <Typography
+                        type="body-sm"
+                        weight="medium"
+                        className="text-link"
                       >
-                        <Typography
-                          type="body-sm"
-                          weight="medium"
-                          className="text-link"
-                        >
-                          Reset
-                        </Typography>
-                      </Pressable>
-                    )}
-                  </View>
+                        Reset
+                      </Typography>
+                    </Pressable>
+                  )}
+                </View>
 
-                  {/* The chip bars carry their own leading inset and are meant
-                      to run off the edge, so they are pulled back out of the
-                      sheet's own padding rather than nested inside it. */}
+                {/* The chip bars carry their own leading inset and are meant
+                    to run off the edge, so they are pulled back out of the
+                    sheet's own padding rather than nested inside it. */}
+                <View className="gap-2">
+                  <SectionHeader label="Month" />
+                  <View className="-mx-5">
+                    <FilterChipBar
+                      options={monthOptions}
+                      selectedId={
+                        monthsBack === null ? ANY : String(monthsBack)
+                      }
+                      onSelect={(id) =>
+                        onMonthsBackChange(id === ANY ? null : Number(id))
+                      }
+                    />
+                  </View>
+                </View>
+
+                {/* No accounts yet means nothing to choose between — §5 seeds none. */}
+                {accounts.length > 0 && (
                   <View className="gap-2">
-                    <SectionHeader label="Month" />
+                    <SectionHeader label="Account" />
                     <View className="-mx-5">
                       <FilterChipBar
-                        options={monthOptions}
-                        selectedId={
-                          monthsBack === null ? ANY : String(monthsBack)
-                        }
+                        options={accountOptions}
+                        selectedId={accountId ?? ANY}
                         onSelect={(id) =>
-                          onMonthsBackChange(id === ANY ? null : Number(id))
+                          onAccountIdChange(id === ANY ? null : id)
                         }
                       />
                     </View>
                   </View>
+                )}
 
-                  {/* No accounts yet means nothing to choose between — §5 seeds none. */}
-                  {accounts.length > 0 && (
-                    <View className="gap-2">
-                      <SectionHeader label="Account" />
-                      <View className="-mx-5">
-                        <FilterChipBar
-                          options={accountOptions}
-                          selectedId={accountId ?? ANY}
-                          onSelect={(id) =>
-                            onAccountIdChange(id === ANY ? null : id)
-                          }
-                        />
-                      </View>
-                    </View>
-                  )}
-
-                  <View className="flex-row items-center gap-3 rounded-3xl bg-surface px-4 py-3.5">
-                    <View className="flex-1 gap-0.5">
-                      <Typography type="body-sm" weight="semibold">
-                        Budget only
-                      </Typography>
-                      <Typography type="body-xs" color="muted">
-                        Hide anything set not to count toward the month.
-                      </Typography>
-                    </View>
-                    <Switch
-                      isSelected={budgetOnly}
-                      onSelectedChange={onBudgetOnlyChange}
-                      accessibilityLabel="Show only expenses that count toward the budget"
-                    />
+                <View className="flex-row items-center gap-3 rounded-3xl bg-surface px-4 py-3.5">
+                  <View className="flex-1 gap-0.5">
+                    <Typography type="body-sm" weight="semibold">
+                      Budget only
+                    </Typography>
+                    <Typography type="body-xs" color="muted">
+                      Hide anything set not to count toward the month.
+                    </Typography>
                   </View>
-
-                  {/* The filters apply as they are tapped, so this only dismisses —
-                      but it says what is waiting behind the sheet, which is
-                      the question someone has while choosing. */}
-                  <Button label={applyLabel} onPress={() => setIsOpen(false)} />
+                  <Switch
+                    isSelected={budgetOnly}
+                    onSelectedChange={onBudgetOnlyChange}
+                    accessibilityLabel="Show only expenses that count toward the budget"
+                  />
                 </View>
-              </BottomSheetScrollView>
-            </BottomSheet.Content>
-          </BottomSheet.Portal>
-        </BottomSheet>
-      )}
+
+                {/* The filters apply as they are tapped, so this only dismisses —
+                    but it says what is waiting behind the sheet, which is
+                    the question someone has while choosing. */}
+                <Button label={applyLabel} onPress={() => setIsOpen(false)} />
+              </View>
+            </BottomSheetScrollView>
+          </BottomSheet.Content>
+        </BottomSheet.Portal>
+      </BottomSheet>
     </View>
   );
 }

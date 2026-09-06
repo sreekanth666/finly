@@ -32,6 +32,7 @@ import {
 } from '@/features/data-transfer/backup';
 import { buildExpensesCsv } from '@/features/data-transfer/csv-export';
 import { pickBackupFile, shareText, stampedName } from '@/features/data-transfer/files';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 
 const COUNT_TABLES: readonly TableName[] = ['expenses'];
 
@@ -39,6 +40,9 @@ const COUNT_TABLES: readonly TableName[] = ['expenses'];
 const STALE_AFTER_MS = 14 * 86_400_000;
 
 export default function DataTransferScreen() {
+  /* One push per press: the row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
+
   const [notice, setNotice] = useState<string | null>(null);
 
   const lastExportAt = useDbQuery('data:last-export', ['settings'], (database) => {
@@ -252,7 +256,7 @@ export default function DataTransferScreen() {
             <Button
               tone="secondary"
               label="Start an import"
-              onPress={() => router.push('/settings/import')}
+              onPress={() => navigate('/settings/import')}
             />
           </View>
         </View>

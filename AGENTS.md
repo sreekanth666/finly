@@ -26,3 +26,13 @@ these. Run `pnpm check` before claiming anything works.
 - Changing a native dependency or an `app.json` plugin needs
   `pnpm expo prebuild --clean`. Changing babel or metro config needs
   `pnpm expo start -c`.
+- **Never run a native build on this machine.** No `pnpm build:dev`, no
+  `pnpm build:aab`, no `pnpm android`/`ios`, no `gradlew`. Builds are run
+  elsewhere; a local one ties the machine up for a long time and proves nothing
+  the gates below do not. `pnpm expo prebuild` is fine — it only writes
+  `android/`, it does not compile.
+
+  Everything that does not compile native code is fair game and should be run:
+  `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm check:colors`,
+  `pnpm check:money`, or `pnpm check` for all of them. Where a change can only
+  be confirmed on a device, say so and leave it to the person driving.

@@ -17,6 +17,7 @@ import type { AccountRow } from '@/db/schema';
 import { isAtEdge, moveItem } from '@/domain/reorder';
 import { useAction } from '@/db/use-action';
 import { useAccounts } from '@/features/catalog/hooks';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 import { ACCOUNT_TYPE_ICONS, ACCOUNT_TYPE_LABELS } from '@/features/accounts/presentation';
 import { toAppColor } from '@/theme';
 
@@ -31,6 +32,9 @@ const describe = (account: AccountRow) =>
     .join(' · ');
 
 export default function AccountsSettingsScreen() {
+  /* One push per press: the row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
+
   const accounts = useAccounts(true);
 
   const reorder = useAction(reorderAccounts);
@@ -75,7 +79,7 @@ export default function AccountsSettingsScreen() {
           icon={Plus}
           label="New"
           accessibilityLabel="New account"
-          onPress={() => router.push('/settings/accounts/new')}
+          onPress={() => navigate('/settings/accounts/new')}
         />
       </View>
 
@@ -105,7 +109,7 @@ export default function AccountsSettingsScreen() {
               action={{
                 label: 'Add an account',
                 icon: Plus,
-                onPress: () => router.push('/settings/accounts/new'),
+                onPress: () => navigate('/settings/accounts/new'),
               }}
             />
           ) : (
@@ -115,7 +119,7 @@ export default function AccountsSettingsScreen() {
                 <Pressable
                   hitSlop={10}
                   accessibilityRole="button"
-                  onPress={() => router.push(`/settings/accounts/${account.id}`)}
+                  onPress={() => navigate(`/settings/accounts/${account.id}`)}
                   className="flex-1 flex-row items-center gap-3 active:opacity-60">
                   <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
                     <Icon

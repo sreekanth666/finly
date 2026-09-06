@@ -12,11 +12,15 @@ import { useDbQuery } from '@/db/live';
 import { getFlag, getSetting, setFlag } from '@/db/repositories/settings';
 import { useAction } from '@/db/use-action';
 import { disableEncryption, enableEncryption, isEncrypted } from '@/features/security/encryption';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 
 /** After this long without an export, encrypting is a bad bet. */
 const STALE_EXPORT_MS = 7 * 86_400_000;
 
 export default function SecuritySettingsScreen() {
+  /* One push per press: the row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
+
   const [notice, setNotice] = useState<string | null>(null);
 
   const state = useDbQuery('security:state', ['settings'], (database) => {
@@ -51,7 +55,7 @@ export default function SecuritySettingsScreen() {
           : [
               {
                 text: 'Back up first',
-                onPress: () => router.push('/settings/data'),
+                onPress: () => navigate('/settings/data'),
               },
             ]),
         {
