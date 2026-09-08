@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finly — offline personal finance</title>
+<meta name="description" content="Finly is a personal finance tracker for Android that keeps every record on your own device. No account, no cloud, no ads.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ink: #08090b;
+    --graphite: #141619;
+    --hairline: #24272c;
+    --snow: #ffffff;
+    --mist: #8b9099;
+    --dim: #61666e;
+    --lime: #79e256;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--snow);
+    font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 660px; margin: 0 auto; padding: 88px 24px 80px; }
+  a { color: var(--lime); text-decoration: none; border-bottom: 1px solid #79e2564d; }
+  a:hover { border-bottom-color: var(--lime); }
+  a:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; border-radius: 2px; }
+
+  h1 {
+    font-family: "Archivo Black", "Arial Black", sans-serif;
+    font-size: clamp(40px, 9vw, 64px);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    margin: 0 0 18px;
+  }
+  .lede {
+    font-size: 19px;
+    color: var(--mist);
+    margin: 0 0 44px;
+    max-width: 34ch;
+    text-wrap: balance;
+  }
+  .lede strong { color: var(--snow); font-weight: 600; }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+  }
+  .f { background: var(--ink); padding: 18px 20px; }
+  .f h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
+  .f p { margin: 0; font-size: 14px; color: var(--mist); line-height: 1.55; }
+
+  .stance {
+    margin: 40px 0 0;
+    padding: 20px 22px;
+    background: var(--graphite);
+    border-left: 2px solid var(--lime);
+  }
+  .stance p { margin: 0; color: #cfd3d8; font-size: 15px; }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 22px;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    align-items: baseline;
+    font-size: 14px;
+  }
+  footer .c { color: var(--dim); margin-left: auto; font-size: 13px; }
+  @media (max-width: 520px) { footer .c { margin-left: 0; width: 100%; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Finly</h1>
+  <p class="lede">A personal finance tracker that keeps every record <strong>on your own
+    device</strong>.</p>
+
+  <div class="features">
+    <div class="f">
+      <h2>Track what you spend</h2>
+      <p>Log an expense in seconds against accounts and categories you define yourself.</p>
+    </div>
+    <div class="f">
+      <h2>Recurring rules</h2>
+      <p>Set up rent, subscriptions and salary once, and the ledger keeps itself honest.</p>
+    </div>
+    <div class="f">
+      <h2>Budgets and insights</h2>
+      <p>A monthly budget measured against real spending, and a breakdown of where it went.</p>
+    </div>
+    <div class="f">
+      <h2>Locked down</h2>
+      <p>Optional database encryption and a biometric app lock, both switched on by you.</p>
+    </div>
+    <div class="f">
+      <h2>CSV in and out</h2>
+      <p>Import your history, export it whenever you want. Your data stays portable.</p>
+    </div>
+    <div class="f">
+      <h2>No account</h2>
+      <p>Nothing to sign up for. The app has no network code at all.</p>
+    </div>
+  </div>
+
+  <div class="stance">
+    <p>No ads. No trackers. No analytics. Uninstall the app and the data is gone — because there was
+      never a copy anywhere else.</p>
+  </div>
+
+  <footer>
+    <a href="./privacy/">Privacy policy</a>
+    <a href="https://github.com/sreekanth666/finly" rel="noopener">Source on GitHub</a>
+    <span class="c">&copy; 2026 The C Studio</span>
+  </footer>
+
+</div>
+</body>
+</html>

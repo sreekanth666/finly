@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Finly</title>
+<meta name="description" content="Finly's privacy policy. Finly is an offline personal finance app: it collects no data, has no accounts, and makes no network connections.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ink: #08090b;
+    --graphite: #141619;
+    --hairline: #24272c;
+    --snow: #ffffff;
+    --mist: #8b9099;
+    --dim: #61666e;
+    --lime: #79e256;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--snow);
+    font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px 96px; }
+  a { color: var(--lime); text-decoration: none; border-bottom: 1px solid #79e2564d; }
+  a:hover { border-bottom-color: var(--lime); }
+  a:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; border-radius: 2px; }
+
+  header { padding: 72px 0 32px; border-bottom: 1px solid var(--hairline); }
+  .back {
+    display: inline-block;
+    font-size: 13px;
+    color: var(--dim);
+    border: none;
+    margin-bottom: 28px;
+  }
+  .back:hover { color: var(--mist); }
+  h1 {
+    font-family: "Archivo Black", "Arial Black", sans-serif;
+    font-size: clamp(30px, 6vw, 42px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  .updated { color: var(--dim); font-size: 14px; margin: 0; }
+
+  .summary {
+    background: var(--graphite);
+    border-left: 2px solid var(--lime);
+    padding: 18px 22px;
+    margin: 36px 0 8px;
+  }
+  .summary p { margin: 0; color: #cfd3d8; }
+  .summary strong { color: var(--snow); }
+
+  h2 {
+    font-family: "Archivo Black", "Arial Black", sans-serif;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    margin: 44px 0 12px;
+    line-height: 1.25;
+  }
+  p { margin: 0 0 16px; }
+  ul { padding-left: 20px; margin: 0 0 16px; }
+  li { margin-bottom: 8px; }
+  li::marker { color: var(--dim); }
+  strong { font-weight: 600; }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--hairline);
+    color: var(--dim);
+    font-size: 13.5px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <a class="back" href="../">&larr; Finly</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: 8 September 2026</p>
+  </header>
+
+  <div class="summary">
+    <p><strong>The short version:</strong> Finly collects nothing. It has no accounts, no servers and
+      no network code. Everything you enter stays in a database on your own device, and uninstalling
+      the app deletes it.</p>
+  </div>
+
+  <h2>Who this applies to</h2>
+  <p>This policy covers the Finly Android application published by The C Studio. It describes how the
+    app handles information, and it applies to everyone who installs it.</p>
+
+  <h2>Information we collect</h2>
+  <p><strong>None.</strong> Finly does not collect, transmit, sell or share any personal information,
+    financial information, device identifiers or usage data.</p>
+  <p>The app contains no network client, no analytics SDK, no advertising SDK and no crash-reporting
+    service. It does not use the Android Advertising ID. There is no account to create and no
+    server for your information to be sent to, because no server exists.</p>
+
+  <h2>Information stored on your device</h2>
+  <p>Everything you enter is written to a local database on your device and never leaves it unless
+    you deliberately export it. That includes:</p>
+  <ul>
+    <li>Transactions, amounts, dates and notes you record</li>
+    <li>Accounts, categories and recurring rules you create</li>
+    <li>Budgets and currency preferences</li>
+    <li>App settings, including whether the app lock is switched on</li>
+  </ul>
+  <p>This data is readable only by Finly, within the app's private storage area that Android isolates
+    from other applications.</p>
+
+  <h2>Optional database encryption</h2>
+  <p>Finly offers optional at-rest encryption of its database, which you can turn on in
+    <em>Settings &rarr; Security</em>. When you enable it, the app generates a 256-bit key using your
+    device's secure random number generator and stores that key in Android's hardware-backed
+    keystore. The key never leaves your device and is never transmitted or recoverable by us. If you
+    do not enable encryption, the database is stored unencrypted inside the app's private storage.</p>
+
+  <h2>Biometric app lock</h2>
+  <p>You can optionally require a fingerprint, face unlock or your device passcode to open Finly.
+    This check is performed entirely by Android. Finly receives only a yes-or-no result. It never
+    receives, processes or stores your fingerprint, face data or passcode, and it holds no copy of
+    any biometric information.</p>
+
+  <h2>Exporting and importing your data</h2>
+  <p>Finly can export your records as a CSV file and can import records from a CSV file you choose.</p>
+  <ul>
+    <li><strong>Exports</strong> are generated on your device. The file is then passed to the Android
+      share sheet, and you choose where it goes. Once you send it to another app, cloud drive or
+      contact, that destination's own privacy policy governs what happens to it.</li>
+    <li><strong>Imports</strong> are read from the file you select and written into your local
+      database. The file is not uploaded anywhere.</li>
+  </ul>
+
+  <h2>Permissions the app requests</h2>
+  <ul>
+    <li><strong>Biometric / fingerprint</strong> — used only to power the optional app lock described
+      above. Finly requests no other Android permissions.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>Finly is not directed at children and is not intended for anyone under 18. We do not knowingly
+    collect information from children — in fact, we do not knowingly collect information from
+    anyone, as described above.</p>
+
+  <h2>Third parties</h2>
+  <p>Finly includes no third-party analytics, advertising, attribution or tracking services. No third
+    party receives information from the app.</p>
+  <p>Google Play may independently collect information about installs, crashes and device types as
+    part of operating the store. That collection is governed by
+    <a href="https://policies.google.com/privacy" rel="noopener">Google's privacy policy</a>, not by
+    this one, and we receive only aggregate, anonymous statistics through the Play Console.</p>
+
+  <h2>Deleting your data</h2>
+  <p>You can delete individual records inside the app at any time. To remove everything, uninstall
+    Finly — this deletes the database and all of its contents from your device. Because no copy is
+    held anywhere else, there is no server-side deletion request to make and nothing for us to
+    delete on your behalf.</p>
+
+  <h2>Data retention</h2>
+  <p>We retain nothing, because we receive nothing. Your data is retained on your device for exactly
+    as long as you keep it there.</p>
+
+  <h2>Your rights</h2>
+  <p>Privacy laws such as the GDPR and CCPA give you rights of access, correction, portability and
+    erasure over personal data held by a company. We hold no personal data about you, so there is
+    nothing for us to disclose, correct or erase. You exercise the practical equivalent directly:
+    view and edit your records in the app, export them as CSV for portability, and uninstall to
+    erase them.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If Finly ever adds a feature that changes how information is handled — for example an optional
+    backup or sync service — this policy will be updated before that feature ships, and the date at
+    the top of this page will change. Material changes will also be noted in the app's release
+    notes on Google Play.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy: <a href="mailto:REPLACE_WITH_SUPPORT_EMAIL">REPLACE_WITH_SUPPORT_EMAIL</a></p>
+
+  <footer>
+    Finly — an offline personal finance tracker. &copy; 2026 The C Studio.
+  </footer>
+
+</div>
+</body>
+</html>
