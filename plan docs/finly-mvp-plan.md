@@ -25,8 +25,8 @@ and at any moment the home screen answers "how much can I spend today?" without
 arithmetic.
 
 **Non-goals for the MVP:** bill/receipt attachments, income and account
-balances, EMI plans, per-category budgets, card payment tracking, notifications,
-multi-device sync, multi-currency.
+balances, EMI plans, per-category budgets, card payment tracking, notifications
+beyond the one daily logging reminder (D16), multi-device sync, multi-currency.
 
 ---
 
@@ -52,6 +52,7 @@ reader can tell a decision from an accident.
 | D13 | Insights ships **all four** views: category, trend, card utilisation, top items | Each answers a question currently asked of the sheet |
 | D14 | Cards store **statement day only**, no due dates or reminders | Due dates imply tracking payment, which is out of scope |
 | D15 | The app is named **Finly** | Matches the repo, package and slug; mockup wordmark gets re-set |
+| D16 | One **opt-in local daily reminder** to log expenses, skipped on days something was already logged. Scheduled on the device, no server; no card due-date reminders (D14 stands) | Safe-to-spend is only as right as what was logged, and an entry missed on the day is easily never made. Local-only keeps the no-server promise |
 
 ---
 
@@ -430,7 +431,8 @@ budget line · card utilisation per card · top items and merchants for the mont
 
 ### 7.7 Settings
 
-Monthly budget · accounts and cards · categories · import and export · about.
+Monthly budget · accounts and cards · categories · daily reminder (D16) ·
+import and export · about.
 
 ---
 

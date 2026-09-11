@@ -239,7 +239,11 @@ export type SettingKey =
   | 'last_account_id'
   | 'last_export_at'
   | 'app_lock_enabled'
-  | 'encryption_enabled';
+  | 'encryption_enabled'
+  /** D16: the daily logging reminder. A flag; off unless switched on. */
+  | 'reminder_enabled'
+  /** 'HH:mm' in local time. Absent means DEFAULT_REMINDER_TIME. */
+  | 'reminder_time';
 
 /* -------------------------------------------------------------------------- */
 /* Row types — these replace the hand-written types the fixtures used to carry  */

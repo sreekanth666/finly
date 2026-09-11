@@ -368,6 +368,23 @@ export const lastUsedAccountId = (database: DbLike = db): string | null =>
     .limit(1)
     .get()?.accountId ?? null;
 
+/**
+ * Whether anything was *entered* in `[startMs, endMs)` — by `created_at`, not
+ * `occurred_at`. The daily reminder (D16) asks whether someone has logged
+ * today, and backfilling yesterday's cab this morning counts as logging.
+ */
+export const hasExpenseCreatedBetween = (
+  startMs: number,
+  endMs: number,
+  database: DbLike = db,
+): boolean =>
+  database
+    .select({ id: expenses.id })
+    .from(expenses)
+    .where(and(alive, gte(expenses.createdAt, startMs), lt(expenses.createdAt, endMs)))
+    .limit(1)
+    .get() !== undefined;
+
 /* -------------------------------------------------------------------------- */
 /* Writes                                                                       */
 /* -------------------------------------------------------------------------- */

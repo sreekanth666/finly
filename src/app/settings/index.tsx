@@ -4,6 +4,7 @@ import { Typography } from 'heroui-native';
 import {
   ArrowDownUp,
   ArrowLeft,
+  BellRing,
   CircleDollarSign,
   Info,
   Shapes,
@@ -23,7 +24,9 @@ import { runDevSeed } from '@/db/dev-seed';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useDefaultMonthlyBudget } from '@/features/budget/hooks';
 import { useNavigateOnce } from '@/features/navigation/hooks';
+import { useReminderSettings } from '@/features/reminders/hooks';
 import { formatMinor } from '@/domain/money';
+import { formatReminderTime } from '@/domain/reminders';
 
 const plural = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
@@ -38,6 +41,7 @@ export default function SettingsScreen() {
   );
   const accountRows = useAccounts();
   const categoryRows = useCategories();
+  const reminder = useReminderSettings();
 
   /* A count of 0 and a failed read are different things, and '0 accounts' is
      the more damaging of the two to show when it isn't true. */
@@ -99,6 +103,27 @@ export default function SettingsScreen() {
               description="Rename, reorder and archive"
               value={categoryCount === null ? '—' : plural(categoryCount, 'category', 'categories')}
               onPress={() => navigate('/settings/categories')}
+            />
+          </View>
+        </View>
+
+        <View className="gap-3">
+          <SectionHeader label="Reminders" />
+          <View className="rounded-3xl bg-surface">
+            <SettingsRow
+              isFirst
+              icon={BellRing}
+              iconTone="income"
+              label="Daily reminder"
+              description="A nudge to log the day, skipped once you have"
+              value={
+                reminder.data === undefined
+                  ? '—'
+                  : reminder.data.enabled
+                    ? formatReminderTime(reminder.data.time)
+                    : 'Off'
+              }
+              onPress={() => navigate('/settings/reminders')}
             />
           </View>
         </View>

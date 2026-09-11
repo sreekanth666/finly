@@ -22,10 +22,11 @@ export type ScreenHeaderProps = {
  *
  * The avatar here once showed the hardcoded initials "SK" beside a bell with no
  * handler, and both were removed: there was no name to draw initials from, and
- * notifications are an explicit §2 non-goal. The bell stays gone. The avatar is
- * back because the first thing onboarding now asks for is what to call someone,
- * so it has a real name behind it and somewhere to go — which are the two things
- * it was missing.
+ * notifications were a §1 non-goal. D16 has since allowed one daily reminder,
+ * but it is set up in Settings and leaves nothing behind to read, so the bell
+ * stays gone. The avatar is back because the first thing onboarding now asks
+ * for is what to call someone, so it has a real name behind it and somewhere to
+ * go — which are the two things it was missing.
  */
 export function ScreenHeader({ greeting = false }: ScreenHeaderProps) {
   /* One push per press: the row stays tappable for the whole transition. */

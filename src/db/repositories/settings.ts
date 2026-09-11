@@ -8,6 +8,11 @@
 import { eq } from 'drizzle-orm';
 
 import { asMinor, toCurrency, type Currency, type Minor } from '@/domain/money';
+import {
+  formatReminderTime,
+  parseReminderTime,
+  type ReminderTime,
+} from '@/domain/reminders';
 
 import { db, type DbLike } from '../client';
 import { settings, type SettingKey } from '../schema';
@@ -54,6 +59,13 @@ export const getCurrency = (database: DbLike = db): Currency =>
 
 export const setCurrency = (currency: Currency, database: DbLike = db): void =>
   setSetting('currency', currency.code, database);
+
+/** The daily reminder's time of day, falling back to the default for anything unreadable. */
+export const getReminderTime = (database: DbLike = db): ReminderTime =>
+  parseReminderTime(getSetting('reminder_time', database));
+
+export const setReminderTime = (time: ReminderTime, database: DbLike = db): void =>
+  setSetting('reminder_time', formatReminderTime(time), database);
 
 /** The name the app addresses the user by. Null when it has never been set. */
 export function getProfileName(database: DbLike = db): string | null {

@@ -18,6 +18,7 @@ import { toError } from '@/db/errors';
 import { syncRunningBudgets } from '@/db/repositories/budgets';
 import { getCurrency, getFlag } from '@/db/repositories/settings';
 import { runSeed } from '@/db/seed';
+import { useReminderSync, useReminderTapRouting } from '@/features/reminders/hooks';
 import { AppLock } from '@/features/security/app-lock';
 import { MigrationFailureScreen } from '@/features/recovery/migration-failure-screen';
 import { setActiveCurrency } from '@/domain/money';
@@ -34,6 +35,22 @@ Uniwind.setTheme('dark');
 SplashScreen.preventAutoHideAsync();
 
 export { ErrorBoundary } from 'expo-router';
+
+/*
+ * The reminder's two long-running jobs, as components that render nothing.
+ * Components rather than hooks called from RootLayout, so each mounts only
+ * where it is safe to run — and neither adds a hook to RootLayout, whose hook
+ * count has to stay fixed across its early return.
+ */
+function ReminderSync() {
+  useReminderSync();
+  return null;
+}
+
+function ReminderTapRouter() {
+  useReminderTapRouting();
+  return null;
+}
 
 export default function RootLayout() {
   /*
@@ -162,7 +179,16 @@ export default function RootLayout() {
                 }}
               />
             ) : (
+              <>
+              {/* Outside the lock: the schedule should follow the database
+                  whether or not the screen is unlocked. Inside this branch,
+                  so it never reads a database that failed to migrate. */}
+              <ReminderSync />
               <AppLock isEnabled={isAppLockEnabled}>
+              {/* A sibling of the Stack rather than a child — a layout drops
+                  non-Screen children — and inside the lock, so a reminder
+                  tapped while locked only opens the form once unlocked. */}
+              <ReminderTapRouter />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(tabs)" />
                 {/* Entry is a task, not a destination — it comes up over the tabs. */}
@@ -186,10 +212,12 @@ export default function RootLayout() {
                 <Stack.Screen name="settings/security" />
                 <Stack.Screen name="settings/currency" />
                 <Stack.Screen name="settings/data" />
+                <Stack.Screen name="settings/reminders" />
                 {/* Import is a task with its own steps, so it comes up over settings. */}
                 <Stack.Screen name="settings/import" options={{ presentation: 'modal' }} />
               </Stack>
               </AppLock>
+              </>
             )}
           </ThemeProvider>
         </HeroUINativeProvider>
