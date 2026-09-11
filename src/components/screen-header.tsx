@@ -1,5 +1,6 @@
 import { Typography } from 'heroui-native';
 import { EllipsisVertical } from 'lucide-react-native';
+import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { IconButton } from './icon-button';
@@ -15,6 +16,11 @@ export type ScreenHeaderProps = {
    * a greeting repeated on all four tabs stops being a greeting.
    */
   greeting?: boolean;
+  /**
+   * A screen's own action, placed just before Settings — e.g. the "?" on
+   * Rules. Kept to icon buttons so the row reads the same on every tab.
+   */
+  trailing?: ReactNode;
 };
 
 /**
@@ -27,7 +33,7 @@ export type ScreenHeaderProps = {
  * so it has a real name behind it and somewhere to go — which are the two things
  * it was missing.
  */
-export function ScreenHeader({ greeting = false }: ScreenHeaderProps) {
+export function ScreenHeader({ greeting = false, trailing }: ScreenHeaderProps) {
   /* One push per press: the row stays tappable for the whole transition. */
   const navigate = useNavigateOnce();
 
@@ -62,6 +68,7 @@ export function ScreenHeader({ greeting = false }: ScreenHeaderProps) {
       )}
 
       <View className="flex-1" />
+      {trailing}
       <IconButton
         icon={EllipsisVertical}
         label="Settings"

@@ -1,10 +1,12 @@
 import { Typography } from 'heroui-native';
-import { Plus } from 'lucide-react-native';
-import { useCallback, useMemo } from 'react';
+import { CircleQuestionMark, Plus } from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { IconButton } from '@/components/icon-button';
 import { RuleCard } from '@/components/rule-card';
+import { RulesHelpSheet } from '@/components/rules-help-sheet';
 import { SafeAreaView } from '@/components/safe-area-view';
 import { ScreenHeader } from '@/components/screen-header';
 import { SectionHeader } from '@/components/section-header';
@@ -23,6 +25,8 @@ export default function RulesScreen() {
   const rules = useRules();
   const categories = useCategories(true);
   const accounts = useAccounts(true);
+
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   /* The design pass toggled local state, so a rule switched off came back on
      the moment you navigated away. This writes — through useAction, so a failed
@@ -53,7 +57,15 @@ export default function RulesScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <View className="gap-5 pt-2 pb-4">
         <View className="px-5">
-          <ScreenHeader />
+          <ScreenHeader
+            trailing={
+              <IconButton
+                icon={CircleQuestionMark}
+                label="How rules work"
+                onPress={() => setIsHelpOpen(true)}
+              />
+            }
+          />
         </View>
 
         <View className="gap-1 px-5">
@@ -128,6 +140,8 @@ export default function RulesScreen() {
           )
         }
       />
+
+      <RulesHelpSheet isOpen={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </SafeAreaView>
   );
 }
