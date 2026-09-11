@@ -49,6 +49,7 @@ const SECTIONS: readonly { title: string; lines: readonly string[] }[] = [
   {
     title: 'Getting the most out of them',
     lines: [
+      'Not sure where to start? Open a template from the Rules tab — each is a finished rule for a common spend, with a note on why it’s built that way.',
       'Use “starts with” for a merchant name and “contains” for a keyword that shows up anywhere.',
       'Put a specific rule above a general one: “Swiggy Instamart” → Groceries at 80 catches those before “Swiggy” → Food at 50 sees them.',
       'Give overlapping rules different priorities — two at the same number have no guaranteed order.',

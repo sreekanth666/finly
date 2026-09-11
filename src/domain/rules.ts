@@ -111,6 +111,28 @@ export function matchRule(rules: readonly Rule[], draft: MatchTarget): RuleFill 
   return candidate ? toFill(candidate) : null;
 }
 
+export type RuleProblem = { field: 'name' | 'conditions' | 'actions'; message: string };
+
+/**
+ * Why a rule can't be saved, or null if it can. Pure so that anything which
+ * builds rules without the editor — the templates — can be held to the same
+ * bar the repository enforces.
+ */
+export function ruleInputProblem(
+  rule: Pick<Rule, 'name' | 'conditions' | 'actions'>,
+): RuleProblem | null {
+  if (rule.name.trim().length === 0) {
+    return { field: 'name', message: 'A rule needs a name.' };
+  }
+  if (rule.conditions.every((condition) => condition.value.trim().length === 0)) {
+    return { field: 'conditions', message: 'A rule needs at least one condition to match on.' };
+  }
+  if (rule.actions.length === 0) {
+    return { field: 'actions', message: 'A rule needs at least one thing to fill in.' };
+  }
+  return null;
+}
+
 /** How many of a set of expenses a rule would claim — the editor's preview. */
 export const countMatches = (
   rule: Pick<Rule, 'matchMode' | 'conditions'>,

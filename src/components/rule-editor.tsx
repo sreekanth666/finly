@@ -1,6 +1,6 @@
 import { Input, Switch, Typography } from 'heroui-native';
 import { Minus, Plus, Sparkles, Trash2, X } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Keyboard, Pressable, View } from 'react-native';
 
 import { Button } from './button';
@@ -90,6 +90,8 @@ export type RuleEditorProps = {
   errorMessage?: string | null;
   /** Edit-only. Providing it shows the destructive action. */
   onDelete?: () => void;
+  /** Shown above the form — what a template is showing, and anything it couldn't fill. */
+  intro?: ReactNode;
   onSubmit: (draft: RuleDraft) => void;
   onClose: () => void;
 };
@@ -108,6 +110,7 @@ export function RuleEditor({
   isSubmitting = false,
   errorMessage = null,
   onDelete,
+  intro,
   onSubmit,
   onClose,
 }: RuleEditorProps) {
@@ -200,6 +203,8 @@ export function RuleEditor({
           )}
         </>
       }>
+      {intro !== undefined && <View className="px-5">{intro}</View>}
+
       <View className="gap-2 px-5">
         <SectionHeader label="Name" />
         <Input
