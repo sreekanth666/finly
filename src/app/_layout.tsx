@@ -15,6 +15,7 @@ import migrations from '../../drizzle/migrations';
 import { scheduleCarryOverFlush } from '@/db/carry-over';
 import { db, openError } from '@/db/client';
 import { toError } from '@/db/errors';
+import { syncRunningBudgets } from '@/db/repositories/budgets';
 import { getCurrency, getFlag } from '@/db/repositories/settings';
 import { runSeed } from '@/db/seed';
 import { AppLock } from '@/features/security/app-lock';
@@ -62,6 +63,14 @@ export default function RootLayout() {
     if (!migrated) return;
     try {
       runSeed();
+      /* Before the first render, so home never paints a month still stamped
+         with an old budget. Not fatal: a failed repair only leaves that old
+         figure showing, which is no reason to put up the recovery screen. */
+      try {
+        syncRunningBudgets();
+      } catch {
+        // Tried again on the next launch.
+      }
       /* Applied before the first render, so no screen ever paints in the wrong
          currency and then corrects itself. */
       setActiveCurrency(getCurrency());

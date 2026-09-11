@@ -4,16 +4,16 @@ import { BottomSheet, Input, Typography, useBottomSheetAwareHandlers } from 'her
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { AmountKeypad } from './amount-keypad';
 import { Amount } from './amount';
+import { AmountInput } from './amount-input';
 import { Button } from './button';
 import { FilterChipBar } from './filter-chip-bar';
 import { SectionHeader } from './section-header';
 import { VERTICAL_ONLY_PAN } from './sheet-pan';
 
 import type { AccountRow } from '@/db/schema';
-import { appendKey, EMPTY_ENTRY, type KeypadKey } from '@/domain/amount-entry';
-import { entryToMinor, formatEntry, type Minor } from '@/domain/money';
+import { EMPTY_ENTRY } from '@/domain/amount-entry';
+import { entryToMinor, type Minor } from '@/domain/money';
 import { formatDayLabel, startOfLocalDay } from '@/domain/period';
 
 type DayChoice = 'today' | 'yesterday' | 'other';
@@ -65,6 +65,21 @@ function NoteField({ value, onChangeText }: { value: string; onChangeText: (v: s
       placeholder="Flatmate’s half"
       value={value}
       onChangeText={onChangeText}
+      onFocus={onFocus}
+      onBlur={onBlur}
+    />
+  );
+}
+
+/** Split out for the same reason as `NoteField`. */
+function AmountField({ value, onChangeValue }: { value: string; onChangeValue: (v: string) => void }) {
+  const { onFocus, onBlur } = useBottomSheetAwareHandlers();
+
+  return (
+    <AmountInput
+      value={value}
+      onChangeValue={onChangeValue}
+      accessibilityLabel="Amount returned"
       onFocus={onFocus}
       onBlur={onBlur}
     />
@@ -143,12 +158,7 @@ export function AddSettlementSheet({
                 <Typography type="body-xs" color="muted">
                   Returned
                 </Typography>
-                <Typography
-                  className={
-                    entry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'
-                  }>
-                  {formatEntry(entry)}
-                </Typography>
+                <AmountField value={entry} onChangeValue={setEntry} />
                 <View className="flex-row items-center gap-1">
                   <Typography type="body-xs" color="muted">
                     of
@@ -211,10 +221,6 @@ export function AddSettlementSheet({
                 <SectionHeader label="Note" />
                 <NoteField value={note} onChangeText={setNote} />
               </View>
-
-              <AmountKeypad
-                onKeyPress={(key: KeypadKey) => setEntry((current) => appendKey(current, key))}
-              />
 
               <Button
                 label={isSubmitting ? 'Saving…' : 'Add settlement'}

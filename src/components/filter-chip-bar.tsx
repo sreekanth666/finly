@@ -43,6 +43,12 @@ const STATES = {
  * Horizontally scrolling row of filter pills. Full-bleed — the padding lives on
  * the content container so the last pill runs off the edge rather than stopping
  * short of it, which is what signals there is more to scroll.
+ *
+ * `keyboardShouldPersistTaps` has to be set here as well as on the form around
+ * it. A ScrollView left at the default claims the first tap while the keyboard
+ * is up and spends it dismissing the keyboard, and a nested one does that even
+ * when its parent persists taps — so picking a category straight after typing
+ * the item took two taps, and looked like the first one had missed.
  */
 export function FilterChipBar<Id extends string>({
   options,
@@ -53,6 +59,7 @@ export function FilterChipBar<Id extends string>({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
       contentContainerClassName="gap-2 px-5">
       {options.map(({ id, label }) => {
         const isSelected = id === selectedId;

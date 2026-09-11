@@ -1,6 +1,6 @@
 import { Typography } from 'heroui-native';
 import type { LucideIcon } from 'lucide-react-native';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,12 +19,8 @@ import { SafeAreaView } from './safe-area-view';
 const Scroll = withUniwind(KeyboardAwareScrollView);
 const Sticky = withUniwind(KeyboardStickyView);
 
-/**
- * How much room to keep between the caret and whatever is below it. Roughly the
- * height of the action bar, so a field being typed into is never left sitting
- * under the Save button.
- */
-const FOOTER_CLEARANCE = 96;
+/** Room to keep between a focused field and the top of the action bar. */
+const CARET_CLEARANCE = 16;
 
 export type FormScreenProps = {
   /** The standard header. Ignored when `header` is given. */
@@ -39,7 +35,7 @@ export type FormScreenProps = {
   header?: ReactNode;
   /**
    * Pinned between the header and the scroll area, so it neither scrolls away
-   * nor rides the keyboard: the amount display the keypad writes into.
+   * nor rides the keyboard: the amount field.
    */
   above?: ReactNode;
   contentContainerClassName?: string;
@@ -62,6 +58,19 @@ export type FormScreenProps = {
  * clear, and the action bar is a `KeyboardStickyView`, which rides up with the
  * keyboard instead of hiding behind it.
  *
+ * Two details decide whether "clear" really is clear.
+ *
+ * - `mode="layout"` makes room for the keyboard with a spacer at the end of the
+ *   content. The library's default since 1.21 extends the scroll range natively
+ *   instead, and on Android testers could not scroll fields out from under the
+ *   keyboard at all. A short form, with nothing to scroll until the keyboard
+ *   came up, simply stayed put. The spacer is the older, plainer mechanism. It
+ *   costs a layout pass per frame while the keyboard moves, and adds one content
+ *   gap at the bottom of the form.
+ * - The caret is kept clear of the action bar's *measured* height. It used to be
+ *   a fixed 96, which is shorter than the rule editor's Save and Delete pair, so
+ *   a focused field came to rest underneath the bar.
+ *
  * Not for use inside a bottom sheet. A sheet has its own keyboard handling
  * through gorhom, and the two would fight over the same offsets — see
  * ./add-settlement-sheet.tsx, which uses `useBottomSheetAwareHandlers` instead.
@@ -79,6 +88,7 @@ export function FormScreen({
   children,
 }: FormScreenProps) {
   const insets = useSafeAreaInsets();
+  const [footerHeight, setFooterHeight] = useState(0);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -102,7 +112,8 @@ export function FormScreen({
       <Scroll
         className="flex-1"
         contentContainerClassName={contentContainerClassName}
-        bottomOffset={FOOTER_CLEARANCE}
+        mode="layout"
+        bottomOffset={footerHeight + CARET_CLEARANCE}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         {children}
@@ -121,6 +132,7 @@ export function FormScreen({
          */
         <Sticky
           offset={{ opened: insets.bottom }}
+          onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
           className="gap-3 border-t border-border bg-background px-5 pt-3">
           {footer}
         </Sticky>

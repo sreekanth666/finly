@@ -1,10 +1,11 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
+import { useNavigation } from 'expo-router';
 import { Input, Switch, Typography } from 'heroui-native';
 import { Sparkles, X } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Keyboard, Pressable, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, View, type TextInput } from 'react-native';
 
-import { AmountKeypad } from './amount-keypad';
+import { AmountInput } from './amount-input';
 import { Button } from './button';
 import { FilterChipBar } from './filter-chip-bar';
 import { FormScreen } from './form-screen';
@@ -12,8 +13,8 @@ import { Icon } from './icon';
 import { SectionHeader } from './section-header';
 
 import type { AccountRow, CategoryRow } from '@/db/schema';
-import { appendKey, EMPTY_ENTRY, type KeypadKey } from '@/domain/amount-entry';
-import { entryToMinor, formatEntry, type Minor } from '@/domain/money';
+import { EMPTY_ENTRY } from '@/domain/amount-entry';
+import { entryToMinor, type Minor } from '@/domain/money';
 import { formatDayLabel, startOfLocalDay } from '@/domain/period';
 import { matchRule, type Rule } from '@/domain/rules';
 import { useAppColor } from '@/theme';
@@ -74,6 +75,14 @@ export type ExpenseFormProps = {
 };
 
 type DayChoice = 'today' | 'yesterday' | 'other';
+
+/** The one native-stack event this form listens for, typed where it is used. */
+type TransitionEvents = {
+  addListener: (
+    type: 'transitionEnd',
+    listener: (event: { data: { closing: boolean } }) => void,
+  ) => () => void;
+};
 
 const DAY_OPTIONS = [
   { id: 'today' as const, label: 'Today' },
@@ -142,8 +151,6 @@ export function ExpenseForm({
   const accentColor = useAppColor('accent');
 
   const [entry, setEntry] = useState(seed.entry);
-  /* An expense that already has an amount opens on the fields, not the keypad. */
-  const [isKeypadOpen, setIsKeypadOpen] = useState(seed.entry.length === 0);
   const [item, setItem] = useState(seed.item);
   const [note, setNote] = useState(seed.note);
   const [isNoteOpen, setIsNoteOpen] = useState(seed.note.length > 0);
@@ -160,6 +167,22 @@ export function ExpenseForm({
     account: isPrefilled,
     counts: isPrefilled,
   });
+
+  /* Amount first, as §7.2 has it — but an expense that already has an amount
+     opens on the fields. `autoFocus` alone is not enough on Android: it fires
+     while the modal is still animating in and the keyboard request can be
+     dropped, so the field is focused again once the transition settles. A
+     second focus is harmless when the first one worked. */
+  const amountRef = useRef<TextInput>(null);
+  const opensOnAmount = seed.entry.length === 0;
+  const navigation = useNavigation<TransitionEvents>();
+
+  useEffect(() => {
+    if (!opensOnAmount) return;
+    return navigation.addListener('transitionEnd', (event) => {
+      if (!event.data.closing) amountRef.current?.focus();
+    });
+  }, [navigation, opensOnAmount]);
 
   const categoryOptions = useMemo(
     () => categories.map((category) => ({ id: category.id, label: category.name })),
@@ -269,7 +292,7 @@ export function ExpenseForm({
     setIsNoteOpen(false);
     setCategoryId(null);
     setCountsToBudget(true);
-    setIsKeypadOpen(true);
+    amountRef.current?.focus();
   };
 
   const suggestions = useMemo(() => {
@@ -288,26 +311,18 @@ export function ExpenseForm({
       onClose={onClose}
       contentContainerClassName="gap-5 pb-6"
       above={
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Edit amount"
-          /* Puts the soft keyboard away first. The Inputs below close the keypad
-             when they take focus, but nothing used to close the keyboard coming
-             back the other way — so both could be up at once, and the action bar
-             then carried a full keypad up over the keyboard. */
-          onPress={() => {
-            Keyboard.dismiss();
-            setIsKeypadOpen(true);
-          }}
-          className="items-center gap-1 px-5 py-6 active:opacity-60">
+        <View className="items-center gap-1 px-5 py-6">
           <Typography type="body-xs" color="muted">
             Amount
           </Typography>
-          <Typography
-            className={entry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'}>
-            {formatEntry(entry)}
-          </Typography>
-        </Pressable>
+          <AmountInput
+            ref={amountRef}
+            value={entry}
+            onChangeValue={setEntry}
+            accessibilityLabel="Amount"
+            autoFocus={opensOnAmount}
+          />
+        </View>
       }
       footer={
         <>
@@ -346,12 +361,6 @@ export function ExpenseForm({
               />
             </View>
           </View>
-
-          {isKeypadOpen && (
-            <AmountKeypad
-              onKeyPress={(key: KeypadKey) => setEntry((current) => appendKey(current, key))}
-            />
-          )}
         </>
       }>
       <View className="gap-2 px-5">
@@ -360,7 +369,6 @@ export function ExpenseForm({
           placeholder="What did you buy?"
           value={item}
           onChangeText={setItem}
-          onFocus={() => setIsKeypadOpen(false)}
           autoCapitalize="sentences"
         />
         {suggestions.length > 0 && (
@@ -482,7 +490,6 @@ export function ExpenseForm({
               placeholder="Anything worth remembering"
               value={note}
               onChangeText={setNote}
-              onFocus={() => setIsKeypadOpen(false)}
               multiline
               numberOfLines={3}
             />

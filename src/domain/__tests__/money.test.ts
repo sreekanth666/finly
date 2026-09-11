@@ -7,7 +7,6 @@ import {
   asMinor,
   clampMinorAtZero,
   entryToMinor,
-  formatEntry,
   formatMinor,
   formatMinorParts,
   formatMinorPlain,
@@ -59,9 +58,16 @@ describe('entryToMinor', () => {
 describe('minorToEntry', () => {
   it('round-trips through entryToMinor', () => {
     expect(minorToEntry(ZERO_MINOR)).toBe('');
-    expect(minorToEntry(asMinor(400))).toBe('4.00');
     expect(minorToEntry(asMinor(124050))).toBe('1240.50');
     expect(minorToEntry(asMinor(5))).toBe('0.05');
+  });
+
+  it('leaves off a fraction that is all zeros', () => {
+    // A stored budget loads into the field as "5000", not "5000.00" — the
+    // trailing zeros are noise, and on the old keypad they refused every digit.
+    expect(minorToEntry(asMinor(400))).toBe('4');
+    expect(minorToEntry(asMinor(500000))).toBe('5000');
+    expect(minorToEntry(asMinor(500050))).toBe('5000.50');
   });
 });
 
@@ -115,15 +121,6 @@ describe('formatMinor', () => {
       whole: '1,24,050',
       fraction: '50',
     });
-  });
-});
-
-describe('formatEntry', () => {
-  it('keeps a trailing decimal point the user typed', () => {
-    expect(formatEntry('')).toBe('₹0');
-    expect(formatEntry('124050')).toBe('₹1,24,050');
-    expect(formatEntry('1240.')).toBe('₹1,240.');
-    expect(formatEntry('1240.5')).toBe('₹1,240.5');
   });
 });
 
@@ -202,11 +199,6 @@ describe('currency', () => {
   it('names the fractional unit the way the currency does', () => {
     expect(speakMinor(asMinor(124050), inr)).toBe('1,240 rupees 50 paise');
     expect(speakMinor(asMinor(124050), usd)).toBe('1,240 dollars 50 cents');
-  });
-
-  it('formats the live keypad entry in the chosen currency', () => {
-    expect(formatEntry('124050', inr)).toBe('₹1,24,050');
-    expect(formatEntry('124050', usd)).toBe('$124,050');
   });
 
   it('follows the active currency when none is given', () => {

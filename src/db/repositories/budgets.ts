@@ -10,7 +10,7 @@
  * The stored column is a snapshot of what the user last saw. See carry-over.ts.
  */
 
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, gte, ne } from 'drizzle-orm';
 
 import { buildCarryOverHistory, type Period, type PeriodResult } from '@/domain/budget';
 import { asMinor, type Minor } from '@/domain/money';
@@ -20,6 +20,7 @@ import { db, type DbLike } from '../client';
 import { ValidationError } from '../errors';
 import { newId } from '../id';
 import { budgets, type BudgetRow } from '../schema';
+import { writeTransaction } from '../transaction';
 import { earliestActivityPeriod, spentByPeriod } from './expenses';
 import { getMinorSetting, setMinorSetting } from './settings';
 
@@ -29,11 +30,52 @@ export const FALLBACK_MONTHLY_BUDGET = asMinor(500000);
 export const defaultMonthlyBudget = (database: DbLike = db): Minor =>
   getMinorSetting('monthly_budget_minor', FALLBACK_MONTHLY_BUDGET, database);
 
+/**
+ * Puts `amountMinor` on every row from `period` on. Rows already at that amount
+ * are left alone, so an up-to-date table sees no write and wakes no screen.
+ */
+function repriceFrom(period: PeriodKey, amountMinor: Minor, database: DbLike): void {
+  database
+    .update(budgets)
+    .set({ amountMinor, updatedAt: Date.now() })
+    .where(and(gte(budgets.period, period), ne(budgets.amountMinor, amountMinor)))
+    .run();
+}
+
+/**
+ * The every-month budget, from the running month on.
+ *
+ * Writing the setting alone is not enough. The carry-over flush stamps a month's
+ * row with the default the first time that month has any spending, and history
+ * reads the stamp in preference to the default — so a new budget used to reach
+ * the Settings row and nothing else. Home, history and Insights all went on
+ * showing whatever the month had been stamped with, usually the figure from
+ * onboarding.
+ *
+ * Only the running month and later are re-priced. A closed month keeps the
+ * budget it was measured against: re-pricing it would silently alter a past
+ * total, which §10 rules out. No carry marker is needed either — the running
+ * month's own budget only feeds carry into months that have no row yet.
+ */
 export function setDefaultMonthlyBudget(amountMinor: Minor, database: DbLike = db): void {
   if (amountMinor <= 0) {
     throw new ValidationError('amount', 'A monthly budget needs to be more than zero.');
   }
-  setMinorSetting('monthly_budget_minor', amountMinor, database);
+  writeTransaction((tx) => {
+    setMinorSetting('monthly_budget_minor', amountMinor, tx);
+    repriceFrom(currentPeriod(), amountMinor, tx);
+  }, database);
+}
+
+/**
+ * Brings the running month back in line with the every-month budget.
+ *
+ * Repairs rows stamped before `setDefaultMonthlyBudget` re-priced them, which
+ * is every install that changed its budget mid-month; afterwards it finds
+ * nothing to do. Run once at boot.
+ */
+export function syncRunningBudgets(database: DbLike = db): void {
+  repriceFrom(currentPeriod(), defaultMonthlyBudget(database), database);
 }
 
 export const getBudget = (period: PeriodKey, database: DbLike = db): BudgetRow | null =>
@@ -60,24 +102,6 @@ export function getOrCreateBudget(period: PeriodKey, database: DbLike = db): Bud
 
   database.insert(budgets).values(row).run();
   return row;
-}
-
-/** Overrides the default for one month only. */
-export function setBudgetAmount(
-  period: PeriodKey,
-  amountMinor: Minor,
-  database: DbLike = db,
-): void {
-  if (amountMinor <= 0) {
-    throw new ValidationError('amount', 'A budget needs to be more than zero.');
-  }
-
-  getOrCreateBudget(period, database);
-  database
-    .update(budgets)
-    .set({ amountMinor, updatedAt: Date.now() })
-    .where(eq(budgets.period, period))
-    .run();
 }
 
 /**
