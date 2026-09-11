@@ -3,13 +3,14 @@ import { useNavigation } from 'expo-router';
 import { Input, Switch, Typography } from 'heroui-native';
 import { Sparkles, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, View, type TextInput } from 'react-native';
+import { Keyboard, Pressable, View, type TextInput } from 'react-native';
 
 import { AmountInput } from './amount-input';
 import { Button } from './button';
 import { FilterChipBar } from './filter-chip-bar';
 import { FormScreen } from './form-screen';
 import { Icon } from './icon';
+import { NewCategorySheet } from './new-category-sheet';
 import { SectionHeader } from './section-header';
 
 import type { AccountRow, CategoryRow } from '@/db/schema';
@@ -167,6 +168,14 @@ export function ExpenseForm({
     account: isPrefilled,
     counts: isPrefilled,
   });
+  const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
+
+  /* A category made from the "New" pill is a choice the user made, exactly as
+     a tapped pill is — so it takes the field off any rule the same way. */
+  const pickCategory = (id: string) => {
+    setCategoryId(id);
+    setOverridden((current) => ({ ...current, category: true }));
+  };
 
   /* Amount first, as §7.2 has it — but an expense that already has an amount
      opens on the fields. `autoFocus` alone is not enough on Android: it fires
@@ -403,14 +412,28 @@ export function ExpenseForm({
         <View className="px-5">
           <SectionHeader label="Category" trailing={ruleCategoryId ? <RuleBadge /> : undefined} />
         </View>
-        <FilterChipBar
-          options={categoryOptions}
-          selectedId={activeCategoryId}
-          onSelect={(id) => {
-            setCategoryId(id);
-            setOverridden((current) => ({ ...current, category: true }));
-          }}
-        />
+        {/* One wrapper around both: the sheet's content is portalled, but its
+            root still renders a View here, and as a direct child of the
+            column it would take a share of the `gap`. */}
+        <View>
+          <FilterChipBar
+            options={categoryOptions}
+            selectedId={activeCategoryId}
+            onSelect={pickCategory}
+            onCreate={() => {
+              /* The amount or item keyboard is likely still up, and would sit
+                 over a sheet that has its own field to type into. */
+              Keyboard.dismiss();
+              setIsNewCategoryOpen(true);
+            }}
+            createLabel="New category"
+          />
+          <NewCategorySheet
+            isOpen={isNewCategoryOpen}
+            onOpenChange={setIsNewCategoryOpen}
+            onCreated={pickCategory}
+          />
+        </View>
       </View>
 
       <View className="gap-2">

@@ -12,7 +12,6 @@ import { ICON_NAMES, iconFor } from '@/components/icon-registry';
 import { ReorderButtons } from '@/components/reorder-buttons';
 import { SectionHeader } from '@/components/section-header';
 import {
-  createCategory,
   renameCategory,
   reorderCategories,
   setCategoryArchived,
@@ -20,7 +19,7 @@ import {
 import type { CategoryRow } from '@/db/schema';
 import { isAtEdge, moveItem } from '@/domain/reorder';
 import { useAction } from '@/db/use-action';
-import { useCategories } from '@/features/catalog/hooks';
+import { useCategories, useCreateCategory } from '@/features/catalog/hooks';
 import { toAppColor } from '@/theme';
 
 const ROW = {
@@ -46,9 +45,12 @@ export default function CategoriesSettingsScreen() {
   const archive = useAction(setCategoryArchived);
   /* §7.7 lists categories as manageable, but until now the only way to create
      one was through a CSV import that happened to name an unknown category. */
-  const create = useAction(createCategory);
+  const create = useCreateCategory();
   const [newName, setNewName] = useState('');
   const [iconIndex, setIconIndex] = useState(0);
+  /* A name that is already taken adds nothing, which would look like a press
+     that did nothing — so say what happened instead. */
+  const [createNotice, setCreateNotice] = useState<string | null>(null);
   const failure =
     rename.errorMessage ?? reorder.errorMessage ?? archive.errorMessage ?? create.errorMessage;
 
@@ -176,18 +178,25 @@ export default function CategoriesSettingsScreen() {
             size="sm"
             isDisabled={newName.trim().length === 0 || create.isPending}
             onPress={async () => {
-              const outcome = await create.run({
-                name: newName,
-                icon: ICON_NAMES[iconIndex] ?? 'Ellipsis',
-                colorToken: 'muted',
-                chartTone: 'chart-5',
-              });
-              if (outcome.ok) {
-                setNewName('');
-                categories.refetch();
-              }
+              const name = newName.trim();
+              const outcome = await create.run(name, ICON_NAMES[iconIndex] ?? 'Ellipsis');
+              if (!outcome.ok) return;
+
+              setNewName('');
+              setCreateNotice(
+                outcome.value.outcome === 'existing'
+                  ? `“${name}” is already in your list.`
+                  : outcome.value.outcome === 'restored'
+                    ? `“${name}” was archived, so it’s been restored.`
+                    : null,
+              );
             }}
           />
+          {createNotice !== null && (
+            <Typography type="body-xs" color="muted">
+              {createNotice}
+            </Typography>
+          )}
         </View>
 
         {failure !== null && (

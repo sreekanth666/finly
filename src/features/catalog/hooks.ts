@@ -9,9 +9,10 @@
 
 import { listAccounts, listCreditCards } from '@/db/repositories/accounts';
 import { categoriesByUse } from '@/db/repositories/expenses';
-import { listCategories } from '@/db/repositories/categories';
+import { createOrRestoreCategory, listCategories } from '@/db/repositories/categories';
 import { useDbQuery, type TableName } from '@/db/live';
 import type { AccountRow, CategoryRow } from '@/db/schema';
+import { useAction } from '@/db/use-action';
 
 const CATEGORY_TABLES: readonly TableName[] = ['categories'];
 const ACCOUNT_TABLES: readonly TableName[] = ['accounts'];
@@ -35,6 +36,21 @@ export function useAccounts(includeArchived = false) {
 export function useCreditCards() {
   return useDbQuery<AccountRow[]>('credit-cards', ACCOUNT_TABLES, (database) =>
     listCreditCards(database),
+  );
+}
+
+/**
+ * Adding a category from anywhere — Settings, or the "New" pill in a picker.
+ *
+ * A name and an icon are all a person chooses. The colour and chart tone are
+ * the neutral pair every user-made category has had since Settings first
+ * allowed it; the seeded palette is reserved for the seeded rows. Reuses a
+ * category of the same name rather than making a second one (see
+ * `createOrRestoreCategory`), so `value.id` is always the one to select.
+ */
+export function useCreateCategory() {
+  return useAction((name: string, icon: string) =>
+    createOrRestoreCategory({ name, icon, colorToken: 'muted', chartTone: 'chart-5' }),
   );
 }
 

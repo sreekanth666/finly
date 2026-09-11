@@ -8,10 +8,13 @@
 
 import { asc, eq, isNull } from 'drizzle-orm';
 
+import { findCategoryByName } from '@/domain/categories';
+
 import { db, type DbLike } from '../client';
 import { ValidationError } from '../errors';
 import { newId } from '../id';
 import { categories, type CategoryRow } from '../schema';
+import { writeTransaction } from '../transaction';
 
 const alive = isNull(categories.deletedAt);
 
@@ -63,6 +66,35 @@ export function createCategory(input: CategoryInput, database: DbLike = db): str
     .run();
 
   return id;
+}
+
+export type CategoryCreation = {
+  id: string;
+  /** `existing` and `restored` mean nothing new was made — the name was taken. */
+  outcome: 'created' | 'existing' | 'restored';
+};
+
+/**
+ * Create a category, unless one by that name already exists — in which case
+ * hand that one back, un-archiving it if it had been put away.
+ *
+ * This is what a picker wants: someone typing "Pets" into a quick sheet means
+ * the Pets category, whether or not they remember making one. One transaction,
+ * so the name check and the insert cannot be split by a second tap.
+ */
+export function createOrRestoreCategory(
+  input: CategoryInput,
+  database: DbLike = db,
+): CategoryCreation {
+  return writeTransaction((tx) => {
+    const match = findCategoryByName(listCategories({ includeArchived: true }, tx), input.name);
+
+    if (match === null) return { id: createCategory(input, tx), outcome: 'created' };
+    if (!match.isArchived) return { id: match.id, outcome: 'existing' };
+
+    setCategoryArchived(match.id, false, tx);
+    return { id: match.id, outcome: 'restored' };
+  }, database);
 }
 
 export function renameCategory(id: string, name: string, database: DbLike = db): void {
