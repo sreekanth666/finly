@@ -74,6 +74,8 @@ export type ExpenseSeed = {
   occurredAt?: number;
   item?: string;
   accountId?: string | null;
+  /** When it was entered, as opposed to `occurredAt`, when it happened. */
+  createdAt?: number;
 };
 
 export function insertExpense(database: DatabaseSync, seed: ExpenseSeed): string {
@@ -84,7 +86,7 @@ export function insertExpense(database: DatabaseSync, seed: ExpenseSeed): string
        '${seed.id}', ${seed.occurredAt ?? NOW}, '${seed.period}', ${seed.amountMinor}, 'INR',
        '${seed.item ?? seed.id}', 'c-food',
        ${seed.accountId === null ? 'null' : `'${seed.accountId ?? 'a-card'}'`},
-       ${seed.countsToBudget === false ? 0 : 1}, ${NOW}, ${NOW},
+       ${seed.countsToBudget === false ? 0 : 1}, ${seed.createdAt ?? NOW}, ${NOW},
        ${seed.deleted === true ? NOW : 'null'}
      )`,
   );
