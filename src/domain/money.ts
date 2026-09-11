@@ -238,8 +238,8 @@ export function parseMinor(input: string): Minor | null {
 }
 
 /**
- * Keypad entry → paise. The entry is the raw string the keypad holds, so `'4.'`
- * and `'4.0'` are real mid-typing states and both mean ₹4.00.
+ * Amount field entry → paise. The entry is the raw string the field holds, so
+ * `'4.'` and `'4.0'` are real mid-typing states and both mean ₹4.00.
  */
 export function entryToMinor(entry: string): Minor {
   if (entry === '') return ZERO_MINOR;
@@ -248,25 +248,14 @@ export function entryToMinor(entry: string): Minor {
   return asMinor(Number(`${whole === '' ? '0' : whole}${padded}`));
 }
 
-/** The inverse, for loading an existing amount back into the keypad. */
+/**
+ * The inverse, for loading an existing amount back into the field. A fraction of
+ * all zeros is left off: a stored budget reads "5000", not "5000.00".
+ */
 export function minorToEntry(value: Minor): string {
   if (value === 0) return '';
   const { whole, fraction } = splitDigits(String(Math.abs(value)));
-  return `${whole}.${fraction}`;
-}
-
-/**
- * The live keypad display. Groups the rupees the Indian way and keeps a
- * trailing '.' the user typed, so the caret doesn't appear to swallow it.
- */
-export function formatEntry(entry: string, currency: Currency = activeCurrency): string {
-  const { symbol } = currency;
-  if (entry === '') return `${symbol}0`;
-
-  const [whole = '', fraction] = entry.split('.');
-  const grouped = groupFor(currency)(whole === '' ? '0' : whole);
-  if (fraction === undefined) return `${symbol}${grouped}`;
-  return `${symbol}${grouped}.${fraction}`;
+  return fraction === '00' ? whole : `${whole}.${fraction}`;
 }
 
 /**

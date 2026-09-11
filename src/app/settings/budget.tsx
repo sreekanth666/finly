@@ -2,10 +2,10 @@ import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Amount } from '@/components/amount';
-import { AmountKeypad } from '@/components/amount-keypad';
+import { AmountInput } from '@/components/amount-input';
 import { Button } from '@/components/button';
 import { FormScreen } from '@/components/form-screen';
 import { SectionHeader } from '@/components/section-header';
@@ -14,8 +14,7 @@ import { ErrorState } from '@/components/error-state';
 import { setDefaultMonthlyBudget } from '@/db/repositories/budgets';
 import { useAction, useSubmitOnce } from '@/db/use-action';
 import { useBudgetHistory, useDefaultMonthlyBudget } from '@/features/budget/hooks';
-import { appendKey, type KeypadKey } from '@/domain/amount-entry';
-import { absMinor, entryToMinor, formatEntry, formatMinor, minorToEntry, type Minor } from '@/domain/money';
+import { absMinor, entryToMinor, formatMinor, minorToEntry, type Minor } from '@/domain/money';
 import { formatPeriodLong } from '@/domain/period';
 import type { PeriodResult } from '@/domain/budget';
 
@@ -82,9 +81,8 @@ const saveOnce = useSubmitOnce(async (amountMinor: Minor) => {
 });
 
 /* Seeded once from the stored figure. Re-seeding it on every change would
-   fight the keypad mid-edit, since saving writes the value being typed. */
+   fight the field mid-edit, since saving writes the value being typed. */
 const [entry, setEntry] = useState<string | null>(null);
-const [isKeypadOpen, setIsKeypadOpen] = useState(false);
 
 const currentEntry = entry ?? (stored.data === undefined ? '' : minorToEntry(stored.data));
 
@@ -105,24 +103,17 @@ return (
     onClose={() => router.back()}
     contentContainerClassName="gap-3 px-5 pb-8"
     above={
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Edit monthly budget"
-        onPress={() => setIsKeypadOpen(true)}
-        className="items-center gap-1 px-5 py-6 active:opacity-60">
+      <View className="items-center gap-1 px-5 py-6">
         <Typography type="body-xs" color="muted">
           Every month
         </Typography>
-        <Typography
-          className={
-            currentEntry.length > 0 ? 'type-metric text-foreground' : 'type-metric text-muted'
-          }>
-          {formatEntry(currentEntry)}
-        </Typography>
-      </Pressable>
+        <AmountInput
+          value={currentEntry}
+          onChangeValue={setEntry}
+          accessibilityLabel="Monthly budget"
+        />
+      </View>
     }
-    /* This screen has no text input, so the keyboard never comes up here. It
-       uses the same wrapper as the rest for the shape, not the avoidance. */
     footer={
       <>
         {save.errorMessage !== null && (
@@ -136,27 +127,6 @@ return (
           isDisabled={!canSave}
           onPress={() => void saveOnce.submit(amountMinor)}
         />
-
-        {isKeypadOpen && (
-          <View className="gap-2">
-            {/* The design pass had no way to put the keypad away once it was
-                up, which left the carry-over history it covers unreachable. */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close the keypad"
-              onPress={() => setIsKeypadOpen(false)}
-              className="self-end active:opacity-60">
-              <Typography type="body-xs" className="text-link">
-                Done
-              </Typography>
-            </Pressable>
-            <AmountKeypad
-              onKeyPress={(key: KeypadKey) =>
-                setEntry((current) => appendKey(current ?? currentEntry, key))
-              }
-            />
-          </View>
-        )}
       </>
     }>
       <SectionHeader

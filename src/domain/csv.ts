@@ -288,7 +288,7 @@ export function inferDateOrder(samples: readonly string[]): DateOrderGuess {
  * Strips grouping and any currency mark, and returns paise.
  *
  * Delegates to money.ts rather than reimplementing the parse, so an imported
- * ₹1,24,050.50 lands on exactly the same integer as one typed on the keypad.
+ * ₹1,24,050.50 lands on exactly the same integer as one typed into the app.
  * Sign is discarded: a spreadsheet writes money out as a negative, and §5 stores
  * every expense unsigned.
  */

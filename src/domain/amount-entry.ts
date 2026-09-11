@@ -1,45 +1,44 @@
 /**
- * The amount as the keypad builds it.
+ * The amount as the user is typing it.
  *
  * Kept as a string rather than a number because "4." and "4.0" are real states
  * mid-entry that a number can't hold, and because rounding has no business
  * happening while someone is still typing.
  *
- * This module is only the state machine now. Turning an entry into money, and
- * rendering it, both live in domain/money.ts — `entryToMinor`, `minorToEntry`
- * and `formatEntry` — so there is exactly one place that knows what a rupee is.
+ * The in-app keypad this used to drive could only append one key at a time. The
+ * system number pad hands over the whole field instead — after a paste, a
+ * select-all, a caret moved into the middle — so this cleans what it is given
+ * rather than building it up.
+ *
+ * Turning an entry into money lives in domain/money.ts — `entryToMinor` and
+ * `minorToEntry` — so there is exactly one place that knows what a rupee is.
  */
-
-export type KeypadKey =
-  | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
-  | '.'
-  | 'backspace';
 
 const MAX_DECIMALS = 2;
 const MAX_WHOLE_DIGITS = 7;
 
 export const EMPTY_ENTRY = '';
 
-export function appendKey(entry: string, key: KeypadKey): string {
-  if (key === 'backspace') {
-    return entry.slice(0, -1);
-  }
+/**
+ * What the field holds once `typed` replaces `previous`.
+ *
+ * A comma is grouping, as it is to `parseMinor`: the number pad has a comma key,
+ * and in this app a comma is never a decimal point. Anything the field cannot
+ * hold — a second point, an eighth whole digit, a third decimal — keeps
+ * `previous`, so the key simply does nothing. Moving the point instead would
+ * change the amount without saying so.
+ */
+export function acceptEntry(previous: string, typed: string): string {
+  const cleaned = typed.replace(/[^\d.]/g, '');
+  const [rawWhole = '', decimals, ...extra] = cleaned.split('.');
 
-  if (key === '.') {
-    if (entry.includes('.')) return entry;
+  if (extra.length > 0) return previous;
+  if (decimals !== undefined && decimals.length > MAX_DECIMALS) return previous;
 
-    return entry.length === 0 ? '0.' : `${entry}.`;
-  }
-
-  const [whole = '', decimals] = entry.split('.');
-
-  if (decimals !== undefined) {
-    return decimals.length >= MAX_DECIMALS ? entry : `${entry}${key}`;
-  }
-
-  if (whole.length >= MAX_WHOLE_DIGITS) return entry;
   /* A leading zero is a placeholder, not a digit — "0" then "5" is 5, not 05. */
-  if (whole === '0') return key;
+  const whole = rawWhole.replace(/^0+(?=\d)/, '');
+  if (whole.length > MAX_WHOLE_DIGITS) return previous;
 
-  return `${entry}${key}`;
+  if (decimals === undefined) return whole;
+  return `${whole === '' ? '0' : whole}.${decimals}`;
 }

@@ -2,7 +2,7 @@ import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { BottomSheet, Switch, Typography } from "heroui-native";
 import { SlidersHorizontal } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Keyboard, Pressable, View } from "react-native";
 
 import { Button } from "./button";
 import { FilterChipBar, type FilterOption } from "./filter-chip-bar";
@@ -85,6 +85,10 @@ export function TransactionFilters({
   const [monthAnchor, setMonthAnchor] = useState(currentPeriod);
 
   const open = () => {
+    /* The search field on the screen behind may still have the keyboard up. The
+       sheet has nothing to type into, and its scroll view would otherwise spend
+       the first tap on any option dismissing that keyboard. */
+    Keyboard.dismiss();
     setMonthAnchor(currentPeriod());
     setIsOpen(true);
   };

@@ -4,7 +4,7 @@ import { ArrowRight, FileSpreadsheet, Wallet } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { AmountKeypad } from '@/components/amount-keypad';
+import { AmountInput } from '@/components/amount-input';
 import { Button } from '@/components/button';
 import { FormScreen } from '@/components/form-screen';
 import { CurrencyPicker } from '@/components/currency-picker';
@@ -20,11 +20,9 @@ import {
 } from '@/db/repositories/settings';
 import { useAction, useSubmitOnce } from '@/db/use-action';
 import { useDbQuery } from '@/db/live';
-import { appendKey, type KeypadKey } from '@/domain/amount-entry';
 import { useNavigateOnce } from '@/features/navigation/hooks';
 import {
   entryToMinor,
-  formatEntry,
   minorToEntry,
   rupees,
   setActiveCurrency,
@@ -104,6 +102,21 @@ export default function OnboardingScreen() {
     return true;
   });
 
+  /* The importer budgets every month it fills with whatever budget is saved at
+     the time, and this flow saves nothing until Finish. A detour taken now
+     would budget each imported month at the ₹5,000 seed rather than the figure
+     chosen a step ago, so that figure is saved first. Finish writes it again. */
+  const saveBudget = useAction(setDefaultMonthlyBudget);
+
+  const openImporter = async () => {
+    const budget = entryToMinor(entry);
+    if (budget > 0) {
+      const outcome = await saveBudget.run(budget);
+      if (!outcome.ok) return;
+    }
+    navigate('/settings/import');
+  };
+
   return (
     <FormScreen
       /* No back arrow and no title: this flow has a heading and a step
@@ -127,6 +140,12 @@ export default function OnboardingScreen() {
           {finish.errorMessage !== null && (
             <Typography type="body-xs" className="text-danger">
               {finish.errorMessage}
+            </Typography>
+          )}
+
+          {saveBudget.errorMessage !== null && (
+            <Typography type="body-xs" className="text-danger">
+              {saveBudget.errorMessage}
             </Typography>
           )}
 
@@ -191,11 +210,13 @@ export default function OnboardingScreen() {
             How much do you want to spend a month?
           </Typography>
           <View className="items-center py-4">
-            <Typography className="type-metric text-foreground">{formatEntry(entry)}</Typography>
+            <AmountInput
+              value={entry}
+              onChangeValue={setEntry}
+              accessibilityLabel="Monthly budget"
+              autoFocus
+            />
           </View>
-          <AmountKeypad
-            onKeyPress={(key: KeypadKey) => setEntry((current) => appendKey(current, key))}
-          />
           <Typography type="body-xs" color="muted" className="px-1">
             Only overspending carries into the next month, and it compounds. You can change this
             whenever you like.
@@ -231,7 +252,7 @@ export default function OnboardingScreen() {
           <Pressable
             accessibilityRole="button"
             hitSlop={8}
-            onPress={() => navigate('/settings/import')}
+            onPress={() => void openImporter()}
             className="flex-row items-center gap-2 self-start pt-1 active:opacity-60">
             <Icon icon={FileSpreadsheet} color="accent" size={14} />
             <Typography type="body-sm" className="text-link">

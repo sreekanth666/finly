@@ -15,7 +15,7 @@ The sheet works, but it costs effort in four specific ways:
 
 | Friction in the sheet | What the app does instead |
 | --- | --- |
-| Every expense is typed by hand into a row on a phone browser | Purpose-built entry: amount keypad first, rules pre-fill the rest, four taps for a repeat expense |
+| Every expense is typed by hand into a row on a phone browser | Purpose-built entry: amount first on the number pad, rules pre-fill the rest, four taps for a repeat expense |
 | Cancelled expenses are edited to `0`, destroying what actually happened | The expense stays intact; a linked settlement records the money coming back |
 | Carry-over of last month's overspend is computed by hand | Derived automatically and shown as part of what's available today |
 | Card utilisation and per-card spend are guesswork | The payment source is a real entity, so cycle spend and utilisation are computed |
@@ -392,7 +392,7 @@ days to statement · the last few expenses · FAB to add.
 
 Ordered by what the user knows first:
 
-1. **Amount** — large numeric keypad on open, no keyboard hunt.
+1. **Amount** — the system number pad opens on a large amount field, no keyboard hunt.
 2. **Item** — free text; rules match as you type and pre-fill below, with recent
    items as suggestions.
 3. **Category** — chips, most-used first.
