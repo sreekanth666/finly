@@ -4,9 +4,9 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 
 import { Amount } from '@/components/amount';
-import { Button } from '@/components/button';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
+import { Fab } from '@/components/fab';
 import { InlineError } from '@/components/inline-error';
 import { Icon } from '@/components/icon';
 import { MonthSwitcher } from '@/components/month-switcher';
@@ -97,7 +97,9 @@ export default function BalanceScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <ScrollView contentContainerClassName="gap-6 px-5 pb-8 pt-2" showsVerticalScrollIndicator={false}>
+      {/* pb-28 is the FAB's 56pt plus its 20pt inset and some air, so the last
+          recent row can scroll clear of it instead of ending underneath. */}
+      <ScrollView contentContainerClassName="gap-6 px-5 pb-28 pt-2" showsVerticalScrollIndicator={false}>
         <ScreenHeader greeting />
 
         <MonthSwitcher
@@ -254,8 +256,12 @@ export default function BalanceScreen() {
           )}
         </View>
 
-        <Button icon={Plus} label="Add expense" onPress={() => navigate('/expense/new')} />
       </ScrollView>
+
+      {/* A sibling of the scroll view, not a child, so it stays put while the
+          month scrolls under it. The tab bar sits below this view in normal
+          flow, so bottom-5 already clears it with no inset arithmetic. */}
+      <Fab icon={Plus} label="Add expense" onPress={() => navigate('/expense/new')} />
     </SafeAreaView>
   );
 }
