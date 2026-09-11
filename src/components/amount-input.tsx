@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import type { Ref } from 'react';
+import { useImperativeHandle, useRef, type Ref } from 'react';
 import { TextInput, View, type TextInputProps } from 'react-native';
 
 import { acceptEntry } from '@/domain/amount-entry';
@@ -30,6 +30,13 @@ export type AmountInputProps = {
  * there was dead until it had been backspaced away; here the whole value is
  * selected on focus, so the first key replaces it.
  *
+ * The selecting is done in `onFocus`, not with `selectTextOnFocus`. On Android
+ * that prop also selects everything once more, on the first layout pass after
+ * focus (ReactEditText.onLayout). This field's width follows its text, so that
+ * pass was the first key typed: "5000" became "8", the field narrowed, and the
+ * "8" was selected — and the second key replaced it. Typing 6500 over a stored
+ * budget saved 500.
+ *
  * The field shows plain digits while typing. Regrouping "124050" into
  * "1,24,050" under the caret makes the caret jump on Android — grouping is for
  * everywhere the amount is read, not the one place it is written.
@@ -43,13 +50,18 @@ export function AmountInput({
   onFocus,
   onBlur,
 }: AmountInputProps) {
+  /* Owned here so focusing can select through it, and handed on so a parent
+     can still move focus into the field. */
+  const inputRef = useRef<TextInput>(null);
+  useImperativeHandle(ref, () => inputRef.current as TextInput, []);
+
   return (
     <View className="flex-row items-center justify-center">
       <Typography className={value.length > 0 ? SYMBOL.filled : SYMBOL.empty}>
         {getActiveCurrency().symbol}
       </Typography>
       <TextInput
-        ref={ref}
+        ref={inputRef}
         className="type-metric min-w-12 p-0 text-foreground"
         style={INPUT_STYLE}
         value={value}
@@ -59,9 +71,11 @@ export function AmountInput({
         selectionColorClassName="accent-accent"
         cursorColorClassName="accent-accent"
         keyboardType="decimal-pad"
-        selectTextOnFocus
         autoFocus={autoFocus}
-        onFocus={onFocus}
+        onFocus={(event) => {
+          inputRef.current?.setSelection(0, value.length);
+          onFocus?.(event);
+        }}
         onBlur={onBlur}
         accessibilityLabel={accessibilityLabel}
       />
