@@ -1,12 +1,13 @@
 import { Input, Switch, Typography } from 'heroui-native';
 import { Minus, Plus, Sparkles, Trash2, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Keyboard, Pressable, View } from 'react-native';
 
 import { Button } from './button';
 import { FilterChipBar } from './filter-chip-bar';
 import { FormScreen } from './form-screen';
 import { Icon } from './icon';
+import { NewCategorySheet } from './new-category-sheet';
 import { SectionHeader } from './section-header';
 
 import type {
@@ -111,6 +112,7 @@ export function RuleEditor({
   onClose,
 }: RuleEditorProps) {
   const [draft, setDraft] = useState<RuleDraft>({ ...EMPTY_DRAFT, ...initial });
+  const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
 
   const targetsQuery = useDbQuery(`match-targets:${MATCH_TARGET_LIMIT}`, TARGET_TABLES, (database) =>
     listMatchTargets(MATCH_TARGET_LIMIT, database),
@@ -331,11 +333,26 @@ export function RuleEditor({
           <Typography type="body-xs" color="muted" className="px-5">
             Category
           </Typography>
-          <FilterChipBar
-            options={categoryOptions}
-            selectedId={draft.categoryId}
-            onSelect={(id) => set('categoryId', draft.categoryId === id ? null : id)}
-          />
+          {/* Wrapped so the sheet's root View doesn't take a share of the gap. */}
+          <View>
+            <FilterChipBar
+              options={categoryOptions}
+              selectedId={draft.categoryId}
+              onSelect={(id) => set('categoryId', draft.categoryId === id ? null : id)}
+              onCreate={() => {
+                Keyboard.dismiss();
+                setIsNewCategoryOpen(true);
+              }}
+              createLabel="New category"
+            />
+            {/* Always sets, never toggles: tapping a selected pill clears it,
+                but a category just made for this rule is one it should use. */}
+            <NewCategorySheet
+              isOpen={isNewCategoryOpen}
+              onOpenChange={setIsNewCategoryOpen}
+              onCreated={(id) => set('categoryId', id)}
+            />
+          </View>
         </View>
 
         <View className="gap-1 pt-2">
