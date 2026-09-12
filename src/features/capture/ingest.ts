@@ -117,11 +117,17 @@ export async function reparseIfStale(database: DbLike = db): Promise<void> {
   if (getSetting('capture_parser_version', database) === String(PARSER_VERSION)) return;
 
   const context = readContext(database);
+  let isFinished = false;
   await withSuppressedInvalidation(async () => {
-    /* Bounded, in case a row can never be updated: an upgrade must not spin. */
+    /* Bounded per pass, so an upgrade can never spin. A backlog bigger than
+       one pass is finished by the next one — the version is only recorded
+       once nothing is left, or the rest would keep the old reading forever. */
     for (let round = 0; round < 50; round += 1) {
       const targets = listReparseTargets(PARSER_VERSION, CHUNK, database);
-      if (targets.length === 0) break;
+      if (targets.length === 0) {
+        isFinished = true;
+        break;
+      }
       applyReparse(
         targets.map((target) => {
           const detection = safeDetect(target, context.ownerName);
@@ -134,7 +140,7 @@ export async function reparseIfStale(database: DbLike = db): Promise<void> {
     }
   });
 
-  setSetting('capture_parser_version', String(PARSER_VERSION), database);
+  if (isFinished) setSetting('capture_parser_version', String(PARSER_VERSION), database);
 }
 
 export function retentionDays(database: DbLike = db): number {

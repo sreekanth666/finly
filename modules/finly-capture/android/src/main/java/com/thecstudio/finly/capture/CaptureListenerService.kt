@@ -1,6 +1,8 @@
 package com.thecstudio.finly.capture
 
 import android.app.Notification
+import android.app.Person
+import android.os.Build
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -142,7 +144,7 @@ class CaptureListenerService : NotificationListenerService() {
         val bundle = parcel as? Bundle ?: return@mapNotNull null
         val text = bundle.getCharSequence("text")?.toString()?.trim().orEmpty()
         if (text.isEmpty()) return@mapNotNull null
-        val sender = bundle.getCharSequence("sender")?.toString() ?: conversation ?: title
+        val sender = bundle.getCharSequence("sender")?.toString() ?: personName(bundle) ?: conversation ?: title
         Message(sender, title, text, bundle.getLong("time", sbn.postTime))
       }
     }
@@ -160,6 +162,14 @@ class CaptureListenerService : NotificationListenerService() {
 
     val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
     return if (text.isEmpty()) emptyList() else listOf(Message(title, title, text, sbn.postTime))
+  }
+
+  /** Newer messaging apps name the sender only in a Person, not the "sender" text. */
+  @Suppress("DEPRECATION")
+  private fun personName(bundle: Bundle): String? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
+    val person = bundle.getParcelable<Person>("sender_person") ?: return null
+    return person.name?.toString()
   }
 
   companion object {
