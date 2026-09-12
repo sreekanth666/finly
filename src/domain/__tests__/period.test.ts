@@ -9,6 +9,7 @@ import {
   formatDateLong,
   formatDayLabel,
   formatPeriodLong,
+  formatPeriodMonth,
   formatPeriodShort,
   formatTime,
   isPeriodKey,
@@ -141,6 +142,8 @@ describe('formatting', () => {
     expect(formatPeriodLong('2026-12')).toBe('December 2026');
     expect(formatPeriodShort('2026-03')).toBe('Mar');
     expect(formatPeriodShort('2026-09')).toBe('Sep');
+    expect(formatPeriodMonth('2026-09')).toBe('September');
+    expect(formatPeriodMonth('2027-01')).toBe('January');
   });
 
   it('labels days relative to now, adding the year only when it differs', () => {

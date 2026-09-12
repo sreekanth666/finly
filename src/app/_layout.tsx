@@ -20,6 +20,7 @@ import { getCurrency, getFlag } from '@/db/repositories/settings';
 import { runSeed } from '@/db/seed';
 import { useReminderSync, useReminderTapRouting } from '@/features/reminders/hooks';
 import { AppLock } from '@/features/security/app-lock';
+import { useWidgetSync } from '@/features/widget/hooks';
 import { MigrationFailureScreen } from '@/features/recovery/migration-failure-screen';
 import { setActiveCurrency } from '@/domain/money';
 import { useAppColor } from '@/theme';
@@ -37,6 +38,13 @@ SplashScreen.preventAutoHideAsync();
 export { ErrorBoundary } from 'expo-router';
 
 /*
+ * The tabs sit under every other route, even one opened cold from a deep link.
+ * Without it, the home-screen widget's + opens add-expense as the only screen in
+ * the stack, and closing it has nowhere to go back to.
+ */
+export const unstable_settings = { anchor: '(tabs)' };
+
+/*
  * The reminder's two long-running jobs, as components that render nothing.
  * Components rather than hooks called from RootLayout, so each mounts only
  * where it is safe to run — and neither adds a hook to RootLayout, whose hook
@@ -49,6 +57,12 @@ function ReminderSync() {
 
 function ReminderTapRouter() {
   useReminderTapRouting();
+  return null;
+}
+
+/* The same shape for the home-screen widget: redraws it as the database moves. */
+function WidgetSync() {
+  useWidgetSync();
   return null;
 }
 
@@ -184,6 +198,9 @@ export default function RootLayout() {
                   whether or not the screen is unlocked. Inside this branch,
                   so it never reads a database that failed to migrate. */}
               <ReminderSync />
+              {/* Outside the lock for the same reason. It reads the lock flag
+                  itself and hides the figures while the lock is on. */}
+              <WidgetSync />
               <AppLock isEnabled={isAppLockEnabled}>
               {/* A sibling of the Stack rather than a child — a layout drops
                   non-Screen children — and inside the lock, so a reminder
