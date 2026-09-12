@@ -26,7 +26,7 @@ arithmetic.
 
 **Non-goals for the MVP:** bill/receipt attachments, income and account
 balances, EMI plans, per-category budgets, card payment tracking, notifications
-beyond the one daily logging reminder (D16), multi-device sync, multi-currency.
+beyond the one daily logging reminder (D16) and the transaction inbox's count (D17), multi-device sync, multi-currency.
 
 ---
 
@@ -53,6 +53,7 @@ reader can tell a decision from an accident.
 | D14 | Cards store **statement day only**, no due dates or reminders | Due dates imply tracking payment, which is out of scope |
 | D15 | The app is named **Finly** | Matches the repo, package and slug; mockup wordmark gets re-set |
 | D16 | One **opt-in local daily reminder** to log expenses, skipped on days something was already logged. Scheduled on the device, no server; no card due-date reminders (D14 stands) | Safe-to-spend is only as right as what was logged, and an entry missed on the day is easily never made. Local-only keeps the no-server promise |
+| D17 | **Detected transactions go to a review inbox**, never straight to expenses. Sources: a user-granted Android notification listener (which also sees bank SMS through the SMS app's own notification) and a paste box. Parsing is on the device; nothing is uploaded. Low-confidence candidates are kept, not dropped. The original message is stored on the confirmed expense in `source_text`, not appended to the note. `READ_SMS`/`RECEIVE_SMS` are **not** requested | Typing every UPI payment is the chore that makes people abandon a tracker, but a misread amount written silently into the budget is worse than a missed one, so the user confirms. Play restricts SMS permissions to default SMS apps and rejects most budgeting declarations; notification access is a user grant outside that group. Keeping the raw text out of `note` keeps search and `note contains` rules from matching boilerplate like "call" and "block" on every detected expense |
 
 ---
 
@@ -432,7 +433,19 @@ budget line · card utilisation per card · top items and merchants for the mont
 ### 7.7 Settings
 
 Monthly budget · accounts and cards · categories · daily reminder (D16) ·
-import and export · about.
+transaction detection (D17) · import and export · about.
+
+### 7.8 Review inbox (D17)
+
+A pushed route, not a fifth tab, reached from a count on the Balance header and
+a home banner. Sections: **Needs review** (debits), **Maybe** (low confidence),
+**Money in** (credits, which can settle an expense under D1 and never become
+income under D4), and **Filtered** (OTPs, offers, statements, reminders, failed
+payments, card-bill and investment transfers), collapsed but always rescuable.
+Confirm opens the ordinary expense form prefilled, so rules (D7) still apply;
+the first time a card or account tail is seen it asks which account it is and
+remembers it on that account's `last4`. Choosing a category can save a rule, so
+what the app learns is visible on the Rules tab rather than hidden.
 
 ---
 
@@ -487,6 +500,8 @@ Each is independently shippable and leaves the app usable.
 | **Migration failure bricks the app** | Migrations run before first render behind a recovery screen offering export |
 | **Scope creep from the future list (§3.1)** | Nothing from §3.1 enters the MVP; the schema already accommodates it |
 | **Dev-build friction** (D12) | Documented rebuild step whenever native dependencies change |
+| **Play policy on notification access** (D17) | Prominent disclosure before the system screen, an allowlist and a native gate so non-financial text is never stored, no SMS permissions, Data Safety and privacy policy updated |
+| **The listener is killed or never rebound** — OEM battery managers, force-stop on Android 14+, OTP redaction on 15+ (D17) | Rebind and backfill on every app open, diagnostics on the settings screen, the paste box as the fallback; the inbox is a convenience, never the only way to log |
 
 ---
 
