@@ -197,3 +197,35 @@ export function findAccountByName(name: string, database: DbLike = db): AccountR
 }
 
 export const creditLimitOf = (row: AccountRow): Minor => row.creditLimitMinor ?? asMinor(0);
+
+/**
+ * Remembers which card or account a detected tail belongs to (D17), on the
+ * account itself rather than in a mapping table, so it is visible and editable
+ * on the account screen. Never overwrites a last4 the user already typed, and
+ * never fills in an issuer over one they chose.
+ */
+export function rememberAccountTail(
+  id: string,
+  tail: string,
+  issuer: string | null,
+  database: DbLike = db,
+): void {
+  const row = database.select().from(accounts).where(and(eq(accounts.id, id), alive)).get();
+  if (row === undefined) return;
+
+  const digits = tail.replace(/\D/g, '').slice(-4);
+  const hasLast4 = (row.last4 ?? '').trim().length > 0;
+  const hasIssuer = (row.issuer ?? '').trim().length > 0;
+  if (digits.length < 3 || (hasLast4 && hasIssuer)) return;
+
+  database
+    .update(accounts)
+    .set({
+      last4: hasLast4 ? row.last4 : digits,
+      issuer: hasIssuer || issuer === null ? row.issuer : issuer,
+      updatedAt: Date.now(),
+    })
+    .where(eq(accounts.id, id))
+    .run();
+}
+

@@ -150,6 +150,7 @@ export async function runImport(
               categoryId: categoryIds.get(row.category.trim().toLowerCase()) ?? null,
               accountId: accountIds.get(row.account.trim().toLowerCase()) ?? null,
               countsToBudget: true,
+              source: 'import',
             },
             tx,
           );

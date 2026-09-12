@@ -2,7 +2,7 @@ import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { useNavigation } from 'expo-router';
 import { Input, Switch, Typography } from 'heroui-native';
 import { Sparkles, X } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Keyboard, Pressable, View, type TextInput } from 'react-native';
 
 import { AmountInput } from './amount-input';
@@ -15,7 +15,7 @@ import { SectionHeader } from './section-header';
 
 import type { AccountRow, CategoryRow } from '@/db/schema';
 import { EMPTY_ENTRY } from '@/domain/amount-entry';
-import { entryToMinor, type Minor } from '@/domain/money';
+import { entryToMinor, formatMinor, minorToEntry, type Minor } from '@/domain/money';
 import { formatDayLabel, startOfLocalDay } from '@/domain/period';
 import { matchRule, type Rule } from '@/domain/rules';
 import { useAppColor } from '@/theme';
@@ -73,6 +73,15 @@ export type ExpenseFormProps = {
    */
   onSubmitAndContinue?: (draft: ExpenseDraft) => Promise<boolean>;
   onClose: () => void;
+  /**
+   * Figures to offer under the amount, one tap each — a detected alert that
+   * carried more than one (D17). Omitted, the form is exactly as it was.
+   */
+  amountOptions?: readonly Minor[];
+  /** Above the fields: why the form was prefilled, and from what. */
+  notice?: ReactNode;
+  /** Below the fields, for a caller's own controls. */
+  extra?: ReactNode;
 };
 
 type DayChoice = 'today' | 'yesterday' | 'other';
@@ -133,6 +142,9 @@ export function ExpenseForm({
   onSubmit,
   onSubmitAndContinue,
   onClose,
+  amountOptions = [],
+  notice,
+  extra,
 }: ExpenseFormProps) {
   /* Frozen when the form opens rather than read each render: the date chips
      compare against it, and a form left open across midnight would otherwise
@@ -331,6 +343,30 @@ export function ExpenseForm({
             accessibilityLabel="Amount"
             autoFocus={opensOnAmount}
           />
+          {amountOptions.length > 1 && (
+            <View className="flex-row flex-wrap justify-center gap-2 pt-2">
+              {amountOptions.map((option) => {
+                const isChosen = amountMinor === option;
+                return (
+                  <Pressable
+                    key={option}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isChosen }}
+                    accessibilityLabel={`Use ${formatMinor(option)}`}
+                    onPress={() => setEntry(minorToEntry(option))}
+                    className={
+                      isChosen
+                        ? 'rounded-full border border-accent bg-surface px-3 py-1.5 active:opacity-60'
+                        : 'rounded-full border border-border bg-surface px-3 py-1.5 active:opacity-60'
+                    }>
+                    <Typography type="body-xs" color={isChosen ? 'default' : 'muted'}>
+                      {formatMinor(option)}
+                    </Typography>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </View>
       }
       footer={
@@ -372,6 +408,8 @@ export function ExpenseForm({
           </View>
         </>
       }>
+      {notice !== undefined && <View className="px-5">{notice}</View>}
+
       <View className="gap-2 px-5">
         <SectionHeader label="Item" />
         <Input
@@ -528,6 +566,8 @@ export function ExpenseForm({
           </Pressable>
         )}
       </View>
+
+      {extra !== undefined && <View className="gap-4 px-5">{extra}</View>}
     </FormScreen>
   );
 }

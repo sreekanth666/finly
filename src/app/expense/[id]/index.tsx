@@ -13,6 +13,7 @@ import { IconButton } from '@/components/icon-button';
 import { NotFound } from '@/components/not-found';
 import { SafeAreaView } from '@/components/safe-area-view';
 import { SectionHeader } from '@/components/section-header';
+import { SourceMessage } from '@/components/source-message';
 import { softDeleteExpense } from '@/db/repositories/expenses';
 import {
   addSettlement,
@@ -305,6 +306,15 @@ export default function ExpenseDetailScreen() {
             ))}
           </View>
         </View>
+
+        {/* D17: the alert this expense was confirmed from, verbatim. Kept out of
+            the note, so search and rules never match bank boilerplate. */}
+        {expense.sourceText !== null && (
+          <View className="gap-3">
+            <SectionHeader label="Original message" />
+            <SourceMessage text={expense.sourceText} />
+          </View>
+        )}
 
         <View className="gap-3">
           <SectionHeader

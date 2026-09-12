@@ -22,7 +22,14 @@ import { markCarryDirty, markCarryDirtyForMove } from '../carry-over';
 import { db, type DbLike } from '../client';
 import { NotFoundError, SettlementExceedsExpenseError, ValidationError } from '../errors';
 import { newId } from '../id';
-import { accounts, categories, expenses, settlements, type ExpenseRow } from '../schema';
+import {
+  accounts,
+  categories,
+  expenses,
+  settlements,
+  type ExpenseRow,
+  type ExpenseSource,
+} from '../schema';
 import { writeTransaction } from '../transaction';
 
 const alive = isNull(expenses.deletedAt);
@@ -35,6 +42,13 @@ export type ExpenseInput = {
   categoryId?: string | null;
   accountId?: string | null;
   countsToBudget: boolean;
+  /**
+   * Where it came from (D17). Written once, at creation — an edit never changes
+   * where an expense came from, which is why `updateExpense` ignores both.
+   */
+  source?: ExpenseSource;
+  /** The alert a detected expense was confirmed from, kept verbatim. */
+  sourceText?: string | null;
 };
 
 export type ExpenseCategory = {
@@ -59,6 +73,8 @@ export type ExpenseListItem = {
   countsToBudget: boolean;
   category: ExpenseCategory | null;
   account: ExpenseAccount | null;
+  source: ExpenseSource;
+  sourceText: string | null;
 };
 
 export type ExpenseFilter = {
@@ -146,6 +162,8 @@ const toListItem = (row: {
     countsToBudget: row.expense.countsToBudget,
     category: row.category?.id == null ? null : row.category,
     account: row.account?.id == null ? null : row.account,
+    source: row.expense.source,
+    sourceText: row.expense.sourceText,
   };
 };
 
@@ -426,7 +444,15 @@ export function createExpense(input: ExpenseInput, database: DbLike = db): strin
     /* The row records what the amount was entered in, so a later currency
        change never rewrites history. */
     tx.insert(expenses)
-      .values({ id, ...values, currency: getActiveCurrency().code, createdAt: now, updatedAt: now })
+      .values({
+        id,
+        ...values,
+        currency: getActiveCurrency().code,
+        source: input.source ?? 'manual',
+        sourceText: input.sourceText ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
       .run();
     markCarryDirty(values.budgetPeriod, tx);
   }, database);
@@ -505,3 +531,51 @@ export function restoreExpense(id: string, database: DbLike = db): void {
     markCarryDirty(existing.budgetPeriod, tx);
   }, database);
 }
+
+/**
+ * Keeps a payment alert on an expense the user had already typed in (D17), when
+ * they say the alert is that expense. Where the expense came from does not
+ * change — it is still manual — and text already there is never replaced.
+ */
+export function attachSourceText(id: string, text: string, database: DbLike = db): void {
+  database
+    .update(expenses)
+    .set({ sourceText: text, updatedAt: Date.now() })
+    .where(and(eq(expenses.id, id), alive, isNull(expenses.sourceText)))
+    .run();
+}
+
+/**
+ * Expenses the user entered that a detected payment might be (D17): the same
+ * amount, around the same day, not already claimed by another alert. The
+ * caller narrows with `looksLikeManual`; this only keeps the scan small.
+ */
+export function listLinkableExpenses(
+  amountMinor: Minor,
+  aroundMs: number,
+  database: DbLike = db,
+): { id: string; item: string; amountMinor: Minor; occurredAt: number; accountId: string | null }[] {
+  const DAY = 86_400_000;
+  return database
+    .select({
+      id: expenses.id,
+      item: expenses.item,
+      amountMinor: expenses.amountMinor,
+      occurredAt: expenses.occurredAt,
+      accountId: expenses.accountId,
+    })
+    .from(expenses)
+    .where(
+      and(
+        alive,
+        eq(expenses.amountMinor, amountMinor),
+        gte(expenses.occurredAt, aroundMs - DAY),
+        lt(expenses.occurredAt, aroundMs + DAY),
+        sql`not exists (select 1 from detected_transactions d where d.expense_id = ${expenses.id} and d.deleted_at is null)`,
+      ),
+    )
+    .orderBy(desc(expenses.occurredAt))
+    .limit(5)
+    .all();
+}
+

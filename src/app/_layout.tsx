@@ -18,6 +18,7 @@ import { toError } from '@/db/errors';
 import { syncRunningBudgets } from '@/db/repositories/budgets';
 import { getCurrency, getFlag } from '@/db/repositories/settings';
 import { runSeed } from '@/db/seed';
+import { useCaptureSync, useShareIntake } from '@/features/capture/sync';
 import { useReminderSync, useReminderTapRouting } from '@/features/reminders/hooks';
 import { AppLock } from '@/features/security/app-lock';
 import { useWidgetSync } from '@/features/widget/hooks';
@@ -63,6 +64,18 @@ function ReminderTapRouter() {
 /* The same shape for the home-screen widget: redraws it as the database moves. */
 function WidgetSync() {
   useWidgetSync();
+  return null;
+}
+
+/* And for transaction detection (D17): keeps the listener and the inbox in step. */
+function CaptureSync() {
+  useCaptureSync();
+  return null;
+}
+
+/* Opens a message shared to Finly from another app as an inbox candidate. */
+function ShareIntake() {
+  useShareIntake();
   return null;
 }
 
@@ -201,11 +214,15 @@ export default function RootLayout() {
               {/* Outside the lock for the same reason. It reads the lock flag
                   itself and hides the figures while the lock is on. */}
               <WidgetSync />
+              {/* Outside the lock too: draining the listener's queue only writes
+                  the database, and the inbox itself is behind the lock. */}
+              <CaptureSync />
               <AppLock isEnabled={isAppLockEnabled}>
               {/* A sibling of the Stack rather than a child — a layout drops
                   non-Screen children — and inside the lock, so a reminder
                   tapped while locked only opens the form once unlocked. */}
               <ReminderTapRouter />
+              <ShareIntake />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(tabs)" />
                 {/* Entry is a task, not a destination — it comes up over the tabs. */}
@@ -230,6 +247,11 @@ export default function RootLayout() {
                 <Stack.Screen name="settings/currency" />
                 <Stack.Screen name="settings/data" />
                 <Stack.Screen name="settings/reminders" />
+                <Stack.Screen name="settings/capture" />
+                <Stack.Screen name="settings/capture-consent" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="inbox/index" />
+                <Stack.Screen name="inbox/[id]" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="inbox/paste" options={{ presentation: 'modal' }} />
                 {/* Import is a task with its own steps, so it comes up over settings. */}
                 <Stack.Screen name="settings/import" options={{ presentation: 'modal' }} />
               </Stack>

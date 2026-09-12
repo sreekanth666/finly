@@ -12,6 +12,8 @@ import { Icon } from '@/components/icon';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { ProgressRing } from '@/components/progress-ring';
 import { SafeAreaView } from '@/components/safe-area-view';
+import { InboxButton } from '@/components/inbox-button';
+import { ReviewBanner } from '@/components/review-banner';
 import { ScreenHeader } from '@/components/screen-header';
 import { CardUtilisationList } from '@/components/card-utilisation-list';
 import { StatCard } from '@/components/stat-card';
@@ -100,7 +102,7 @@ export default function BalanceScreen() {
       {/* pb-28 is the FAB's 56pt plus its 20pt inset and some air, so the last
           recent row can scroll clear of it instead of ending underneath. */}
       <ScrollView contentContainerClassName="gap-6 px-5 pb-28 pt-2" showsVerticalScrollIndicator={false}>
-        <ScreenHeader greeting />
+        <ScreenHeader greeting trailing={<InboxButton />} />
 
         <MonthSwitcher
           label={formatPeriodLong(period.period)}
@@ -110,6 +112,8 @@ export default function BalanceScreen() {
           onForward={() => setMonthsBack((current) => Math.max(0, current - 1))}
           onReturnToCurrent={monthsBack === 0 ? undefined : () => setMonthsBack(0)}
         />
+
+        <ReviewBanner />
 
         {/* §4.3 and §10: a past total may change after the fact, and the user is
             told when it does rather than finding out by noticing. */}

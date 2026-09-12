@@ -11,7 +11,9 @@
 import {
   accounts,
   budgets,
+  capturedMessages,
   categories,
+  detectedTransactions,
   expenses,
   ruleActions,
   ruleConditions,
@@ -19,7 +21,9 @@ import {
   settings,
   type AccountRow,
   type BudgetRow,
+  type CapturedMessageRow,
   type CategoryRow,
+  type DetectedTransactionRow,
   type ExpenseRow,
   type RuleActionRow,
   type RuleConditionRow,
@@ -34,7 +38,11 @@ import { writeTransaction } from '@/db/transaction';
 import { sql } from 'drizzle-orm';
 
 export const BACKUP_FORMAT = 'finly.backup';
-export const BACKUP_VERSION = 1;
+/**
+ * 2 added the review inbox's two tables (D17). A version-1 file restores with
+ * both empty; `insertAll` already treats a missing table as none.
+ */
+export const BACKUP_VERSION = 2;
 
 export type BackupData = {
   categories: CategoryRow[];
@@ -46,6 +54,8 @@ export type BackupData = {
   ruleConditions: RuleConditionRow[];
   ruleActions: RuleActionRow[];
   settings: SettingRow[];
+  capturedMessages?: CapturedMessageRow[];
+  detectedTransactions?: DetectedTransactionRow[];
 };
 
 export type Backup = {
@@ -70,6 +80,8 @@ export function buildBackup(database: DbLike = db): Backup {
       ruleConditions: database.select().from(ruleConditions).all(),
       ruleActions: database.select().from(ruleActions).all(),
       settings: database.select().from(settings).all(),
+      capturedMessages: database.select().from(capturedMessages).all(),
+      detectedTransactions: database.select().from(detectedTransactions).all(),
     },
   };
 }
@@ -125,6 +137,8 @@ export async function restoreBackup(
       tx.run(sql`PRAGMA defer_foreign_keys = ON`);
 
       // Children first on the way out, so nothing is orphaned mid-delete.
+      tx.delete(detectedTransactions).run();
+      tx.delete(capturedMessages).run();
       tx.delete(ruleActions).run();
       tx.delete(ruleConditions).run();
       tx.delete(settlements).run();
@@ -157,6 +171,8 @@ export async function restoreBackup(
       insertAll(ruleConditions, data.ruleConditions);
       insertAll(ruleActions, data.ruleActions);
       insertAll(settings, data.settings);
+      insertAll(capturedMessages, data.capturedMessages);
+      insertAll(detectedTransactions, data.detectedTransactions);
 
       return {
         expenses: expenseCount,

@@ -24,6 +24,8 @@ const HEADERS = [
   'counts_to_budget',
   'settled',
   'effective',
+  'source',
+  'source_text',
 ];
 
 const PAGE = 500;
@@ -54,6 +56,8 @@ export function buildExpensesCsv(database: DbLike = db): string {
         expense.countsToBudget ? '1' : '0',
         rupeeText(expense.settledMinor),
         rupeeText(expense.effectiveMinor),
+        expense.source,
+        expense.sourceText ?? '',
       ]);
     }
   }

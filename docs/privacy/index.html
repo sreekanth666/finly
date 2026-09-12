@@ -91,7 +91,7 @@
   <header>
     <a class="back" href="../">&larr; Finly</a>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: 8 September 2026</p>
+    <p class="updated">Last updated: 13 September 2026</p>
   </header>
 
   <div class="summary">
@@ -116,6 +116,7 @@
     you deliberately export it. That includes:</p>
   <ul>
     <li>Transactions, amounts, dates and notes you record</li>
+    <li>Payment alerts waiting for your review, if you use transaction detection</li>
     <li>Accounts, categories and recurring rules you create</li>
     <li>Budgets and currency preferences</li>
     <li>App settings, including whether the app lock is switched on</li>
@@ -136,6 +137,27 @@
     receives, processes or stores your fingerprint, face data or passcode, and it holds no copy of
     any biometric information.</p>
 
+  <h2>Optional transaction detection</h2>
+  <p>Finly can offer to fill in expenses from the payment alerts your bank, card or UPI app sends
+    you. It is off until you switch it on in <em>Settings &rarr; Transaction detection</em>, and it
+    works in one of two ways:</p>
+  <ul>
+    <li><strong>Pasting a message.</strong> You copy an alert and paste it into Finly. Nothing else is
+      read.</li>
+    <li><strong>Notification access.</strong> If you grant it in Android's settings, Finly reads the
+      notifications posted by the apps you choose &mdash; by default your SMS app and the banking,
+      card and UPI apps you pick. Each notification is checked on the device; one that does not look
+      like a payment alert is discarded without being stored. One that does is kept in the app's
+      private storage so you can review it.</li>
+  </ul>
+  <p>Every detected transaction waits in a review list until you confirm or dismiss it. When you
+    confirm one, the original alert text is saved with the expense so you can see where it came
+    from. Alert text is never uploaded, shared or sent anywhere; Finly still has no network code.
+    Reviewed alerts are deleted after the retention period you choose, and switching the feature off
+    stops all reading and clears anything waiting to be reviewed. You can withdraw notification
+    access at any time in Android's settings.</p>
+  <p>Finly does not request permission to read your SMS inbox.</p>
+
   <h2>Exporting and importing your data</h2>
   <p>Finly can export your records as a CSV file and can import records from a CSV file you choose.</p>
   <ul>
@@ -149,7 +171,11 @@
   <h2>Permissions the app requests</h2>
   <ul>
     <li><strong>Biometric / fingerprint</strong> — used only to power the optional app lock described
-      above. Finly requests no other Android permissions.</li>
+      above.</li>
+    <li><strong>Notifications</strong> — used to show the optional daily reminder and, if you allow
+      it, a count of transactions waiting for review. That count never shows amounts or payees.</li>
+    <li><strong>Notification access</strong> — optional, granted by you in Android's settings, and used
+      only for the transaction detection described above.</li>
   </ul>
 
   <h2>Children</h2>
