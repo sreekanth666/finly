@@ -206,8 +206,11 @@ class FinlyCaptureModule : Module() {
     val flags = if (activity == null) Intent.FLAG_ACTIVITY_NEW_TASK else 0
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      // Read outside apply {}: inside it, `component` is the Intent's own
+      // nullable property, not this module's listener component.
+      val listener = component.flattenToString()
       val detail = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).apply {
-        putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, component.flattenToString())
+        putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, listener)
         addFlags(flags)
       }
       try {

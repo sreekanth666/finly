@@ -46,3 +46,6 @@ yarn-error.*
 
 # build artifacts
 builds/
+
+# Gradle output of local Expo modules
+/modules/*/android/build/
