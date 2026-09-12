@@ -13,11 +13,12 @@
 
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
-import type {
-  Rule,
-  RuleAction,
-  RuleCondition,
-  RuleMatchMode,
+import {
+  ruleInputProblem,
+  type Rule,
+  type RuleAction,
+  type RuleCondition,
+  type RuleMatchMode,
 } from '@/domain/rules';
 
 import { db, type DbLike } from '../client';
@@ -130,16 +131,11 @@ export function getRule(id: string, database: DbLike = db): Rule | null {
 /* Writes                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/* The checks themselves are pure (domain/rules.ts), so the templates can be
+   tested against exactly what this refuses. */
 function validate(input: RuleInput): void {
-  if (input.name.trim().length === 0) {
-    throw new ValidationError('name', 'A rule needs a name.');
-  }
-  if (input.conditions.every((condition) => condition.value.trim().length === 0)) {
-    throw new ValidationError('conditions', 'A rule needs at least one condition to match on.');
-  }
-  if (input.actions.length === 0) {
-    throw new ValidationError('actions', 'A rule needs at least one thing to fill in.');
-  }
+  const problem = ruleInputProblem(input);
+  if (problem !== null) throw new ValidationError(problem.field, problem.message);
 }
 
 /** Children are always written together with their parent, in one transaction. */

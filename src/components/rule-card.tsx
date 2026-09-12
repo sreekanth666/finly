@@ -7,8 +7,8 @@ import { Icon } from './icon';
 import { iconFor } from './icon-registry';
 
 import type { AccountRow, CategoryRow } from '@/db/schema';
-import type { Rule, RuleAction, RuleCondition } from '@/domain/rules';
-import { OPERATOR_LABELS } from '@/features/rules/presentation';
+import type { Rule, RuleAction } from '@/domain/rules';
+import { describeConditions } from '@/features/rules/presentation';
 import { toAppColor, type AppColor } from '@/theme';
 
 export type RuleCardProps = {
@@ -29,10 +29,6 @@ export type RuleCardProps = {
   onToggle: (isEnabled: boolean) => void;
   onPress?: () => void;
 };
-
-/** Reads as a sentence: `item contains "swiggy"`. */
-const describeCondition = ({ field, operator, value }: RuleCondition) =>
-  `${field} ${OPERATOR_LABELS[operator]} "${value}"`;
 
 const describeUsage = (timesApplied: number) => {
   if (timesApplied === 0) return 'Not used yet';
@@ -86,9 +82,7 @@ function ActionPill({ icon, tone, label }: ActionPillProps) {
  */
 export function RuleCard({ rule, categories, accounts, rank, onToggle, onPress }: RuleCardProps) {
   const { name, isEnabled, matchMode, conditions, actions, timesApplied } = rule;
-  const conditionText = conditions
-    .map(describeCondition)
-    .join(matchMode === 'all' ? ' and ' : ' or ');
+  const conditionText = describeConditions(conditions, matchMode);
 
   return (
     <Pressable

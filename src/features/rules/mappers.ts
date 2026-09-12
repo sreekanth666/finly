@@ -8,6 +8,7 @@
 
 import type { RuleDraft } from '@/components/rule-editor';
 import type { RuleInput } from '@/db/repositories/rules';
+import { resolveRuleTemplate, type RuleTemplate } from '@/domain/rule-templates';
 import type { Rule, RuleAction } from '@/domain/rules';
 
 const DEFAULT_PRIORITY = 50;
@@ -54,5 +55,28 @@ export function ruleToDraft(rule: Rule): RuleDraft {
     categoryId: category?.type === 'set_category' ? category.categoryId : null,
     accountId: account?.type === 'set_account' ? account.accountId : null,
     countsToBudget: counts?.type === 'set_counts_to_budget' ? counts.countsToBudget : null,
+  };
+}
+
+/**
+ * A template as the editor's starting point. The resolution itself — which
+ * category the name means on this install — is pure and tested in
+ * domain/rule-templates.ts; this only reshapes it for the editor's fields.
+ */
+export function templateToDraft(
+  template: RuleTemplate,
+  activeCategories: readonly { id: string; name: string }[],
+): RuleDraft {
+  const resolved = resolveRuleTemplate(template, activeCategories);
+
+  return {
+    name: resolved.name,
+    isEnabled: true,
+    priority: String(resolved.priority),
+    matchMode: resolved.matchMode,
+    conditions: resolved.conditions,
+    categoryId: resolved.categoryId,
+    accountId: null,
+    countsToBudget: resolved.countsToBudget,
   };
 }

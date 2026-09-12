@@ -243,7 +243,9 @@ export type SettingKey =
   /** D16: the daily logging reminder. A flag; off unless switched on. */
   | 'reminder_enabled'
   /** 'HH:mm' in local time. Absent means DEFAULT_REMINDER_TIME. */
-  | 'reminder_time';
+  | 'reminder_time'
+  /** The Rules tab's template banner was closed; a smaller button remains. */
+  | 'rule_templates_dismissed';
 
 /* -------------------------------------------------------------------------- */
 /* Row types — these replace the hand-written types the fixtures used to carry  */
