@@ -55,6 +55,28 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#79e256"
         }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./assets/fonts/Inter-Bold.ttf",
+            "./assets/fonts/Inter-Medium.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "MonthGlance",
+              "label": "This month",
+              "description": "This month's spend and how much of your budget is used",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 3600000
+            }
+          ]
+        }
       ]
     ],
     "experiments": {

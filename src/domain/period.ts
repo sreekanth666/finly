@@ -138,6 +138,12 @@ export function formatPeriodShort(period: PeriodKey): string {
   return MONTHS_SHORT[month - 1]!;
 }
 
+/** The month alone, for a label that already implies the year — the widget. */
+export function formatPeriodMonth(period: PeriodKey): string {
+  const { month } = parsePeriod(period);
+  return MONTHS_LONG[month - 1]!;
+}
+
 /**
  * Whether a newly-dirtied period should replace the one already recorded.
  *
