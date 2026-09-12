@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { Trash2 } from 'lucide-react-native';
+import { Trash2, type LucideIcon } from 'lucide-react-native';
 import { useRef, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -11,6 +11,9 @@ export type SwipeToDeleteProps = {
   /** Announced to a screen reader, which cannot swipe. */
   accessibilityLabel: string;
   onDelete: () => void;
+  /** What the revealed button says. The review inbox dismisses rather than deletes. */
+  actionLabel?: string;
+  actionIcon?: LucideIcon;
 };
 
 /**
@@ -28,7 +31,13 @@ export type SwipeToDeleteProps = {
  * A swipe is invisible to assistive technology, so the action is also exposed as
  * an accessibility action.
  */
-export function SwipeToDelete({ children, accessibilityLabel, onDelete }: SwipeToDeleteProps) {
+export function SwipeToDelete({
+  children,
+  accessibilityLabel,
+  onDelete,
+  actionLabel = 'Delete',
+  actionIcon = Trash2,
+}: SwipeToDeleteProps) {
   const ref = useRef<Swipeable>(null);
 
   return (
@@ -42,15 +51,15 @@ export function SwipeToDelete({ children, accessibilityLabel, onDelete }: SwipeT
       renderRightActions={() => (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Delete ${accessibilityLabel}`}
+          accessibilityLabel={`${actionLabel} ${accessibilityLabel}`}
           onPress={() => {
             ref.current?.close();
             onDelete();
           }}
           className="my-1 ml-2 w-24 items-center justify-center rounded-2xl bg-danger active:opacity-60">
-          <Icon icon={Trash2} color="danger-foreground" size={16} />
+          <Icon icon={actionIcon} color="danger-foreground" size={16} />
           <Typography type="body-xs" weight="semibold" className="text-danger-foreground">
-            Delete
+            {actionLabel}
           </Typography>
         </Pressable>
       )}>

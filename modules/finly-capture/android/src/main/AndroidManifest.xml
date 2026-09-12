@@ -1,0 +1,44 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    Package visibility (Android 11+) for the payment apps the settings screen
+    offers, so it can show only the ones that are installed. Named packages
+    only: QUERY_ALL_PACKAGES is a restricted permission and is not needed.
+    Mirrors PAYMENT_APPS in src/domain/txn-detect/sources.ts.
+  -->
+  <queries>
+    <package android:name="com.google.android.apps.nbu.paisa.user" />
+    <package android:name="com.phonepe.app" />
+    <package android:name="net.one97.paytm" />
+    <package android:name="in.org.npci.upiapp" />
+    <package android:name="com.dreamplug.androidapp" />
+    <package android:name="in.amazon.mShop.android.shopping" />
+    <package android:name="com.mobikwik_new" />
+    <package android:name="com.csam.icici.bank.imobile" />
+    <package android:name="com.snapwork.hdfc" />
+    <package android:name="com.sbi.lotusintouch" />
+    <package android:name="com.axis.mobile" />
+    <package android:name="com.msf.kbank.mobile" />
+  </queries>
+
+  <application>
+    <!--
+      D17. Disabled until the user switches transaction detection on, so the
+      system never binds it for someone who has not asked for it. Notification
+      access itself is a separate grant the user gives in system settings.
+    -->
+    <service
+      android:name="com.thecstudio.finly.capture.CaptureListenerService"
+      android:label="Finly transaction detection"
+      android:enabled="false"
+      android:exported="true"
+      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+      <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+      </intent-filter>
+      <meta-data
+        android:name="android.service.notification.default_filter_types"
+        android:value="conversations|alerting|silent" />
+    </service>
+  </application>
+</manifest>

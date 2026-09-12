@@ -6,7 +6,9 @@ import {
   ArrowLeft,
   BellRing,
   CircleDollarSign,
+  Inbox,
   Info,
+  MessageSquareText,
   Shapes,
   Coins,
   ShieldCheck,
@@ -25,6 +27,7 @@ import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useDefaultMonthlyBudget } from '@/features/budget/hooks';
 import { useNavigateOnce } from '@/features/navigation/hooks';
 import { useReminderSettings } from '@/features/reminders/hooks';
+import { useCaptureEnabled, useReviewCount } from '@/features/capture/hooks';
 import { formatMinor } from '@/domain/money';
 import { formatReminderTime } from '@/domain/reminders';
 
@@ -42,6 +45,8 @@ export default function SettingsScreen() {
   const accountRows = useAccounts();
   const categoryRows = useCategories();
   const reminder = useReminderSettings();
+  const capture = useCaptureEnabled();
+  const toReview = useReviewCount();
 
   /* A count of 0 and a failed read are different things, and '0 accounts' is
      the more damaging of the two to show when it isn't true. */
@@ -124,6 +129,30 @@ export default function SettingsScreen() {
                     : 'Off'
               }
               onPress={() => navigate('/settings/reminders')}
+            />
+          </View>
+        </View>
+
+        <View className="gap-3">
+          <SectionHeader label="Detection" />
+          <View className="rounded-3xl bg-surface">
+            <SettingsRow
+              isFirst
+              icon={MessageSquareText}
+              iconTone="accent"
+              label="Transaction detection"
+              description="Read payment alerts into a list to confirm"
+              value={capture.data === undefined ? '—' : capture.data ? 'On' : 'Off'}
+              onPress={() => navigate('/settings/capture')}
+            />
+            <SettingsRow
+              isFirst={false}
+              icon={Inbox}
+              iconTone="foreground"
+              label="Review inbox"
+              description="Detected payments waiting for you"
+              value={toReview.data === undefined || toReview.data === 0 ? undefined : String(toReview.data)}
+              onPress={() => navigate('/inbox')}
             />
           </View>
         </View>
