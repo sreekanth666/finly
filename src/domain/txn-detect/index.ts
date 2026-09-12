@@ -167,3 +167,16 @@ export {
 } from './match';
 export { categoryNameFor } from './merchants';
 export { suggest, type CategoryLike, type SuggestContext, type Suggestion } from './suggest';
+export {
+  canConfirmInOneTap,
+  countsTowardBadge,
+  DEFAULT_RETENTION_DAYS,
+  EPHEMERAL_KINDS,
+  INBOX_SECTIONS,
+  redactCodes,
+  RETENTION_CHOICES,
+  sectionOf,
+  sourceAppName,
+  sourceTextOf,
+  type InboxSection,
+} from './inbox';

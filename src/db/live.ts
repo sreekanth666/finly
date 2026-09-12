@@ -28,7 +28,9 @@ export type TableName =
   | 'rules'
   | 'rule_conditions'
   | 'rule_actions'
-  | 'settings';
+  | 'settings'
+  | 'captured_messages'
+  | 'detected_transactions';
 
 export type QueryResult<T> =
   | { data: T; error: null; refetch: () => void }

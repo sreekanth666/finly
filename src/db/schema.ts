@@ -19,7 +19,15 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+  type AnySQLiteColumn,
+} from 'drizzle-orm/sqlite-core';
 
 import type { Minor } from '@/domain/money';
 
@@ -95,6 +103,14 @@ export const expenses = sqliteTable(
     categoryId: text('category_id').references(() => categories.id),
     accountId: text('account_id').references(() => accounts.id),
     countsToBudget: integer('counts_to_budget', { mode: 'boolean' }).notNull().default(true),
+    /**
+     * Where the row came from (D17). Enforced in the repository, not by a CHECK:
+     * adding a CHECK to an existing SQLite table means rebuilding it, and this
+     * table is the one every other table points at.
+     */
+    source: text('source').notNull().default('manual').$type<ExpenseSource>(),
+    /** The alert a detected expense was confirmed from, verbatim. Never searched. */
+    sourceText: text('source_text'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
     deletedAt: integer('deleted_at'),
@@ -201,6 +217,126 @@ export const ruleActions = sqliteTable('rule_actions', {
   createdAt: integer('created_at').notNull(),
 });
 
+/**
+ * A payment alert as it reached the phone (D17): a notification the listener
+ * kept, or text the user pasted. Only messages that looked like money moving
+ * are ever written here — the native gate discards the rest before storage.
+ *
+ * The one exception to soft delete in the schema: retention removes a resolved
+ * message's row for real, because keeping someone's message text after they
+ * asked for it to go is the thing a privacy policy promises not to do. The
+ * confirmed expense keeps its own copy in `source_text`.
+ */
+export const capturedMessages = sqliteTable(
+  'captured_messages',
+  {
+    id: text('id').primaryKey(),
+    source: text('source').notNull().$type<CaptureSourceColumn>(),
+    packageName: text('package_name'),
+    sender: text('sender'),
+    title: text('title'),
+    body: text('body').notNull(),
+    /** When the notification was posted, or when the text was pasted. */
+    postedAt: integer('posted_at').notNull(),
+    receivedAt: integer('received_at').notNull(),
+    /** captureKey() — what makes a re-delivered notification a no-op. */
+    contentHash: text('content_hash').notNull(),
+    createdAt: integer('created_at').notNull(),
+    deletedAt: integer('deleted_at'),
+  },
+  (table) => [
+    check('captured_messages_source', sql`${table.source} in ('notification','paste','share')`),
+    uniqueIndex('idx_captured_hash').on(table.contentHash),
+    index('idx_captured_received').on(table.deletedAt, sql`${table.receivedAt} desc`),
+  ],
+);
+
+/**
+ * What the detector read from a captured message, waiting for the user (D17).
+ * Nothing here counts toward anything until it is confirmed into an expense.
+ */
+export const detectedTransactions = sqliteTable(
+  'detected_transactions',
+  {
+    id: text('id').primaryKey(),
+    messageId: text('message_id')
+      .notNull()
+      .references(() => capturedMessages.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull().$type<DetectionKindColumn>(),
+    direction: text('direction').$type<'debit' | 'credit'>(),
+    /** Null when no amount could be read. The candidate is kept regardless. */
+    amountMinor: integer('amount_minor').$type<Minor>(),
+    currency: text('currency'),
+    /** JSON array of minor amounts, most likely first. */
+    amountCandidates: text('amount_candidates').notNull().default('[]'),
+    occurredAt: integer('occurred_at').notNull(),
+    dateConfidence: text('date_confidence').notNull(),
+    counterparty: text('counterparty'),
+    item: text('item').notNull(),
+    instrumentType: text('instrument_type'),
+    instrumentTail: text('instrument_tail'),
+    issuer: text('issuer'),
+    reference: text('reference'),
+    channel: text('channel'),
+    confidence: text('confidence').notNull().$type<'high' | 'medium' | 'low'>(),
+    /** JSON array of short reason codes, for diagnostics. */
+    reasons: text('reasons').notNull().default('[]'),
+    suggestedCategoryId: text('suggested_category_id').references(() => categories.id, {
+      onDelete: 'set null',
+    }),
+    suggestedAccountId: text('suggested_account_id').references(() => accounts.id, {
+      onDelete: 'set null',
+    }),
+    /** Not a foreign key: rules are soft-deleted, and a stale id only loses a badge. */
+    suggestedRuleId: text('suggested_rule_id'),
+    status: text('status').notNull().default('pending').$type<CandidateStatus>(),
+    /** The candidate this one repeats — the UPI app's alert for the bank's SMS. */
+    duplicateOf: text('duplicate_of').references((): AnySQLiteColumn => detectedTransactions.id, {
+      onDelete: 'set null',
+    }),
+    /** The expense it became, or the manual one it was linked to. */
+    expenseId: text('expense_id').references(() => expenses.id, { onDelete: 'set null' }),
+    /** A credit recorded as money back against an expense (D1). */
+    settlementId: text('settlement_id').references(() => settlements.id, { onDelete: 'set null' }),
+    parserVersion: integer('parser_version').notNull(),
+    /** Set once the user changes anything, so a parser upgrade never undoes their edit. */
+    isEdited: integer('is_edited', { mode: 'boolean' }).notNull().default(false),
+    resolvedAt: integer('resolved_at'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+    deletedAt: integer('deleted_at'),
+  },
+  (table) => [
+    check(
+      'detected_kind',
+      sql`${table.kind} in ('transaction','transfer','refund','failed','upcoming','statement','otp','balance','promo','reminder','unknown')`,
+    ),
+    check('detected_direction', sql`${table.direction} is null or ${table.direction} in ('debit','credit')`),
+    check('detected_amount_positive', sql`${table.amountMinor} is null or ${table.amountMinor} > 0`),
+    check(
+      'detected_date_confidence',
+      sql`${table.dateConfidence} in ('exact','day_only','fallback_received')`,
+    ),
+    check(
+      'detected_instrument_type',
+      sql`${table.instrumentType} is null or ${table.instrumentType} in ('card','account','wallet')`,
+    ),
+    check(
+      'detected_channel',
+      sql`${table.channel} is null or ${table.channel} in ('upi','card','neft','imps','rtgs','atm','autopay','emi')`,
+    ),
+    check('detected_confidence', sql`${table.confidence} in ('high','medium','low')`),
+    check(
+      'detected_status',
+      sql`${table.status} in ('pending','confirmed','dismissed','duplicate','not_transaction','settled')`,
+    ),
+    index('idx_detected_status').on(table.status, table.deletedAt, sql`${table.occurredAt} desc`),
+    index('idx_detected_reference').on(table.reference),
+    index('idx_detected_expense').on(table.expenseId),
+    index('idx_detected_message').on(table.messageId),
+  ],
+);
+
 /** Key/value app settings. See SettingKey for the ones that exist. */
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey().$type<SettingKey>(),
@@ -225,6 +361,34 @@ export type RuleConditionOperator = (typeof RULE_CONDITION_OPERATORS)[number];
 
 export type RuleActionType = 'set_category' | 'set_account' | 'set_counts_to_budget';
 
+export const EXPENSE_SOURCES = ['manual', 'detected', 'import'] as const;
+export type ExpenseSource = (typeof EXPENSE_SOURCES)[number];
+
+export type CaptureSourceColumn = 'notification' | 'paste' | 'share';
+
+export type DetectionKindColumn =
+  | 'transaction'
+  | 'transfer'
+  | 'refund'
+  | 'failed'
+  | 'upcoming'
+  | 'statement'
+  | 'otp'
+  | 'balance'
+  | 'promo'
+  | 'reminder'
+  | 'unknown';
+
+export const CANDIDATE_STATUSES = [
+  'pending',
+  'confirmed',
+  'dismissed',
+  'duplicate',
+  'not_transaction',
+  'settled',
+] as const;
+export type CandidateStatus = (typeof CANDIDATE_STATUSES)[number];
+
 export type SettingKey =
   | 'schema_seeded'
   | 'onboarding_done'
@@ -245,7 +409,19 @@ export type SettingKey =
   /** 'HH:mm' in local time. Absent means DEFAULT_REMINDER_TIME. */
   | 'reminder_time'
   /** The Rules tab's template banner was closed; a smaller button remains. */
-  | 'rule_templates_dismissed';
+  | 'rule_templates_dismissed'
+  /** D17: reading payment notifications. A flag; off unless switched on. */
+  | 'capture_enabled'
+  /** Epoch ms the in-app disclosure was accepted. Absent means never shown or declined. */
+  | 'capture_disclosure_accepted_at'
+  /** JSON array of the package names the listener may read, beyond the SMS app. */
+  | 'capture_packages'
+  /** A flag: post "N transactions to review" while the app is closed. */
+  | 'capture_notify_enabled'
+  /** Days a resolved message's text is kept. Absent means DEFAULT_RETENTION_DAYS. */
+  | 'capture_retention_days'
+  /** The PARSER_VERSION pending candidates were last read with. */
+  | 'capture_parser_version';
 
 /* -------------------------------------------------------------------------- */
 /* Row types — these replace the hand-written types the fixtures used to carry  */
@@ -268,3 +444,7 @@ export type NewRuleConditionRow = typeof ruleConditions.$inferInsert;
 export type RuleActionRow = typeof ruleActions.$inferSelect;
 export type NewRuleActionRow = typeof ruleActions.$inferInsert;
 export type SettingRow = typeof settings.$inferSelect;
+export type CapturedMessageRow = typeof capturedMessages.$inferSelect;
+export type NewCapturedMessageRow = typeof capturedMessages.$inferInsert;
+export type DetectedTransactionRow = typeof detectedTransactions.$inferSelect;
+export type NewDetectedTransactionRow = typeof detectedTransactions.$inferInsert;

@@ -330,6 +330,27 @@ accounts (the user adds their own, prompted once).
 total settlements for an expense may not exceed its amount; a card account
 cannot be hard-deleted while expenses reference it (archive instead).
 
+**Transaction detection (D17)**, added by migration `0001`, additive only:
+
+- `captured_messages` — a payment alert as it reached the phone: `source`
+  (notification | paste | share), `package_name`, `sender`, `title`, `body`,
+  `posted_at`, `received_at`, and a unique `content_hash` that makes a
+  re-delivered notification a no-op. The only table that is hard-deleted:
+  retention removes a reviewed message's text for real.
+- `detected_transactions` — what was read from one message and is waiting for
+  the user: kind, direction, a **nullable** amount (an unreadable amount is kept,
+  not dropped), date and how sure it is, payee, card or account tail, issuer,
+  reference, rail, confidence and reasons, the suggested category and account,
+  `status` (pending | confirmed | dismissed | duplicate | not_transaction |
+  settled), `duplicate_of`, and the `expense_id` or `settlement_id` it became.
+- `expenses.source` (manual | detected | import) and `expenses.source_text`, the
+  original alert kept verbatim and never searched.
+
+The detector itself is pure (`src/domain/txn-detect/`) and held to a masked
+corpus of real and representative alerts. The Android listener is a local Expo
+module (`modules/finly-capture`) that gates and queues natively and runs no
+JavaScript in the background.
+
 ---
 
 ## 6. Architecture

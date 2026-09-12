@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 describe('the generated migration', () => {
-  it('creates every table §5 specifies', () => {
+  it('creates every table §5 specifies, plus the review inbox (D17)', () => {
     const tables = (
       db.prepare("select name from sqlite_master where type='table' order by name").all() as {
         name: string;
@@ -32,7 +32,9 @@ describe('the generated migration', () => {
     expect(tables).toEqual([
       'accounts',
       'budgets',
+      'captured_messages',
       'categories',
+      'detected_transactions',
       'expenses',
       'rule_actions',
       'rule_conditions',
