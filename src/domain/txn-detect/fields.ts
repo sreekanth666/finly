@@ -29,15 +29,21 @@ export type Instrument = { type: InstrumentType | null; tail: string | null };
 
 const MASK = '(?:\\s*(?:no|number)\\.?)?\\s*[:\\-]?\\s*(?:ending(?:\\s+(?:with|in))?\\s*)?[x*.\\s]*?';
 
-const ACCOUNT = new RegExp(`\\b(?:account|acct|a\\/c|ac\\b)${MASK}(\\d{3,6})\\b`, 'gi');
+const ACCOUNT = new RegExp(`\\b(?:account|acct|a\\/c|ac\\b)${MASK}(\\d{3,18})\\b`, 'gi');
 const CARD = new RegExp(`\\b[a-z]*card\\b${MASK}(\\d{4,5})\\b`, 'gi');
-const WALLET = /\b(?:wallet|pay balance|paytm balance)\b/i;
+/* "Apay Balance" is Amazon Pay's, written by Juspay. */
+const WALLET = /\b(?:wallet|a?pay balance|paytm balance)\b/i;
+
+/** An account's tail: as printed up to five digits, else the last four. */
+const accountTail = (digits: string) => (digits.length > 5 ? digits.slice(-4) : digits);
 
 /**
  * The earliest card or account the message names, skipping a loan account (an
  * EMI alert names the loan first and the account it was paid from second).
- * Tails are kept exactly as printed — ICICI prints three digits, Amex five — and
- * matched against saved accounts by suffix.
+ * Tails are kept as printed — ICICI prints three digits, Amex five — and
+ * matched against saved accounts by suffix. When a bank prints more of an
+ * account number than that ("Ac XXXXXXXX03114039", PNB), only the last four
+ * are kept, which is both what matching needs and all that should be stored.
  */
 export function readInstrument(text: string): Instrument {
   const found: { index: number; type: InstrumentType; tail: string }[] = [];
@@ -46,7 +52,7 @@ export function readInstrument(text: string): Instrument {
     for (const match of text.matchAll(pattern)) {
       const before = text.slice(Math.max(0, match.index - 8), match.index).toLowerCase();
       if (/\bloan\s*$/.test(before)) continue;
-      found.push({ index: match.index, type, tail: match[1] });
+      found.push({ index: match.index, type, tail: type === 'account' ? accountTail(match[1]) : match[1] });
     }
   };
   scan(ACCOUNT, 'account');
@@ -94,7 +100,7 @@ const CHANNEL_PATTERNS: readonly [RegExp, Channel][] = [
   [/\bimps\b/i, 'imps'],
   [/\bneft\b/i, 'neft'],
   [/\brtgs\b/i, 'rtgs'],
-  [/\bcard\b|\bpos\b/i, 'card'],
+  [/\b(?:debit)?card\b|\bpos\b/i, 'card'],
 ];
 
 export function readChannel(text: string, fallback: Channel | null): Channel | null {

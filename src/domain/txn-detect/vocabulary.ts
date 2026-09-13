@@ -27,6 +27,9 @@ export const DEBIT_VERBS: readonly RegExp[] = [
   /\btrf\s+to\b/i,
   /\btransferred\s+(?:from|to)\b(?!\s+(?:your|ur)\b)/i,
   /\bpayment\s+(?:of|to|made)\b/i,
+  /* Bank of Baroda: "Rs.3000.00 Dr. from A/C …". Only before an account or a
+     UPI id, so "Dr. Sharma" stays a name. */
+  /\bDr\.?\s+(?:from|to)\s+(?:your\s+)?(?:a\/c|ac\b|acct|account|card|vpa\b|[\w.-]+@)/i,
 ];
 
 export const CREDIT_VERBS: readonly RegExp[] = [
@@ -39,6 +42,12 @@ export const CREDIT_VERBS: readonly RegExp[] = [
   /\breversal\b/i,
   /\badded\s+to\b/i,
   /\btransferred\s+to\s+(?:your|ur)\b/i,
+  /* "… Cr. to 98765@ptyes". Only before an account, a UPI id or a long number:
+     PNB writes a credit balance as "Bal INR 539.25 CR.", and "1 Cr" is a crore. */
+  /\bCr\.?\s+(?:to|in)\s+(?:your\s+)?(?:a\/c|ac\b|acct|account|vpa\b|[\w.-]+@|\d{6,})/i,
+  /* Fi: "We've added INR 242.00 as interest to your account". A figure must
+     follow, so "added a new feature to your account" is not money. */
+  /\badded\b(?=\s+(?:INR|USD|EUR|GBP|AED|SGD|AUD|CAD) [0-9][0-9,]*(?:\.[0-9]+)?\s+(?:as\s+(?:[a-z]+\s+){1,3})?to\s+(?:your|ur)\s+(?:[a-z]+\s+)?(?:account|a\/c|acct)\b)/i,
 ];
 
 export type VerbHit = { index: number; end: number; direction: Direction };

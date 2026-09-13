@@ -15,24 +15,41 @@
 import type { Direction } from './types';
 
 const BOILERPLATE =
-  /\b(?:not you|not u\b|if not (?:you|u|done by you)|to dispute|for dispute|call\s*[-:]?\s*\d|sms block|report at|fwd this|t&c)/i;
+  /\b(?:not you|not u\b|if not (?:you|u|done by you|initiated|made by you)|to dispute|for dispute|call\s*[-:]?\s*\d|sms block|report at|fwd this|click (?:on|here)|t&c)/i;
+
+/**
+ * A full stop glued to the next word ("PHARMACEUTI.Ref:6069…", "Unni.Not
+ * you?") ends a payee as surely as ". " does — but only before words that
+ * start the boilerplate, and never inside a UPI id like `shop.upi@okaxis` or a
+ * name like "DR.BAL KRISHNAN".
+ */
+const GLUED_STOP =
+  '\\.(?![\\w.-]*@)(?=(?:ref\\w*|rrn|utr|txn)\\b\\W*\\d|(?:avl|aval|avbl|avail|bal)\\w*\\W*(?:INR|\\d)|(?:not|if|call|info)\\b)';
 
 const STOP =
-  '(?=\\s*\\(|\\s+(?:on|via|ref\\w*|upi|from|using|for|with|in|by|was|is|has|avl|bal|thru|not)\\b|\\.(?:\\s|$)|,|;|\\n|$)';
+  '(?=\\s*\\(|\\s+(?:on|via|ref\\w*|upi|from|using|for|with|in|by|was|is|has|avl|bal|thru|not|successful\\w*)\\b|\\.(?:\\s|$)|' +
+  GLUED_STOP +
+  '|,|;|\\n|$)';
 
 const DEBIT_PATTERNS: readonly RegExp[] = [
   /;\s*([^;\n]+?)\s+credited\b/i,
   /\bUPI\/(?:P2[MA]|DR|CR)\/\d+\/([^/\n]+)/i,
   /(?:^|\n)To[:\s]+([^\n]+)/,
   /\bon\s+\d{1,2}[-/ ]?[A-Za-z]{3,9}[-/ ]?\d{2,4}\s+on\s+(.+?)(?=\.(?:\s|$)|,|;|\n|$)/i,
-  /\bfor\s+([A-Za-z][A-Za-z0-9 &'.\-]*?)\s+(?:has|is|was|will)\b/i,
-  new RegExp(`\\bat\\s+(.+?)${STOP}`, 'i'),
+  /* A dot only when no space follows, so "NETFLIX.COM" survives and "FOR
+     APR-26. The curr bal is" does not become a payee. */
+  /\bfor\s+([A-Za-z](?:[A-Za-z0-9 &'\-]|\.(?=\S))*?)\s+(?:has|is|was|will)\b/i,
+  /* "at 18:11:09" is when, not where. A digit alone is allowed: "at 1MG". */
+  new RegExp(`\\bat\\s+(?!\\d{1,2}[:.]\\d{2})(.+?)${STOP}`, 'i'),
   new RegExp(`\\b(?:trf to|towards|to)\\s+(?:vpa\\s+|beneficiary\\s+)?(.+?)${STOP}`, 'i'),
 ];
 
 const CREDIT_PATTERNS: readonly RegExp[] = [
   new RegExp(`\\bfrom\\s+(?:vpa\\s+)?(.+?)${STOP.replace('from|', 'to|')}`, 'i'),
   /\bvpa\s+([\w.-]+@[\w.-]+)/i,
+  /* AU and others name the payer only inside the narration. Last, so "from"
+     and "VPA" still win when they are there. */
+  /\bUPI\/(?:P2[MA]|DR|CR)\/\d+\/([^/\n]+)/i,
 ];
 
 const CURRENCY_WORD = /\b(?:INR|USD|EUR|GBP|AED|SGD|AUD|CAD)\b/;
@@ -42,12 +59,15 @@ const OWN_INSTRUMENT = /\b(?:your|ur|a\/c|acct|account|card|wallet|balance)\b/i;
 const GENERIC = new Set([
   'upi', 'transfer', 'neft', 'imps', 'rtgs', 'payment', 'txn', 'transaction', 'fund', 'funds',
   'pos', 'bank', 'mob', 'bk', 'net', 'banking', 'the', 'a', 'block', 'self', 'you', 'mobile',
+  'merchant',
 ]);
 
 function plausible(raw: string): string | null {
   const value = raw.replace(/^[\s:'"-]+|[\s.,;:'"-]+$/g, '').replace(/\s+/g, ' ');
   if (value.length === 0 || value.length > 60) return null;
   if (CURRENCY_WORD.test(value) || OWN_INSTRUMENT.test(value)) return null;
+  /* A clock time is never part of a name. */
+  if (/\b\d{1,2}:\d{2}\b/.test(value)) return null;
   if (/^[\d\s\-/.:]+$/.test(value)) return null;
   const words = value.toLowerCase().split(/[\s/]+/).filter((word) => word.length > 0);
   if (words.every((word) => GENERIC.has(word) || /\d/.test(word))) return null;

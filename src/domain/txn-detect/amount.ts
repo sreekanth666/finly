@@ -44,7 +44,7 @@ const BARE_AFTER_VERB =
 
 /** The words that, just before a figure, mean it is not the payment. */
 const NOT_THE_PAYMENT =
-  /\b(?:bal|balance|avl|avail|avlbl|available|limit|lmt|due|tad|mad|outstanding|cashback|upto|min|minimum|total|reward|fee|charges?|updated|closing|opening|save|off)\b/i;
+  /\b(?:bal|balance|avl|avail|avlbl|available|limit|lmt|due|tad|mad|outstanding|cashback|upto|min|minimum|total|reward|fee|charges?|updated|closing|opening|save|off|(?:avl|avail|aval|avbl|avlbl|curr?|tot|clr)\.?bal(?:ance)?)\b/i;
 
 const MAX_CANDIDATES = 4;
 

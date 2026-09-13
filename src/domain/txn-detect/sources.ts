@@ -52,6 +52,10 @@ const SENDER_HEADERS: Record<string, SenderHint> = {
   AMEXIN: { issuer: 'American Express', isCard: true },
   ONECRD: { issuer: 'OneCard', isCard: true },
   SLICEP: { issuer: 'slice', isCard: true },
+  /* slice's bank sends both card and account alerts, so it is not card-only. */
+  SLCBNK: { issuer: 'slice' },
+  FEDFIB: { issuer: 'Federal Bank' },
+  SBMIND: { issuer: 'SBM Bank India' },
   CITIBK: { issuer: 'Citi' },
   SCBANK: { issuer: 'Standard Chartered' },
   HSBCIN: { issuer: 'HSBC' },
@@ -115,7 +119,11 @@ const ISSUER_NAMES: readonly [RegExp, string][] = [
   [/\bdbs\b/i, 'DBS Bank'],
   [/\bonecard\b/i, 'OneCard'],
   [/\bslice\b/i, 'slice'],
+  [/\bsbm bank\b/i, 'SBM Bank India'],
   [/\bsbi\b|\bstate bank\b/i, 'SBI'],
+  /* Only the wallet: a bare "Amazon Pay" is also the name of a merchant, and a
+     merchant must never be taken for the issuer. */
+  [/\b(?:a|amazon )pay (?:balance|wallet)\b/i, 'Amazon Pay'],
 ];
 
 export type AppHint = { name: string; channel: Channel | null };

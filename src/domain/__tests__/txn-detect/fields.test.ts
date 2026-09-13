@@ -110,6 +110,24 @@ describe('readDate', () => {
     expect(dayKey(read('on 03/04/2026').occurredAt)).toBe('2026-04-03');
   });
 
+  it('reads a year-first date with any one separator, and not a mix of them', () => {
+    const reading = read('AvlBal:Rs1211.67(2026:05:28 06:57:51)', at(2026, 5, 28, 7));
+    expect(dayKey(reading.occurredAt)).toBe('2026-05-28');
+    expect(formatTime(reading.occurredAt)).toBe('06:57');
+    expect(dayKey(read('on 2026/09/03', received).occurredAt)).toBe('2026-09-03');
+    expect(read('ref 2026-09:03').confidence).toBe('fallback_received');
+  });
+
+  it('reads a month-first date, as Fi writes it', () => {
+    expect(dayKey(read('Date: March 28, 2026 | Check', at(2026, 3, 28, 10)).occurredAt)).toBe('2026-03-28');
+    expect(dayKey(read('on Sep 9th 2026').occurredAt)).toBe('2026-09-09');
+  });
+
+  it('never reads a month and a two-digit year, or a month and a year, as a day', () => {
+    expect(read('CHARGES FOR APR-26. The curr bal').confidence).toBe('fallback_received');
+    expect(read('Your Sep 2026 statement is ready').confidence).toBe('fallback_received');
+  });
+
   it('falls back to the arrival time for no date, an impossible one, or one far away', () => {
     expect(read('no date here').confidence).toBe('fallback_received');
     expect(read('on 31-02-26').implausible).toBe(true);
@@ -141,6 +159,16 @@ describe('readInstrument', () => {
 
   it('knows a wallet with no number', () => {
     expect(readInstrument('paid using Amazon Pay balance')).toEqual({ type: 'wallet', tail: null });
+    expect(readInstrument('Payment of INR 969.00 using Apay Balance successful')).toEqual({ type: 'wallet', tail: null });
+  });
+
+  it('keeps only the last four of a long printed account number', () => {
+    expect(readInstrument('Ac XXXXXXXX03114039 Debited by INR 488.82')).toEqual({ type: 'account', tail: '4039' });
+    expect(readInstrument('account 1234567890123 debited')).toEqual({ type: 'account', tail: '0123' });
+  });
+
+  it('still keeps an Amex card’s five digits', () => {
+    expect(readInstrument('AMEX card ** 11005 at')).toEqual({ type: 'card', tail: '11005' });
   });
 });
 

@@ -16,7 +16,7 @@
 import type { Minor } from '@/domain/money';
 
 import { readAmounts } from './amount';
-import { classify, MOVED_KINDS } from './classify';
+import { classify, isBankCharge, MOVED_KINDS } from './classify';
 import { labelOf, readCounterparty } from './counterparty';
 import { readDate } from './date';
 import { readChannel, readDirection, readInstrument, readReference } from './fields';
@@ -32,7 +32,12 @@ export { appHint, isSmsApp, PAYMENT_APPS, SMS_APP_PACKAGES } from './sources';
 export * from './user-templates';
 export * from './contribution';
 
-export const PARSER_VERSION = 1;
+/**
+ * 2: Federal Bank's glued ".Ref", Bank of Baroda's "Dr./Cr.", month-first and
+ * colon-separated dates, bank charges, interest credits, AU's payer in the
+ * UPI narration, long printed account numbers, Amazon Pay balance.
+ */
+export const PARSER_VERSION = 2;
 
 /** Kinds whose date is about the future or about nothing, so the arrival time stands. */
 const UNDATED_KINDS: readonly DetectionKind[] = ['statement', 'reminder', 'upcoming', 'promo', 'otp', 'balance'];
@@ -42,11 +47,13 @@ function fallbackItem(input: {
   direction: Direction | null;
   channel: Channel | null;
   text: string;
+  bankCharge: boolean;
 }): string {
   if (input.kind === 'refund') return /\brevers/i.test(input.text) ? 'Reversal' : 'Refund';
+  if (input.bankCharge) return 'Bank charges';
   if (input.channel === 'atm') return 'Cash withdrawal';
   if (input.channel === 'emi') return 'EMI';
-  if (input.direction === 'credit') return 'Money received';
+  if (input.direction === 'credit') return /\binterest\b/i.test(input.text) ? 'Interest' : 'Money received';
   switch (input.channel) {
     case 'upi':
       return 'UPI payment';
@@ -106,6 +113,7 @@ export function detect(input: MessageInput, context: DetectContext = {}): Detect
   const genericCounterparty = channel === 'atm' ? null : readCounterparty(text, genericDirection);
   const hint = senderHint(input.sender) ?? senderHint(input.title);
   const issuer = resolveIssuer({ sender: input.sender, title: input.title, body: text });
+  const bankCharge = isBankCharge(text, genericDirection, genericCounterparty);
 
   const classification = classify({
     text,
@@ -114,6 +122,7 @@ export function detect(input: MessageInput, context: DetectContext = {}): Detect
     channel,
     counterparty: genericCounterparty,
     ownerName: context.ownerName ?? null,
+    bankCharge,
   });
 
   /* D18: a format the user taught, tried only once the classifier has spoken,
@@ -148,9 +157,16 @@ export function detect(input: MessageInput, context: DetectContext = {}): Detect
   );
 
   const direction = taught?.direction ?? genericDirection;
+  /* The bank is not a payee: "towards SMS Charges" names no one. A taught
+     template has the last word, as it does on every field it tags. */
+  const isCharge = taught === null && bankCharge;
   const counterparty =
     taught?.counterparty ??
-    (direction === genericDirection || channel === 'atm' ? genericCounterparty : readCounterparty(text, direction));
+    (isCharge
+      ? null
+      : direction === genericDirection || channel === 'atm'
+        ? genericCounterparty
+        : readCounterparty(text, direction));
   const taughtAmount = taught?.amountMinor ?? null;
   const ambiguous = taughtAmount === null && amounts.ambiguous;
 
@@ -168,6 +184,7 @@ export function detect(input: MessageInput, context: DetectContext = {}): Detect
   reasons.push(`date:${date.confidence}`);
   if (date.implausible) reasons.push('date:implausible');
   if (counterparty === null) reasons.push('counterparty:none');
+  if (isCharge) reasons.push('item:bank-charge');
 
   const instrumentTail = taught?.tail ?? instrument.tail;
   /* A taught template is bound to its sender, so a match is itself a known source. */
@@ -189,7 +206,7 @@ export function detect(input: MessageInput, context: DetectContext = {}): Detect
     occurredAt: date.occurredAt,
     dateConfidence: date.confidence,
     counterparty,
-    item: label ?? fallbackItem({ kind, direction, channel, text }),
+    item: label ?? fallbackItem({ kind, direction, channel, text, bankCharge: isCharge }),
     instrumentType,
     instrumentTail,
     issuer,
