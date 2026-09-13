@@ -159,7 +159,7 @@ export function MoneyInReview({ candidate, expenses }: MoneyInReviewProps) {
       </View>
 
       <SourceMessage text={candidate.sourceText} initiallyOpen />
-      <MisreadActions candidateId={candidate.id} body={candidate.body} sender={candidate.sender} />
+      <MisreadActions candidate={candidate} />
 
       <Button
         label="Not money received"

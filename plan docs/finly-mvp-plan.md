@@ -55,6 +55,7 @@ reader can tell a decision from an accident.
 | D16 | One **opt-in local daily reminder** to log expenses, skipped on days something was already logged. Scheduled on the device, no server; no card due-date reminders (D14 stands) | Safe-to-spend is only as right as what was logged, and an entry missed on the day is easily never made. Local-only keeps the no-server promise |
 | D17 | **Detected transactions go to a review inbox**, never straight to expenses. Sources: a user-granted Android notification listener (which also sees bank SMS through the SMS app's own notification) and a paste box. Parsing is on the device; nothing is uploaded. Low-confidence candidates are kept, not dropped. The original message is stored on the confirmed expense in `source_text`, not appended to the note. `READ_SMS`/`RECEIVE_SMS` are **not** requested | Typing every UPI payment is the chore that makes people abandon a tracker, but a misread amount written silently into the budget is worse than a missed one, so the user confirms. Play restricts SMS permissions to default SMS apps and rejects most budgeting declarations; notification access is a user grant outside that group. Keeping the raw text out of `note` keeps search and `note contains` rules from matching boilerplate like "call" and "block" on every detected expense |
 | D18 | **Users teach message formats by example**: tap the amount, payee, reference or card digits in a misread alert, and Finly derives a template for that sender. Every template is bound to one sender, may overrule only the negative gate its own sample tripped, and changes nothing when it does not match. A template, or a masked misread, can be **emailed to the developer** from the user's own mail app; Finly still sends nothing itself | No parser keeps up with every issuer's wording, and the user is the one who notices. Tagging an example asks nothing technical of them. Binding and the gate rule keep a bad template's reach to one sender, and to the kind of message it was taught on. Email keeps the no-network promise while letting a fix made on one phone reach everyone in an update |
+| D19 | **Contact the developer by email only**: Settings → About and "Report a detection problem" open the user's own mail app with the recipient, subject, message and a `finly-report.txt` filled in (expo-mail-composer, falling back to a mailto link, then Share). The report is built from counts and bank names — detection settings, listener health, corrections at confirm, a per-sender table — and, only if chosen, message skeletons with every name, amount and number replaced. Every section can be switched off and is shown before sending | Detection will go wrong on formats nobody has seen, and the phone knows things the user can't describe: which bank, whether the listener is running, what was corrected. Counts and skeletons carry that without carrying anything personal, and the user still presses send, so the no-network promise holds |
 
 ---
 
@@ -455,7 +456,7 @@ budget line · card utilisation per card · top items and merchants for the mont
 ### 7.7 Settings
 
 Monthly budget · accounts and cards · categories · daily reminder (D16) ·
-transaction detection (D17) · import and export · about.
+transaction detection (D17) · import and export · about, with Contact the developer (D19).
 
 ### 7.8 Review inbox (D17)
 

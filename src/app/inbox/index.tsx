@@ -154,6 +154,18 @@ export default function InboxScreen() {
               />
             </SwipeToDelete>
           )}
+          ListFooterComponent={
+            enabled.data === true ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigate({ pathname: '/settings/contact', params: { topic: 'detection' } })}
+                className="self-center py-6 active:opacity-60">
+                <Typography type="body-xs" className="text-link">
+                  Payment alert not showing up? Tell the developer
+                </Typography>
+              </Pressable>
+            ) : null
+          }
           ListEmptyComponent={
             inbox.data === undefined ? null : (
               <EmptyState

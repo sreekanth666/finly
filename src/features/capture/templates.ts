@@ -8,7 +8,7 @@
  */
 
 import Constants from 'expo-constants';
-import { Linking, Share } from 'react-native';
+import { Share } from 'react-native';
 
 import { useDbQuery } from '@/db/live';
 import { listRecentMessages, type RawCapture } from '@/db/repositories/captures';
@@ -31,13 +31,13 @@ import {
   contributionBody,
   contributionSubject,
   detect,
-  DEVELOPER_EMAIL,
-  mailtoUrl,
   PARSER_VERSION,
   templateIdOf,
   type Detection,
+  type ReadingSummary,
   type TemplateSpec,
 } from '@/domain/txn-detect';
+import { sendToDeveloper, type SendRoute } from '@/features/support/mail';
 
 import { reparseIfStale } from './ingest';
 
@@ -123,36 +123,31 @@ export const appVersion = (): string | null => Constants.expoConfig?.version ?? 
 
 export { toSpec };
 
-export function buildContribution(input: { maskedMessage: string; template: TemplateSpec | null; sender: string | null }) {
+export function buildContribution(input: {
+  maskedMessage: string;
+  template: TemplateSpec | null;
+  sender: string | null;
+  issuer?: string | null;
+  reading?: ReadingSummary | null;
+}) {
   return {
-    subject: contributionSubject(input.template, input.sender),
+    subject: contributionSubject(input.template, input.sender, input.issuer ?? null),
     body: contributionBody({
       maskedMessage: input.maskedMessage,
       template: input.template,
       appVersion: appVersion(),
       parserVersion: PARSER_VERSION,
+      reading: input.reading ?? null,
     }),
   };
 }
 
 /**
- * Opens the user's mail app with the email written, addressed to the
- * developer. Nothing is sent until they press send. A mail app that cannot be
- * opened, or a body too long to trust to a mailto link, falls back to the
- * Share sheet with the same text.
+ * Opens the user's mail app with the email written and addressed to the
+ * developer, through the one transport every email to the developer uses
+ * (D19). Nothing is sent until they press send.
  */
-export async function emailDeveloper(subject: string, body: string): Promise<void> {
-  const url = mailtoUrl(subject, body);
-  if (url !== null) {
-    try {
-      await Linking.openURL(url);
-      return;
-    } catch {
-      // No mail app took the link. The Share sheet always opens.
-    }
-  }
-  await Share.share({ title: subject, message: `To: ${DEVELOPER_EMAIL}\n${subject}\n\n${body}` }).catch(() => undefined);
-}
+export const emailDeveloper = (subject: string, body: string): Promise<SendRoute> => sendToDeveloper({ subject, body });
 
 export async function shareContribution(subject: string, body: string): Promise<void> {
   await Share.share({ title: subject, message: `${subject}\n\n${body}` }).catch(() => undefined);
