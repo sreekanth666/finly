@@ -37,6 +37,34 @@ const INVESTMENT =
 const WALLET_TOPUP =
   /\b(?:added to (?:your )?(?:\w+ )?wallet|wallet (?:top-?up|load(?:ed)?|recharge)|loaded (?:to|in) (?:your )?(?:\w+ )?wallet)\b/i;
 
+/**
+ * A bank's own charge: a kind of charge, then within two words "charges",
+ * "fee" or "penalty". Narrow on purpose — "Fee payment to ABC SCHOOL" and
+ * "ANNUAL FEE DPS SCHOOL" are spending, and `isBankCharge` also requires that
+ * nobody else is named as the payee.
+ */
+const BANK_CHARGE =
+  /\b(?:non[- ]?maint(?:enance)?|min(?:imum)?\.?\s*bal(?:ance)?|amb|mab|aqb|qab|sms|atm|annual|amc|chq|cheque\s*book|ecs|nach|penal|late\s*payment|processing|forex|mark[- ]?up)\s+(?:[a-z]+\s+){0,2}?(?:charges?|chgs?|fees?|penalty)\b/i;
+
+const CHARGE_WORDS = new Set([
+  'non', 'maint', 'maintenance', 'min', 'minimum', 'bal', 'balance', 'amb', 'mab', 'aqb', 'qab', 'sms',
+  'atm', 'wdl', 'withdrawal', 'annual', 'amc', 'chq', 'cheque', 'book', 'ecs', 'nach', 'penal', 'late',
+  'payment', 'processing', 'forex', 'mark', 'up', 'markup', 'charge', 'charges', 'chg', 'chgs', 'fee',
+  'fees', 'penalty', 'for', 'of', 'gst', 'incl', 'the', 'and',
+]);
+
+/** Whether a debit is the bank charging the account, rather than paying someone. */
+export function isBankCharge(text: string, direction: Direction | null, counterparty: string | null): boolean {
+  if (direction !== 'debit' || !BANK_CHARGE.test(text)) return false;
+  if (counterparty === null) return true;
+  /* "towards SMS Charges" reads "SMS Charges" as the payee; that is still the bank. */
+  return counterparty
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((word) => word.length > 0)
+    .every((word) => CHARGE_WORDS.has(word));
+}
+
 export type ClassifyInput = {
   text: string;
   direction: Direction | null;
@@ -44,12 +72,14 @@ export type ClassifyInput = {
   channel: Channel | null;
   counterparty: string | null;
   ownerName: string | null;
+  /** From `isBankCharge`: ATM charges are a charge, not cash drawn. */
+  bankCharge?: boolean;
 };
 
 export type Classification = { kind: DetectionKind; reason: string };
 
 export function classify(input: ClassifyInput): Classification {
-  const { text, direction, hasAmount, channel, counterparty, ownerName } = input;
+  const { text, direction, hasAmount, channel, counterparty, ownerName, bankCharge = false } = input;
   const hasPastVerb = PAST_MONEY_VERB.test(text);
 
   if (isRedacted(text)) return { kind: 'unknown', reason: 'redacted' };
@@ -72,7 +102,7 @@ export function classify(input: ClassifyInput): Classification {
   if (direction === 'credit' && REFUND.test(text)) return { kind: 'refund', reason: 'kind:refund' };
   if (INVESTMENT.test(text)) return { kind: 'transfer', reason: 'transfer:investment' };
   if (WALLET_TOPUP.test(text)) return { kind: 'transfer', reason: 'transfer:wallet' };
-  if (channel === 'atm') return { kind: 'transfer', reason: 'transfer:cash' };
+  if (channel === 'atm' && !bankCharge) return { kind: 'transfer', reason: 'transfer:cash' };
   if (
     direction === 'debit' &&
     ownerName != null &&

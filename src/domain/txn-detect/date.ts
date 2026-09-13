@@ -27,10 +27,17 @@ const MONTHS: Record<string, number> = {
   jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
 };
 
-const ISO = /\b(\d{4})-(\d{2})-(\d{2})(?:[ T:](\d{2}):(\d{2})(?::\d{2})?)?/;
+/** Year first, one separator throughout: 2026-06-05, 2026/06/05, and BOB's 2026:05:28. */
+const ISO = /\b(\d{4})([-/:])(\d{2})\2(\d{2})(?:[ T:](\d{2}):(\d{2})(?::\d{2})?)?/;
 const NUMERIC = /\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4}|\d{2})\b/;
 const TEXTUAL =
   /\b(\d{1,2})(?:st|nd|rd|th)?[\s\-/]?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?(?:[\s\-/,]*(\d{4}|\d{2})(?![\d:]))?/i;
+/**
+ * Month first, as Fi writes it: "March 28, 2026". Exact month spellings and a
+ * four-digit year, so "APR-26" and "Sep 2026" are never read as days.
+ */
+const MONTH_FIRST =
+  /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/i;
 const TIME = /^[\s,:T-]*(?:at\s+)?(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*([ap])\.?m\.?)?/i;
 
 const MS_PER_DAY = 86_400_000;
@@ -48,11 +55,23 @@ function earliest(text: string): (Parts & { time: { hour: number; minute: number
   if (iso !== null) {
     options.push({
       year: Number(iso[1]),
-      month: Number(iso[2]),
-      day: Number(iso[3]),
+      month: Number(iso[3]),
+      day: Number(iso[4]),
       index: iso.index,
       end: iso.index + iso[0].length,
-      time: iso[4] === undefined ? null : { hour: Number(iso[4]), minute: Number(iso[5]) },
+      time: iso[5] === undefined ? null : { hour: Number(iso[5]), minute: Number(iso[6]) },
+    });
+  }
+
+  const monthFirst = MONTH_FIRST.exec(text);
+  if (monthFirst !== null) {
+    options.push({
+      year: Number(monthFirst[3]),
+      month: MONTHS[monthFirst[1].slice(0, 3).toLowerCase()],
+      day: Number(monthFirst[2]),
+      index: monthFirst.index,
+      end: monthFirst.index + monthFirst[0].length,
+      time: null,
     });
   }
 

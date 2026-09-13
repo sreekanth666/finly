@@ -192,6 +192,19 @@ describe('categoryNameFor', () => {
     expect(categoryNameFor(null, 'Big Bazaar')).toBe('Groceries');
     expect(categoryNameFor('Meera K S')).toBeNull();
   });
+
+  it('knows the railways, a pharmacy by any spelling, and a night at the movies', () => {
+    expect(categoryNameFor('Indian Railways')).toBe('Transport');
+    expect(categoryNameFor('A M PHARMACEUTI')).toBe('Health');
+    expect(categoryNameFor('District movies')).toBe('Personal');
+    expect(categoryNameFor('District')).toBe('Personal');
+    expect(categoryNameFor(null, 'Bank charges')).toBe('Bills');
+  });
+
+  it('does not take a district bank or treasury for the cinema', () => {
+    expect(categoryNameFor('ERNAKULAM DISTRICT CO-OP BANK')).toBeNull();
+    expect(categoryNameFor('District Treasury')).toBeNull();
+  });
 });
 
 describe('captureKey', () => {

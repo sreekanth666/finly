@@ -19,11 +19,11 @@ const MERCHANT_CATEGORIES: readonly [RegExp, string][] = [
     'Groceries',
   ],
   [
-    /\b(?:uber|ola|rapido|irctc|metro|ksrtc|redbus|makemytrip|goibibo|indigo|air india|akasa|spicejet|fastag|petrol|fuel|hpcl|bpcl|indian oil|iocl|parking|namma yatri|blusmart)\b/i,
+    /\b(?:uber|ola|rapido|irctc|indian railways?|metro|ksrtc|redbus|makemytrip|goibibo|indigo|air india|akasa|spicejet|fastag|petrol|fuel|hpcl|bpcl|indian oil|iocl|parking|namma yatri|blusmart)\b/i,
     'Transport',
   ],
   [
-    /\b(?:jio|airtel|vodafone|bsnl|act fibernet|tata play|dish tv|electricity|bescom|kseb|tneb|msedcl|tata power|bses|indane|bharat gas|hp gas|broadband|recharge|lic|insurance|netflix|spotify|hotstar|prime video|youtube premium)\b/i,
+    /\b(?:jio|airtel|vodafone|bsnl|act fibernet|tata play|dish tv|electricity|bescom|kseb|tneb|msedcl|tata power|bses|indane|bharat gas|hp gas|broadband|recharge|lic|insurance|netflix|spotify|hotstar|prime video|youtube premium|bank charges)\b/i,
     'Bills',
   ],
   [
@@ -31,11 +31,14 @@ const MERCHANT_CATEGORIES: readonly [RegExp, string][] = [
     'Shopping',
   ],
   [
-    /\b(?:apollo|pharmeasy|netmeds|1mg|medplus|hospital|clinic|pharmacy|chemist|diagnostics?|practo|healthkart)\b/i,
+    /\b(?:apollo|pharmeasy|netmeds|1mg|medplus|hospital|clinic|pharma\w*|chemist|diagnostics?|practo|healthkart)\b/i,
     'Health',
   ],
   [/\b(?:rent|nobroker|nestaway|society maintenance)\b/i, 'Housing'],
-  [/\b(?:salon|spa|barber|urban company|bookmyshow|pvr|inox|gym|cult\.?fit)\b/i, 'Personal'],
+  [/\b(?:salon|spa|barber|urban company|bookmyshow|pvr|inox|gym|cult\.?fit|movies)\b/i, 'Personal'],
+  /* Zomato's District app, only as the whole name: "ERNAKULAM DISTRICT CO-OP
+     BANK" and the District Treasury are not a night at the cinema. */
+  [/^district(?: app| movies)?$/i, 'Personal'],
 ];
 
 /** The seeded category name a payee's name suggests, or null. */

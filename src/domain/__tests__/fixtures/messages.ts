@@ -921,6 +921,15 @@ export const TRANSFERS: MessageFixture[] = [
     },
     expected: { kind: 'transfer', amountMinor: 500000, item: 'Arjun K' },
   },
+  {
+    name: 'IDFC FIRST card bill paid, thanked for',
+    input: {
+      body: 'Thank you for payment of INR 10.00 towards your FIRST Millennia Credit Card XX7866 on 06 Sep 2026. IDFC FIRST Bank',
+      sender: 'JX-IDFCFB-S',
+      receivedAt: at(2026, 9, 6, 15, 0),
+    },
+    expected: { kind: 'transfer', amountMinor: 1000, instrumentTail: '7866', issuer: 'IDFC First Bank' },
+  },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -1001,6 +1010,353 @@ export const NOT_TRANSACTIONS: MessageFixture[] = [
     },
     expected: { kind: 'unknown', amountMinor: null, confidence: 'low', reasons: ['redacted'] },
   },
+  {
+    name: 'A balance alert whose "CR." is a credit balance, not a credit',
+    input: {
+      body: 'Dear Customer, balance in A/c XX1234 is INR 500.00 CR. In case of queries call 18001800 - PNB',
+      sender: 'AX-PNBSMS',
+      receivedAt: at(2026, 9, 12, 9, 0),
+    },
+    expected: { kind: 'balance' },
+  },
+  {
+    name: 'An app announcement that "added" something that is not money',
+    input: {
+      body: "We've added a new feature to your account. Update the app to try it. - Fi",
+      sender: 'AX-FEDFIB-S',
+      receivedAt: at(2026, 9, 12, 9, 0),
+    },
+    expected: { kind: 'unknown', direction: null },
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Friends' messages, September 2026, masked                                    */
+/* -------------------------------------------------------------------------- */
+
+const FEDERAL_UPI = (amount: string, when: string, to: string, ref: string) =>
+  `Rs ${amount} sent via UPI on ${when} to ${to}.Ref:${ref}.Not you? Call 18004251199/SMS BLOCKUPI to 98950 88888 -Federal Bank`;
+
+/**
+ * Real alerts collected from friends, with names, references and account
+ * digits changed. Each was run through the reader before it was fixed; the
+ * comment says what it got wrong, where it got anything wrong.
+ */
+export const FRIENDS_MESSAGES: MessageFixture[] = [
+  {
+    name: 'Utkarsh SuperCard debit, a second cardholder',
+    input: {
+      body: 'Dear Rahul, your SuperCard 4172 debited for INR 50.00 on 12 Sep 07:24 PM for UPI - 662135340000. To dispute call 18003097986 - Utkarsh SFBL',
+      sender: 'JD-UTKSPR-S',
+      receivedAt: at(2026, 9, 12, 19, 25),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'debit',
+      amountMinor: 5000,
+      time: '19:24',
+      instrumentType: 'card',
+      instrumentTail: '4172',
+      issuer: 'Utkarsh SFB',
+      reference: '662135340000',
+      counterparty: null,
+      confidence: 'medium',
+    },
+  },
+  {
+    name: 'slice credit card spend on UPI',
+    input: {
+      body: 'Rs. 149 spent on your credit card xx5745 at District movies on 30-Aug-26 (UPI Ref: 624206860000). Not you? Call 080-4832-9999 - slice',
+      sender: 'VA-SLCBNK-S',
+      receivedAt: at(2026, 8, 30, 20, 0),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'debit',
+      amountMinor: 14900,
+      dayKey: '2026-08-30',
+      instrumentType: 'card',
+      instrumentTail: '5745',
+      issuer: 'slice',
+      reference: '624206860000',
+      counterparty: 'District movies',
+      confidence: 'high',
+    },
+  },
+  {
+    name: 'IDFC savings interest, with the new balance after it',
+    input: {
+      body: 'Monthly interest of INR.11.00 earned on your Savings A/c XX5094 has been credited to your A/C on 31/08/26. New bal: INR.5,032.00. IDFC FIRST Bank',
+      sender: 'AD-IDFCFB-S',
+      receivedAt: at(2026, 8, 31, 9, 0),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'credit',
+      amountMinor: 1100,
+      amountCandidates: [1100, 503200],
+      instrumentTail: '5094',
+      item: 'Interest',
+    },
+  },
+  {
+    // Missed the payer: AU puts it inside the UPI narration.
+    name: 'AU credit with the payer in a UPI/CR narration',
+    input: {
+      body: 'Credited INR 10.00 to A/c X7514 on 10-SEP-2026 Ref UPI/CR/661927960000/RAHUL MENON/PUNB/43360. Bal INR 60.00.\n-AU Bank',
+      sender: 'AD-AUBANK-S',
+      receivedAt: at(2026, 9, 10, 11, 0),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'credit',
+      amountMinor: 1000,
+      instrumentTail: '7514',
+      reference: '661927960000',
+      counterparty: 'RAHUL MENON',
+      item: 'Rahul Menon',
+      confidence: 'high',
+    },
+  },
+  {
+    name: 'ICICI credit from a named person',
+    input: {
+      body: 'Dear Customer, Acct XX459 is credited with Rs 50.00 on 10-Sep-26 from RAHUL MENON. UPI:215292440000-ICICI Bank.',
+      sender: 'AX-ICICIT-S',
+      receivedAt: at(2026, 9, 10, 11, 0),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'credit',
+      amountMinor: 5000,
+      counterparty: 'RAHUL MENON',
+      reference: '215292440000',
+      confidence: 'high',
+    },
+  },
+  {
+    // Read as a balance alert: "Dr." and "Cr." were not verbs, and the glued
+    // "AvlBal" balance made the amount ambiguous.
+    name: 'Bank of Baroda "Dr. from … Cr. to" with a colon-separated date',
+    input: {
+      body: 'Rs.3000.00 Dr. from A/C XXXXXX7592 and Cr. to 9876501234@ptyes. Ref:614822810000. AvlBal:Rs1211.67(2026:05:28 06:57:51). Not you? Call 18005700/5000-BOB',
+      sender: 'JK-BOBSMS-S',
+      receivedAt: at(2026, 5, 28, 6, 58),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'debit',
+      amountMinor: 300000,
+      amountCandidates: [300000, 121167],
+      dayKey: '2026-05-28',
+      time: '06:57',
+      instrumentTail: '7592',
+      issuer: 'Bank of Baroda',
+      reference: '614822810000',
+      counterparty: null,
+      confidence: 'medium',
+    },
+  },
+  {
+    // Unknown: "We've added … to your account" was not a verb, and the date
+    // is written month first.
+    name: 'Fi interest, month-first date',
+    input: {
+      body: "Great news! We've added INR 242.00 as interest to your account XXXXXXXX1716. Date: March 28, 2026 | Check Fi app for details. -Federal Bank",
+      sender: 'AX-FEDFIB-S',
+      receivedAt: at(2026, 3, 28, 10, 0),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'credit',
+      amountMinor: 24200,
+      dayKey: '2026-03-28',
+      instrumentTail: '1716',
+      issuer: 'Federal Bank',
+      item: 'Interest',
+    },
+  },
+  {
+    // Payee was "18:11:09 to A M PHARMACEUTI.Ref:606966942837", at high
+    // confidence: "at" took the time, and nothing stopped at the glued ".Ref".
+    name: 'Federal Bank UPI, a time after "at" and a glued ".Ref"',
+    input: {
+      body: FEDERAL_UPI('4.00', '10-03-2026 at 18:11:09', 'A M PHARMACEUTI', '606966940000'),
+      sender: 'JD-FEDBNK-S',
+      receivedAt: at(2026, 3, 10, 18, 12),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'debit',
+      amountMinor: 400,
+      time: '18:11',
+      counterparty: 'A M PHARMACEUTI',
+      item: 'A M Pharmaceuti',
+      reference: '606966940000',
+      confidence: 'high',
+    },
+  },
+  {
+    name: 'Federal Bank UPI to a person',
+    input: {
+      body: FEDERAL_UPI('46087.06', '11-03-2026 at 06:08:13', 'Rahul Menon', '643604780000'),
+      sender: 'JK-FEDBNK-S',
+      receivedAt: at(2026, 3, 11, 6, 9),
+    },
+    expected: {
+      kind: 'transaction',
+      amountMinor: 4608706,
+      time: '06:08',
+      counterparty: 'Rahul Menon',
+      reference: '643604780000',
+      confidence: 'high',
+    },
+  },
+  {
+    // Payee was "APR-26. The curr bal", at high confidence.
+    name: 'SBM Bank non-maintenance charge',
+    input: {
+      body: 'Your account XXXXXXXXXX6909 is debited with INR 1. on 2026-06-05 13:20:23 infor :AMB NON MAINTENANCE CHARGES FOR APR-26. The curr bal is INR 0. If not initiated at your end, click on the given link to raise a dispute',
+      sender: 'JM-SBMIND-S',
+      receivedAt: at(2026, 6, 5, 13, 21),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'debit',
+      amountMinor: 100,
+      time: '13:20',
+      instrumentTail: '6909',
+      issuer: 'SBM Bank India',
+      counterparty: null,
+      item: 'Bank charges',
+      confidence: 'medium',
+      reasons: ['item:bank-charge'],
+    },
+  },
+  {
+    name: 'SBI UPI to Indian Railways',
+    input: {
+      body: 'Dear UPI user A/C X1235 debited by 489.05 on date 22Nov25 trf to Indian Railways Refno 532652460000 If not u? call-1800111109 for other services-18001234-SBI',
+      sender: 'JD-SBIUPI-S',
+      receivedAt: at(2025, 11, 22, 10, 0),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'debit',
+      amountMinor: 48905,
+      dayKey: '2025-11-22',
+      counterparty: 'Indian Railways',
+      confidence: 'high',
+    },
+  },
+  {
+    // Payee was "merchant", and the wallet was not recognised.
+    name: 'Amazon Pay balance, sent by Juspay',
+    input: {
+      body: 'Payment of Rs 969.00 using Apay Balance successful at merchant. Updated Balance is Rs 0.00 - SMS via Juspay',
+      sender: 'JM-JUSPAY-S',
+      receivedAt: at(2026, 9, 1, 10, 0),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'debit',
+      amountMinor: 96900,
+      instrumentType: 'wallet',
+      issuer: 'Amazon Pay',
+      counterparty: null,
+      confidence: 'medium',
+    },
+  },
+  {
+    // The account tail was missed: PNB prints eight digits of it.
+    name: 'PNB debit card, eight digits of the account printed',
+    input: {
+      body: 'Ac XXXXXXXX03114039 Debited by INR 488.82,14-06-2024 08:15:33 thru Debitcard XXXX5520.Aval Bal INR 539.25 CR.Helpline 18001800/18002021. If not done by you, pl. forward this SMS from registered mobile to 9264092640 to report unauthorized txn & block debit card.Download PNB One App for better experience-PNB',
+      sender: 'AX-PNBSMS',
+      receivedAt: at(2024, 6, 14, 8, 16),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'debit',
+      amountMinor: 48882,
+      amountCandidates: [48882, 53925],
+      time: '08:15',
+      instrumentType: 'account',
+      instrumentTail: '4039',
+      channel: 'card',
+      counterparty: null,
+      confidence: 'medium',
+    },
+  },
+  {
+    name: 'PNB UPI credit',
+    input: {
+      body: 'Your a/c XX4039 is credited for INR 3000.00  on 02-08-24 22:47 through UPI.Available Bal INR 3536.89 (UPI Ref ID 421514150000).Download PNB ONE-PNB',
+      sender: 'AX-PNBSMS',
+      receivedAt: at(2024, 8, 2, 22, 48),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'credit',
+      amountMinor: 300000,
+      time: '22:47',
+      instrumentTail: '4039',
+      reference: '421514150000',
+      counterparty: null,
+    },
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Shapes the fixes above must not break                                        */
+/* -------------------------------------------------------------------------- */
+
+export const EDGE_CASES: MessageFixture[] = [
+  {
+    name: 'A VPA with a dot in it keeps its name before a glued ".Ref"',
+    input: {
+      body: FEDERAL_UPI('250.00', '10-03-2026 at 09:15:00', 'shop.upi@okaxis', '606966941111'),
+      sender: 'JD-FEDBNK-S',
+      receivedAt: at(2026, 3, 10, 9, 16),
+    },
+    expected: { counterparty: 'shop.upi@okaxis' },
+  },
+  {
+    name: 'ATM charges are a bank charge, not cash drawn',
+    input: {
+      body: 'Rs 23.60 debited from A/c XX1234 on 05-09-26 towards ATM WDL CHARGES. Avl Bal Rs 5,000.00 -SBI',
+      sender: 'AD-SBIINB',
+      receivedAt: at(2026, 9, 5, 12, 0),
+    },
+    expected: { kind: 'transaction', amountMinor: 2360, counterparty: null, item: 'Bank charges' },
+  },
+  {
+    name: 'SMS charges, with the balance after them',
+    input: {
+      body: 'INR 15.00 debited from your A/c XX1234 on 01-09-26 towards SMS Charges for Jul-Sep. Avl Bal INR 4,985.00 - Canara Bank',
+      sender: 'VM-CANBNK',
+      receivedAt: at(2026, 9, 1, 12, 0),
+    },
+    expected: { kind: 'transaction', amountMinor: 1500, counterparty: null, item: 'Bank charges' },
+  },
+  {
+    name: 'A school fee is spending, not a bank charge',
+    input: {
+      body: 'Fee payment of Rs 12,000.00 debited from A/c XX1234 on 01-09-26 to ABC PUBLIC SCHOOL. Ref 612345678901 - HDFC Bank',
+      sender: 'VM-HDFCBK',
+      receivedAt: at(2026, 9, 1, 12, 0),
+    },
+    expected: { kind: 'transaction', counterparty: 'ABC PUBLIC SCHOOL', item: 'Abc Public School' },
+  },
+  {
+    name: 'An annual fee named for a school keeps the school',
+    input: {
+      body: 'Rs 5,000.00 debited from A/c XX1234 on 01-09-26 towards ANNUAL FEE DPS SCHOOL. Avl Bal Rs 20,000.00 -SBI',
+      sender: 'AD-SBIINB',
+      receivedAt: at(2026, 9, 1, 12, 0),
+    },
+    expected: { kind: 'transaction', counterparty: 'ANNUAL FEE DPS SCHOOL' },
+  },
 ];
 
 export const ALL_MESSAGES: MessageFixture[] = [
@@ -1008,4 +1364,6 @@ export const ALL_MESSAGES: MessageFixture[] = [
   ...OTHER_SENDERS,
   ...TRANSFERS,
   ...NOT_TRANSACTIONS,
+  ...FRIENDS_MESSAGES,
+  ...EDGE_CASES,
 ];
