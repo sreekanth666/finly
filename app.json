@@ -78,7 +78,8 @@
           ]
         }
       ],
-      "./plugins/with-share-target"
+      "./plugins/with-share-target",
+      "expo-mail-composer"
     ],
     "experiments": {
       "typedRoutes": true,

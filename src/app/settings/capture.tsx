@@ -8,6 +8,7 @@ import {
   ClipboardPaste,
   EyeOff,
   Inbox,
+  Mail,
   MessageSquareText,
   Plus,
   ShieldAlert,
@@ -417,6 +418,13 @@ export default function CaptureSettingsScreen() {
                 </Typography>
               )}
             </View>
+            <Button
+              icon={Mail}
+              label="Report a detection problem"
+              tone="secondary"
+              size="sm"
+              onPress={() => navigate({ pathname: '/settings/contact', params: { topic: 'detection' } })}
+            />
             <Typography type="body-xs" color="muted" className="px-1">
               On Xiaomi, Oppo, Vivo, OnePlus and Realme phones, battery savers often stop apps that read notifications.
               If detection goes quiet, set Finly’s battery use to Unrestricted in your phone’s app settings.

@@ -5,16 +5,21 @@ import { Pressable, View } from 'react-native';
 
 import { Button } from './button';
 
-import type { TemplateSpec } from '@/domain/txn-detect';
+import type { ReadingSummary, TemplateSpec } from '@/domain/txn-detect';
 import { buildContribution, emailDeveloper, shareContribution } from '@/features/capture/templates';
+import { sentMessage } from '@/features/support/mail';
 
 export type TemplateShareProps = {
   /** Already masked — see `maskMessage`. */
   maskedMessage: string;
   /** The taught format, when there is one; null for a plain "this was misread". */
   template: TemplateSpec | null;
-  /** For the subject line. */
+  /** For the subject line; only a sender id ever reaches it. */
   sender: string | null;
+  /** The bank's name, for the subject when there is no sender id. */
+  issuer?: string | null;
+  /** What Finly made of the message, for a plain misread. */
+  reading?: ReadingSummary | null;
   /** The link shown while closed. */
   collapsedLabel?: string;
   initiallyOpen?: boolean;
@@ -35,13 +40,16 @@ export function TemplateShare({
   maskedMessage,
   template,
   sender,
+  issuer = null,
+  reading = null,
   collapsedLabel = 'Read this wrong? Send it to the developer, masked',
   initiallyOpen = false,
 }: TemplateShareProps) {
   const [isOpen, setIsOpen] = useState(initiallyOpen);
-  const [draft] = useState(() => buildContribution({ maskedMessage, template, sender }));
+  const [draft] = useState(() => buildContribution({ maskedMessage, template, sender, issuer, reading }));
   const [body, setBody] = useState(draft.body);
   const [isSending, setIsSending] = useState(false);
+  const [outcome, setOutcome] = useState<string | null>(null);
 
   if (!isOpen) {
     return (
@@ -56,7 +64,7 @@ export function TemplateShare({
   const send = async (how: 'email' | 'share') => {
     setIsSending(true);
     try {
-      if (how === 'email') await emailDeveloper(draft.subject, body);
+      if (how === 'email') setOutcome(sentMessage(await emailDeveloper(draft.subject, body)));
       else await shareContribution(draft.subject, body);
     } finally {
       setIsSending(false);
@@ -77,6 +85,11 @@ export function TemplateShare({
         isDisabled={isSending || body.trim().length === 0}
         onPress={() => void send('email')}
       />
+      {outcome !== null && (
+        <Typography type="body-xs" color="muted">
+          {outcome}
+        </Typography>
+      )}
       <View className="flex-row gap-3">
         <View className="flex-1">
           <Button label="Not now" tone="secondary" size="sm" onPress={() => setIsOpen(false)} />

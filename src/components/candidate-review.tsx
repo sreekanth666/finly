@@ -194,7 +194,7 @@ export function CandidateReview({ candidate, categories, accounts, rules }: Cand
           ))}
 
           <SourceMessage text={candidate.sourceText} initiallyOpen />
-          <MisreadActions candidateId={candidate.id} body={candidate.body} sender={candidate.sender} />
+          <MisreadActions candidate={candidate} />
 
           <View className="flex-row gap-3">
             <View className="flex-1">

@@ -8,6 +8,7 @@ import {
   CircleDollarSign,
   Inbox,
   Info,
+  Mail,
   MessageSquareText,
   Shapes,
   Coins,
@@ -211,6 +212,14 @@ export default function SettingsScreen() {
                     }
                   : undefined
               }
+            />
+            <SettingsRow
+              isFirst={false}
+              icon={Mail}
+              iconTone="accent"
+              label="Contact the developer"
+              description="A problem, an idea, or a bank Finly reads wrong"
+              onPress={() => navigate('/settings/contact')}
             />
           </View>
           <Typography type="body-xs" color="muted" className="px-1">

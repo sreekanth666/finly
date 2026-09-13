@@ -251,6 +251,7 @@ export default function RootLayout() {
                 <Stack.Screen name="settings/capture-consent" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="settings/templates/index" />
                 <Stack.Screen name="settings/templates/editor" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="settings/contact" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="inbox/index" />
                 <Stack.Screen name="inbox/[id]" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="inbox/paste" options={{ presentation: 'modal' }} />

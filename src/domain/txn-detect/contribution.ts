@@ -7,6 +7,7 @@
  * is the compact encoding, so a whole contribution fits in a mailto link.
  */
 
+import { senderHeader } from './sources';
 import { encodeSegments, type TemplateSpec } from './user-templates';
 
 export const DEVELOPER_EMAIL = 'srekthk1@gmail.com';
@@ -38,16 +39,40 @@ export function templatePayload(template: TemplateSpec, parserVersion: number): 
   });
 }
 
-export function contributionSubject(template: TemplateSpec | null, sender: string | null): string {
-  const who = sender ?? template?.binding.issuer ?? template?.binding.senderKey ?? 'a bank';
+/**
+ * Who a contribution is about, for the subject line. Only a sender id or a
+ * bank's name: a notification's sender can be a saved contact ("Mom"), or a
+ * person's phone number, and the subject is the one line the user may not
+ * read before sending.
+ */
+export function contributionSubject(
+  template: TemplateSpec | null,
+  sender: string | null,
+  issuer: string | null = null,
+): string {
+  const who =
+    senderHeader(sender) ?? template?.binding.senderKey ?? template?.binding.issuer ?? issuer ?? 'a bank';
   return template === null ? `Finly misread a message from ${who}` : `Finly message format: ${who}`;
 }
+
+/** What Finly made of a message, for a plain misread report. No amounts; the payee only masked. */
+export type ReadingSummary = {
+  kind: string;
+  direction: string | null;
+  confidence: string;
+  dateConfidence: string;
+  reasons: readonly string[];
+  maskedPayee: string | null;
+  sourceApp: string;
+  senderKey: string | null;
+};
 
 export function contributionBody(input: {
   maskedMessage: string;
   template: TemplateSpec | null;
   appVersion: string | null;
   parserVersion: number;
+  reading?: ReadingSummary | null;
 }): string {
   const { template } = input;
   const lines = [
@@ -66,6 +91,19 @@ export function contributionBody(input: {
     lines.push(`What it is: ${direction}${OUTCOME_WORDS[template.outcome]}`);
   }
   lines.push(`App ${input.appVersion ?? 'unknown'} · reader ${input.parserVersion}`, '');
+
+  const reading = input.reading ?? null;
+  if (template === null && reading !== null) {
+    lines.push(
+      'What Finly read:',
+      `  ${reading.kind}${reading.direction === null ? '' : `, ${reading.direction}`}, ${reading.confidence} confidence, date ${reading.dateConfidence}`,
+      `  Payee: ${reading.maskedPayee ?? 'none found'}`,
+      `  From: ${[reading.senderKey, reading.sourceApp].filter((part): part is string => part !== null).join(' · ')}`,
+      `  Reasons: ${reading.reasons.join(', ') || 'none'}`,
+      '',
+    );
+  }
+
   lines.push('Message (numbers, card digits and UPI ids scrambled):', input.maskedMessage.trim());
 
   if (template !== null) {

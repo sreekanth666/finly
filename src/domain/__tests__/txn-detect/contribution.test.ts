@@ -75,4 +75,34 @@ describe('the contribution email', () => {
     expect(body).not.toContain('Template:');
     expect(contributionSubject(null, 'HDFCBK')).toBe('Finly misread a message from HDFCBK');
   });
+
+  it('never puts a contact name or a phone number in the subject', () => {
+    expect(contributionSubject(null, 'Mom')).toBe('Finly misread a message from a bank');
+    expect(contributionSubject(null, '+91 98765 43210')).toBe('Finly misread a message from a bank');
+    expect(contributionSubject(null, 'Mom', 'HDFC Bank')).toBe('Finly misread a message from HDFC Bank');
+    expect(contributionSubject(null, 'JD-HDFCBK-S')).toBe('Finly misread a message from HDFCBK');
+  });
+
+  it('says what Finly read, for a plain misread, with no amount', () => {
+    const body = contributionBody({
+      maskedMessage: 'x',
+      template: null,
+      appVersion: '1.0.1',
+      parserVersion: 2,
+      reading: {
+        kind: 'transaction',
+        direction: 'debit',
+        confidence: 'high',
+        dateConfidence: 'exact',
+        reasons: ['kind:transaction', 'amount:marked'],
+        maskedPayee: 'name@okaxis',
+        sourceApp: 'SMS',
+        senderKey: 'FEDBNK',
+      },
+    });
+    expect(body).toContain('What Finly read:');
+    expect(body).toContain('transaction, debit, high confidence, date exact');
+    expect(body).toContain('Payee: name@okaxis');
+    expect(body).toContain('From: FEDBNK · SMS');
+  });
 });
