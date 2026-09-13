@@ -91,8 +91,10 @@ export function useDiagnostics(withShapes: boolean): Diagnostics {
     rev: templatesRev(database),
     done: getSetting('capture_templates_done_rev', database),
   }));
-  const problems = useDbQuery(`support:problems:${withShapes}`, ['detected_transactions', 'captured_messages'], (database) =>
-    withShapes ? listProblemMessages(SHAPE_LIMIT, database) : [],
+  const problems = useDbQuery(
+    `support:problems:${withShapes}`,
+    ['detected_transactions', 'captured_messages', 'expenses'],
+    (database) => (withShapes ? listProblemMessages(SHAPE_LIMIT, database) : []),
   );
   const settings = useCaptureSettings();
   const inbox = useInbox();

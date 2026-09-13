@@ -8,8 +8,10 @@
  * skeleton keeps only the words the reader itself looks for:
  *
  * - detection words stay as they are: verbs, prepositions, a/c, ref, balance,
- *   UPI, gate words (OTP, statement, due), months, currency marks, bank names;
- * - every other word becomes its case shape: `Aa`, `AA`, `aa`, `A`;
+ *   UPI, gate words (OTP, statement, due), currency marks;
+ * - a bank's name stays only as a whole name ("South Indian Bank"), never as a
+ *   word that a shop could share ("SOUTH INDIAN SWEETS");
+ * - every other word, in any script, becomes its case shape: `Aa`, `AA`, `aa`;
  * - an amount becomes `9` or `9.99` behind its currency mark;
  * - any other run of digits becomes 9s of the same length, so a twelve-digit
  *   reference still looks like one;
@@ -50,20 +52,35 @@ const KEEP = new Set(
     'insufficient', 'funds', 'upcoming', 'scheduled', 'requested', 'request', 'collect', 'cashback', 'offer',
     'upto', 'up', 'win', 'won', 'voucher', 'coupon', 'discount', 'eligible', 'apply', 'download', 'hurry',
     'congratulations', 'interest', 'earned', 'charges', 'charge', 'chgs', 'fee', 'fees', 'penalty', 'maintenance',
-    'non', 'amb', 'annual', 'processing', 'wdl', 'sip', 'mutual', 'fund', 'clearing', 'corp', 'club', 'cred',
+    'non', 'amb', 'annual', 'processing', 'wdl', 'sip', 'mutual', 'fund', 'clearing', 'corp', 'cred',
     'billdesk', 'top', 'topup', 'recharge', 'self', 'sensitive', 'notification', 'content', 'hidden',
-    // Months, weekdays, time words.
-    'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec', 'january',
-    'february', 'march', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
-    'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'am', 'pm', 'ist', 'st', 'nd', 'rd', 'th',
-    // Issuers and payment apps: whose format this is, never who the user is.
-    'bank', 'hdfc', 'hdfcbk', 'icici', 'sbi', 'state', 'axis', 'kotak', 'yes', 'idfc', 'first', 'indusind', 'pnb',
-    'punjab', 'national', 'baroda', 'bob', 'canara', 'union', 'india', 'federal', 'south', 'indian', 'au', 'small',
-    'finance', 'sfb', 'sfbl', 'utkarsh', 'equitas', 'ujjivan', 'paytm', 'airtel', 'payments', 'amex', 'american',
-    'express', 'slice', 'citi', 'hsbc', 'rbl', 'idbi', 'bandhan', 'dbs', 'fi', 'jupiter', 'sbm', 'juspay', 'apay',
-    'amazon', 'phonepe', 'gpay', 'google', 'bhim', 'millennia', 'overseas', 'central', 'uco', 'karnataka',
+    // Time words. Month and weekday names are kept only inside a date (see
+    // PROTECTED): on their own, "May" and "August" are also people.
+    'am', 'pm', 'ist', 'st', 'nd', 'rd', 'th',
+    // Issuers and apps that are not also ordinary words or names. Anything that
+    // is — "South", "Union", "India", "Amazon", "Bhim" — is kept only as part of
+    // a whole bank name; see ISSUER_PHRASES.
+    'bank', 'hdfc', 'hdfcbk', 'icici', 'sbi', 'axis', 'kotak', 'idfc', 'indusind', 'pnb', 'canara', 'sfb', 'sfbl',
+    'utkarsh', 'equitas', 'ujjivan', 'paytm', 'amex', 'hsbc', 'rbl', 'idbi', 'bandhan', 'dbs', 'sbm', 'juspay',
+    'apay', 'phonepe', 'gpay', 'millennia', 'uco',
   ].map((word) => word.toLowerCase()),
 );
+
+/**
+ * Whole bank and clearing-house names, kept as they are. Their words alone are
+ * too ordinary to keep — "SOUTH INDIAN SWEETS" is somebody's shop — so only the
+ * full name survives, and a payee that merely shares a word with one does not.
+ */
+const ISSUER_PHRASES =
+  /\b(?:state bank of india|union bank of india|central bank of india|bank of baroda|bank of india|punjab national bank|south indian bank|indian overseas bank|indian bank|idfc first bank|idfc first|yes bank|au small finance bank|au bank|american express|airtel payments bank|paytm payments bank|federal bank|karnataka bank|karur vysya bank|city union bank|canara bank|axis bank|hdfc bank|icici bank|kotak mahindra bank|kotak bank|sbm bank india|sbm bank|utkarsh sfbl?|amazon pay|google pay|indian clearing(?: corp\w*)?)\b/gi;
+
+/**
+ * Letters outside plain English. A name saved in Tamil, Malayalam, Hindi or any
+ * other script is still a name. Spelled as ranges rather than `\p{L}` so it
+ * does not depend on the JavaScript engine's Unicode property support.
+ */
+const OTHER_LETTERS =
+  /[\u00C0-\u024F\u0370-\u03FF\u0400-\u04FF\u0590-\u06FF\u0900-\u0DFF\u0E00-\u0E7F\u1E00-\u1EFF\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]+/g;
 
 const PROTECTED = new RegExp(
   [
@@ -112,12 +129,15 @@ function skeletonOfPlain(text: string): string {
       .replace(/\b\d[\d,]*\.\d{1,2}\b/g, '9.99')
       // Every other run of digits keeps its length.
       .replace(/\d+/g, (digits) => '9'.repeat(digits.length))
+      // A name in any other script.
+      .replace(OTHER_LETTERS, 'Aa')
       // Words, by shape unless the reader looks for them.
       .replace(/[A-Za-z]+/g, shapeOf)
   );
 }
 
-export function skeletonOf(body: string): string {
+/** The parts of a message outside a bank name: dates and times kept, the rest shaped. */
+function skeletonOfUnnamed(body: string): string {
   let result = '';
   let last = 0;
   for (const match of body.matchAll(PROTECTED)) {
@@ -128,4 +148,14 @@ export function skeletonOf(body: string): string {
     last = match.index + value.length;
   }
   return result + skeletonOfPlain(body.slice(last));
+}
+
+export function skeletonOf(body: string): string {
+  let result = '';
+  let last = 0;
+  for (const match of body.matchAll(ISSUER_PHRASES)) {
+    result += skeletonOfUnnamed(body.slice(last, match.index)) + match[0];
+    last = match.index + match[0].length;
+  }
+  return result + skeletonOfUnnamed(body.slice(last));
 }

@@ -31,6 +31,19 @@ describe('skeletonOf', () => {
     expect(skeletonOf('paid 02 Rahul')).toBe('paid 99 Aa');
   });
 
+  it('removes a payee whose name shares words with a bank, and keeps a whole bank name', () => {
+    expect(skeletonOf('Paid Rs.150.00 to SOUTH INDIAN SWEETS via UPI')).toBe('Paid Rs.9.99 to AA AA AA via UPI');
+    expect(skeletonOf('Ref UPI/CR/661927960000/UNION TRADERS/PUNB/43360.')).toBe('Ref UPI/CR/999999999999/AA AA/AA/99999.');
+    expect(skeletonOf('Rs.75.00 debited - South Indian Bank')).toBe('Rs.9.99 debited - South Indian Bank');
+    expect(skeletonOf('- Union Bank of India')).toBe('- Union Bank of India');
+  });
+
+  it('removes names in any script, not only Latin letters', () => {
+    const skeleton = skeletonOf('Dear ரமேஷ், Rs.500 credited from രാഹുൽ and राहुल');
+    expect(skeleton).not.toMatch(/[ऀ-෿]/);
+    expect(skeleton).toBe('Dear Aa, Rs.9 credited from Aa and Aa');
+  });
+
   it('drops links, which can carry a personal token', () => {
     expect(skeletonOf('Details: https://2s.ms/UTKSPR/qft7VD -Utkarsh SFBL')).toBe('Details: https://… -Utkarsh SFBL');
   });

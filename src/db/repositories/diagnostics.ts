@@ -106,7 +106,7 @@ export function listProblemMessages(limit: number, database: DbLike = db): Probl
     })
     .from(detectedTransactions)
     .innerJoin(capturedMessages, eq(capturedMessages.id, detectedTransactions.messageId))
-    .leftJoin(expenses, eq(expenses.id, detectedTransactions.expenseId))
+    .leftJoin(expenses, and(eq(expenses.id, detectedTransactions.expenseId), isNull(expenses.deletedAt)))
     .where(
       and(
         alive,
