@@ -664,6 +664,15 @@ export function suggestTags(
   return tags;
 }
 
+/** Which template read a detection, from its reasons, or null. */
+export function templateIdOf(reasons: readonly string[]): string | null {
+  for (const reason of reasons) {
+    if (reason.startsWith('template:mute:')) return reason.slice('template:mute:'.length);
+    if (reason.startsWith('template:')) return reason.slice('template:'.length);
+  }
+  return null;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Storage and contribution encoding                                            */
 /* -------------------------------------------------------------------------- */

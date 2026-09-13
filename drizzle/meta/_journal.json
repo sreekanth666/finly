@@ -15,6 +15,13 @@
       "when": 1789239852578,
       "tag": "0001_careful_vargas",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789284698671,
+      "tag": "0002_fat_madame_hydra",
+      "breakpoints": true
     }
   ]
 }

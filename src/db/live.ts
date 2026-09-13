@@ -30,7 +30,8 @@ export type TableName =
   | 'rule_actions'
   | 'settings'
   | 'captured_messages'
-  | 'detected_transactions';
+  | 'detected_transactions'
+  | 'capture_templates';
 
 export type QueryResult<T> =
   | { data: T; error: null; refetch: () => void }

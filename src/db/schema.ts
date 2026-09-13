@@ -299,6 +299,12 @@ export const detectedTransactions = sqliteTable(
     /** A credit recorded as money back against an expense (D1). */
     settlementId: text('settlement_id').references(() => settlements.id, { onDelete: 'set null' }),
     parserVersion: integer('parser_version').notNull(),
+    /**
+     * The `capture_templates_rev` this was read with (D18). Teaching, editing
+     * or removing a template bumps the rev, and pending rows read under an
+     * older one are read again — the same mechanism as `parser_version`.
+     */
+    templatesRev: integer('templates_rev').notNull().default(0),
     /** Set once the user changes anything, so a parser upgrade never undoes their edit. */
     isEdited: integer('is_edited', { mode: 'boolean' }).notNull().default(false),
     resolvedAt: integer('resolved_at'),
@@ -334,6 +340,54 @@ export const detectedTransactions = sqliteTable(
     index('idx_detected_reference').on(table.reference),
     index('idx_detected_expense').on(table.expenseId),
     index('idx_detected_message').on(table.messageId),
+  ],
+);
+
+/**
+ * Message formats the user taught Finly (D18). Each is bound to one sender and
+ * stored as encoded segments (see `encodeSegments`), never as a pattern: the
+ * pattern is compiled from these on load, so a fix to compilation reaches
+ * every saved template without a migration.
+ *
+ * The sample is masked before it is stored, so this table is never a second
+ * home for reference numbers and UPI ids outside retention's reach. Clearing
+ * the inbox does not clear this table — what was taught survives.
+ */
+export const captureTemplates = sqliteTable(
+  'capture_templates',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    /** The DLT header, e.g. HDFCBK. */
+    senderKey: text('sender_key'),
+    /** A payment app's package. Never an SMS app's. */
+    packageName: text('package_name'),
+    issuer: text('issuer'),
+    outcome: text('outcome').notNull().$type<TemplateOutcomeColumn>(),
+    direction: text('direction').$type<'debit' | 'credit'>(),
+    /** The negative kind the sample was filed as, which this template may overrule. */
+    overridesGate: text('overrides_gate').$type<DetectionKindColumn>(),
+    /** JSON array of encoded segments. */
+    segments: text('segments').notNull(),
+    sampleMasked: text('sample_masked').notNull(),
+    timesMatched: integer('times_matched').notNull().default(0),
+    lastMatchedAt: integer('last_matched_at'),
+    isEnabled: integer('is_enabled', { mode: 'boolean' }).notNull().default(true),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+    deletedAt: integer('deleted_at'),
+  },
+  (table) => [
+    check(
+      'capture_templates_binding',
+      sql`${table.senderKey} is not null or ${table.packageName} is not null or ${table.issuer} is not null`,
+    ),
+    check('capture_templates_outcome', sql`${table.outcome} in ('transaction','transfer','ignore')`),
+    check(
+      'capture_templates_direction',
+      sql`${table.direction} is null or ${table.direction} in ('debit','credit')`,
+    ),
+    index('idx_capture_templates_live').on(table.deletedAt, table.isEnabled),
   ],
 );
 
@@ -389,6 +443,8 @@ export const CANDIDATE_STATUSES = [
 ] as const;
 export type CandidateStatus = (typeof CANDIDATE_STATUSES)[number];
 
+export type TemplateOutcomeColumn = 'transaction' | 'transfer' | 'ignore';
+
 export type SettingKey =
   | 'schema_seeded'
   | 'onboarding_done'
@@ -421,7 +477,11 @@ export type SettingKey =
   /** Days a resolved message's text is kept. Absent means DEFAULT_RETENTION_DAYS. */
   | 'capture_retention_days'
   /** The PARSER_VERSION pending candidates were last read with. */
-  | 'capture_parser_version';
+  | 'capture_parser_version'
+  /** D18: bumped by every template write; pending candidates read under less are re-read. */
+  | 'capture_templates_rev'
+  /** The rev a re-read last finished at. Behind `capture_templates_rev` means work is left. */
+  | 'capture_templates_done_rev';
 
 /* -------------------------------------------------------------------------- */
 /* Row types — these replace the hand-written types the fixtures used to carry  */
@@ -447,4 +507,6 @@ export type SettingRow = typeof settings.$inferSelect;
 export type CapturedMessageRow = typeof capturedMessages.$inferSelect;
 export type NewCapturedMessageRow = typeof capturedMessages.$inferInsert;
 export type DetectedTransactionRow = typeof detectedTransactions.$inferSelect;
+export type CaptureTemplateRow = typeof captureTemplates.$inferSelect;
+export type NewCaptureTemplateRow = typeof captureTemplates.$inferInsert;
 export type NewDetectedTransactionRow = typeof detectedTransactions.$inferInsert;

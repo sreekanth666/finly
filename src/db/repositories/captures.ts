@@ -143,7 +143,9 @@ function findPrimary(item: PreparedCapture, tx: DbLike): string | null {
   return match?.id ?? null;
 }
 
-function ingestOne(item: PreparedCapture, parserVersion: number, tx: DbLike): IngestOutcome {
+type ReadWith = { parserVersion: number; templatesRev: number };
+
+function ingestOne(item: PreparedCapture, readWith: ReadWith, tx: DbLike): IngestOutcome {
   const seen = tx
     .select({ id: detectedTransactions.id })
     .from(capturedMessages)
@@ -199,7 +201,8 @@ function ingestOne(item: PreparedCapture, parserVersion: number, tx: DbLike): In
       suggestedRuleId: suggestion.ruleId,
       status: primary === null ? 'pending' : 'duplicate',
       duplicateOf: primary,
-      parserVersion,
+      parserVersion: readWith.parserVersion,
+      templatesRev: readWith.templatesRev,
       createdAt: now,
       updatedAt: now,
     })
@@ -212,13 +215,39 @@ function ingestOne(item: PreparedCapture, parserVersion: number, tx: DbLike): In
  * Stores a batch of captures. Idempotent: a message already stored comes back
  * as `seen` with its existing candidate, which is what lets the native queue be
  * acknowledged only after this commits and simply replayed if it did not.
+ *
+ * `readWith` records which parser and which set of taught templates did the
+ * reading, so a later change to either re-reads what is still pending.
  */
 export function ingestCaptures(
   items: readonly PreparedCapture[],
-  parserVersion: number,
+  readWith: ReadWith,
   database: DbLike = db,
 ): IngestOutcome[] {
-  return writeTransaction((tx) => items.map((item) => ingestOne(item, parserVersion, tx)), database);
+  return writeTransaction((tx) => items.map((item) => ingestOne(item, readWith, tx)), database);
+}
+
+/**
+ * Recent messages, newest first, for the template editor's preview (D18): the
+ * editor runs a draft template over those from the same sender to show what
+ * it would read — and what it would wrongly claim — before it is saved.
+ */
+export function listRecentMessages(limit: number, database: DbLike = db): RawCapture[] {
+  return database
+    .select({
+      source: capturedMessages.source,
+      packageName: capturedMessages.packageName,
+      sender: capturedMessages.sender,
+      title: capturedMessages.title,
+      body: capturedMessages.body,
+      postedAt: capturedMessages.postedAt,
+      receivedAt: capturedMessages.receivedAt,
+    })
+    .from(capturedMessages)
+    .where(isNull(capturedMessages.deletedAt))
+    .orderBy(desc(capturedMessages.receivedAt))
+    .limit(limit)
+    .all();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -696,14 +725,18 @@ export function confirmCandidates(
 }
 
 /* -------------------------------------------------------------------------- */
-/* Re-reading after a parser upgrade                                            */
+/* Re-reading after a parser upgrade, or a change to what was taught            */
 /* -------------------------------------------------------------------------- */
 
 export type ReparseTarget = RawCapture & { id: string };
 
-/** Pending candidates read by an older parser that nobody has touched. */
+/**
+ * Pending candidates nobody has touched that were read by an older parser, or
+ * under an older set of taught templates (D18).
+ */
 export function listReparseTargets(
   belowVersion: number,
+  belowTemplatesRev: number,
   limit: number,
   database: DbLike = db,
 ): ReparseTarget[] {
@@ -725,7 +758,10 @@ export function listReparseTargets(
         alive,
         eq(detectedTransactions.status, 'pending'),
         eq(detectedTransactions.isEdited, false),
-        lt(detectedTransactions.parserVersion, belowVersion),
+        or(
+          lt(detectedTransactions.parserVersion, belowVersion),
+          lt(detectedTransactions.templatesRev, belowTemplatesRev),
+        ),
       ),
     )
     .limit(limit)
@@ -735,6 +771,7 @@ export function listReparseTargets(
 export function applyReparse(
   updates: readonly { id: string; detection: Detection; suggestion: Suggestion }[],
   parserVersion: number,
+  templatesRev: number,
   database: DbLike = db,
 ): void {
   writeTransaction((tx) => {
@@ -762,6 +799,7 @@ export function applyReparse(
           suggestedAccountId: suggestion.accountId,
           suggestedRuleId: suggestion.ruleId,
           parserVersion,
+          templatesRev,
           updatedAt: now,
         })
         .where(and(eq(detectedTransactions.id, id), eq(detectedTransactions.status, 'pending')))
