@@ -37,6 +37,7 @@ import {
   type TemplateSpec,
 } from '@/domain/txn-detect';
 import { previewTemplate, useCreateTemplate, useRecentMessages } from '@/features/capture/templates';
+import { useProfileName } from '@/features/profile/hooks';
 
 export type TemplateSample = {
   body: string;
@@ -136,6 +137,14 @@ export function TemplateEditor({ sample, onClose }: TemplateEditorProps) {
 
   const recent = useRecentMessages();
   const create = useCreateTemplate();
+  const owner = useProfileName();
+
+  /* The owner's own name never becomes part of a template: alerts quote it,
+     and a template can be emailed. */
+  const privateWords = useMemo(
+    () => (owner.data ?? '').split(/\s+/).filter((word) => word.length > 0),
+    [owner.data],
+  );
 
   const text = useMemo(() => normaliseText(message.body), [message.body]);
   const tokens = useMemo(() => tokenise(text), [text]);
@@ -155,10 +164,10 @@ export function TemplateEditor({ sample, onClose }: TemplateEditorProps) {
       outcome,
       direction: outcome === 'ignore' ? null : direction,
       overridesGate: isGatedKind(reading.kind) ? reading.kind : null,
-      segments: deriveSegments(text, outcome === 'ignore' ? [] : tags),
+      segments: deriveSegments(text, outcome === 'ignore' ? [] : tags, privateWords),
       updatedAt: now,
     }),
-    [finalName, binding, outcome, direction, reading.kind, text, tags, now],
+    [finalName, binding, outcome, direction, reading.kind, text, tags, now, privateWords],
   );
 
   const compiled = useMemo(() => compileTemplate(spec), [spec]);

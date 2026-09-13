@@ -213,7 +213,13 @@ type Unit =
   | { kind: 'anchor'; text: string; isWord: boolean; glued: boolean }
   | { kind: 'number'; glued: boolean }
   | { kind: 'word'; glued: boolean }
+  /** A person's name: never kept as text, only as a gap. */
+  | { kind: 'private'; glued: boolean }
   | { kind: 'newline'; glued: boolean };
+
+/** Words after which the next run of words is someone's name. */
+const GREETINGS = new Set(['dear', 'hi', 'hello']);
+const NOT_A_NAME = new Set(['customer', 'user', 'sir', 'madam', 'cardholder', 'member', 'upi', 'sbi']);
 
 /** Words kept on each side of a field. More makes a template stricter, and more brittle. */
 const WORDS_BEFORE = 2;
@@ -222,7 +228,14 @@ const WORDS_AFTER_LAST = 1;
 /** A template with no fields (a mute) keeps this much of the message. */
 const MUTE_UNITS = 40;
 
-function unitsOf(tokens: readonly Token[], tags: readonly Tag[]): Unit[] {
+/**
+ * @param privateWords lower-cased words that must never be kept as text — the
+ * owner's name, which alerts quote in "Dear …" lines and self-transfers.
+ * Names after a greeting are treated the same way without being listed. A
+ * template is stored on the phone and can be emailed to the developer, so a
+ * name must not survive into its segments.
+ */
+function unitsOf(tokens: readonly Token[], tags: readonly Tag[], privateWords: ReadonlySet<string>): Unit[] {
   /* Tapping a figure takes its currency mark with it: "INR" and "500.00" are
      two tokens after normalising, but one amount. */
   const spans = tags.map((tag) =>
@@ -237,17 +250,29 @@ function unitsOf(tokens: readonly Token[], tags: readonly Tag[]): Unit[] {
 
   const units: Unit[] = [];
   let current: Tag | null = null;
+  let inGreeting = false;
   tokens.forEach((token, index) => {
     const span = fieldAt.get(index) ?? null;
     if (span !== null) {
       if (span !== current) units.push({ kind: 'field', field: span.field, glued: token.glued });
       current = span;
+      inGreeting = false;
       return;
     }
     current = null;
+    const lowered = token.text.toLowerCase();
+
+    if (token.kind === 'word' && (privateWords.has(lowered) || (inGreeting && !NOT_A_NAME.has(lowered)))) {
+      /* One gap for a whole name, however many words it has. */
+      const previous = units[units.length - 1];
+      if (previous?.kind !== 'private') units.push({ kind: 'private', glued: token.glued });
+      return;
+    }
+    inGreeting = token.kind === 'word' && GREETINGS.has(lowered);
+
     if (token.kind === 'newline') units.push({ kind: 'newline', glued: token.glued });
     else if (token.kind === 'number') units.push({ kind: 'number', glued: token.glued });
-    else if (token.kind === 'word' && VARIABLE_WORDS.has(token.text.toLowerCase())) {
+    else if (token.kind === 'word' && VARIABLE_WORDS.has(lowered)) {
       units.push({ kind: 'word', glued: token.glued });
     } else {
       units.push({ kind: 'anchor', text: token.text, isWord: token.kind === 'word', glued: token.glued });
@@ -283,6 +308,8 @@ const toSegment = (unit: Unit): Segment => {
       return { type: 'number', glued: unit.glued };
     case 'word':
       return { type: 'word', glued: unit.glued };
+    case 'private':
+      return { type: 'gap', sameLine: true, glued: unit.glued };
     case 'newline':
       return { type: 'newline', glued: unit.glued };
   }
@@ -290,14 +317,24 @@ const toSegment = (unit: Unit): Segment => {
 
 /**
  * The segments for a tagged example: the fields, a few words either side of
- * each, and bounded gaps where the example had text nobody needs.
+ * each, and bounded gaps where the example had text nobody needs — or a name.
+ *
+ * @param privateWords words never to keep as text, lower-cased: the owner's
+ * name. Names after "Dear", "Hi" or "Hello" are left out without being listed.
  */
-export function deriveSegments(text: string, tags: readonly Tag[]): Segment[] {
-  const units = unitsOf(tokenise(text), tags);
+export function deriveSegments(text: string, tags: readonly Tag[], privateWords: readonly string[] = []): Segment[] {
+  const units = unitsOf(
+    tokenise(text),
+    tags,
+    new Set(privateWords.map((word) => word.toLowerCase()).filter((word) => word.length > 0)),
+  );
   const fieldIndexes = units.flatMap((unit, index) => (unit.kind === 'field' ? [index] : []));
 
   if (fieldIndexes.length === 0) {
-    return units.slice(0, MUTE_UNITS).map(toSegment);
+    return units
+      .slice(0, MUTE_UNITS)
+      .map(toSegment)
+      .filter((segment, index, all) => !(segment.type === 'gap' && all[index - 1]?.type === 'gap'));
   }
 
   const keep = new Array<boolean>(units.length).fill(false);
@@ -318,27 +355,36 @@ export function deriveSegments(text: string, tags: readonly Tag[]): Segment[] {
   }
 
   const segments: Segment[] = [];
+  /* Two gaps in a row say nothing one gap doesn't; a name beside collapsed
+     text becomes one gap, which also keeps the pattern's backtracking small. */
+  const pushGap = (sameLine: boolean, glued: boolean) => {
+    const last = segments[segments.length - 1];
+    if (last?.type === 'gap') {
+      segments[segments.length - 1] = { ...last, sameLine: last.sameLine && sameLine };
+      return;
+    }
+    segments.push({ type: 'gap', sameLine, glued });
+  };
+
   let skipped: Unit[] = [];
   let started = false;
   units.forEach((unit, index) => {
     if (keep[index]) {
       if (started && skipped.length > 0) {
-        segments.push({
-          type: 'gap',
-          sameLine: !skipped.some((skip) => skip.kind === 'newline'),
-          glued: skipped[0].glued,
-        });
+        pushGap(!skipped.some((skip) => skip.kind === 'newline'), skipped[0].glued);
       }
       skipped = [];
       started = true;
-      segments.push(toSegment(unit));
+      const segment = toSegment(unit);
+      if (segment.type === 'gap') pushGap(segment.sameLine, segment.glued);
+      else segments.push(segment);
     } else if (started) {
       skipped.push(unit);
     }
   });
 
-  /* The pattern is unanchored, so a leading line break says nothing. */
-  while (segments.length > 0 && segments[0].type === 'newline') segments.shift();
+  /* The pattern is unanchored, so a leading line break or gap says nothing. */
+  while (segments.length > 0 && (segments[0].type === 'newline' || segments[0].type === 'gap')) segments.shift();
   return segments;
 }
 

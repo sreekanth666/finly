@@ -66,8 +66,9 @@ export function TemplateShare({
   return (
     <View className="gap-2 rounded-2xl bg-surface p-3">
       <Typography type="body-xs" color="muted">
-        Reference numbers, card digits and UPI ids are scrambled. Remove anything else you would rather not send, such
-        as a person’s name. Nothing is sent until you send it from your mail app.
+        {template === null
+          ? 'Reference numbers, card digits and UPI ids are scrambled. Remove anything else you would rather not send, such as a person’s name. Nothing is sent until you send it from your mail app.'
+          : 'Reference numbers, card digits and UPI ids are scrambled, and names after “Dear” and your own name are left out of the template. The words in quotes after “a:” are the ones Finly looks for — remove anything else you would rather not send. Nothing is sent until you send it from your mail app.'}
       </Typography>
       <Input value={body} onChangeText={setBody} multiline numberOfLines={8} accessibilityLabel="Email to the developer" />
       <Button

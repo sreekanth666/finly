@@ -372,6 +372,38 @@ describe('segment encoding', () => {
   });
 });
 
+describe('names never become part of a template', () => {
+  const anchorsOf = (segments: ReturnType<typeof deriveSegments>) =>
+    segments.flatMap((segment) => (segment.type === 'anchor' ? [segment.text.toLowerCase()] : []));
+
+  it('turns the name after a greeting into a gap, so it is never stored or sent', () => {
+    const sample: MessageInput = {
+      body: 'Dear Sreekanth Kumar, INR 700.00 debited from A/c XX8783 on 02-Sep-26. -Jana Bank',
+      sender: 'JM-JANABK-S',
+      receivedAt: at(2026, 9, 2, 19),
+    };
+    const text = normaliseText(sample.body);
+    const segments = deriveSegments(text, [tag(text, 'amount', '700.00')]);
+    expect(anchorsOf(segments)).not.toContain('sreekanth');
+    expect(anchorsOf(segments)).not.toContain('kumar');
+    expect(JSON.stringify(encodeSegments(segments)).toLowerCase()).not.toContain('sreekanth');
+
+    const { compiled } = teach(sample, (t) => [tag(t, 'amount', '700.00')]);
+    const other = { ...sample, body: 'Dear A K, INR 55.00 debited from A/c XX8783 on 03-Sep-26. -Jana Bank' };
+    expect(detect(other, { templates: [compiled] }).amountMinor).toBe(rupees(55));
+  });
+
+  it("keeps the owner's own name out, wherever it sits", () => {
+    const text = normaliseText('INR 5000.00 to ARJUN KUMAR. Ref 625066667777');
+    const tags = [tag(text, 'amount', '5000.00'), tag(text, 'reference', '625066667777')];
+    expect(anchorsOf(deriveSegments(text, tags))).toContain('arjun');
+
+    const segments = deriveSegments(text, tags, ['arjun', 'kumar']);
+    expect(anchorsOf(segments)).not.toContain('arjun');
+    expect(anchorsOf(segments)).not.toContain('kumar');
+  });
+});
+
 describe('tapToken', () => {
   const text = normaliseText('Rs.500.00 paid to arjun.k@okaxis on 10/09/26\nRef 1234567');
   const tokens = tokenise(text);
