@@ -54,6 +54,7 @@ reader can tell a decision from an accident.
 | D15 | The app is named **Finly** | Matches the repo, package and slug; mockup wordmark gets re-set |
 | D16 | One **opt-in local daily reminder** to log expenses, skipped on days something was already logged. Scheduled on the device, no server; no card due-date reminders (D14 stands) | Safe-to-spend is only as right as what was logged, and an entry missed on the day is easily never made. Local-only keeps the no-server promise |
 | D17 | **Detected transactions go to a review inbox**, never straight to expenses. Sources: a user-granted Android notification listener (which also sees bank SMS through the SMS app's own notification) and a paste box. Parsing is on the device; nothing is uploaded. Low-confidence candidates are kept, not dropped. The original message is stored on the confirmed expense in `source_text`, not appended to the note. `READ_SMS`/`RECEIVE_SMS` are **not** requested | Typing every UPI payment is the chore that makes people abandon a tracker, but a misread amount written silently into the budget is worse than a missed one, so the user confirms. Play restricts SMS permissions to default SMS apps and rejects most budgeting declarations; notification access is a user grant outside that group. Keeping the raw text out of `note` keeps search and `note contains` rules from matching boilerplate like "call" and "block" on every detected expense |
+| D18 | **Users teach message formats by example**: tap the amount, payee, reference or card digits in a misread alert, and Finly derives a template for that sender. Every template is bound to one sender, may overrule only the negative gate its own sample tripped, and changes nothing when it does not match. A template, or a masked misread, can be **emailed to the developer** from the user's own mail app; Finly still sends nothing itself | No parser keeps up with every issuer's wording, and the user is the one who notices. Tagging an example asks nothing technical of them. Binding and the gate rule keep a bad template's reach to one sender, and to the kind of message it was taught on. Email keeps the no-network promise while letting a fix made on one phone reach everyone in an update |
 
 ---
 
@@ -467,6 +468,18 @@ Confirm opens the ordinary expense form prefilled, so rules (D7) still apply;
 the first time a card or account tail is seen it asks which account it is and
 remembers it on that account's `last4`. Choosing a category can save a rule, so
 what the app learns is visible on the Rules tab rather than hidden.
+
+### 7.9 Message formats (D18)
+
+"Read this wrong? Teach Finly this format" on any candidate opens a two-step
+editor. First, what the message is (a payment, a transfer, or not a payment to
+mute) and which way the money went. Second, the message as tappable pieces,
+with Finly's own reading already tagged, a live preview of what the format
+reads from this message and from recent messages from the same sender, and a
+name. Save is refused until the format reads its own example back exactly.
+Saving re-reads everything pending, then offers to email the format to the
+developer. Settings → Transaction detection → Message formats lists them with
+a switch each, how many new alerts each has read, and the same send button.
 
 ---
 

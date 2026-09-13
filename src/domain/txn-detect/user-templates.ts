@@ -611,6 +611,56 @@ export function taggedValues(
 }
 
 /* -------------------------------------------------------------------------- */
+/* Tapping                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** How far a second tap may reach along a line to grow a tag, in tokens. */
+const MAX_REACH = 12;
+
+/**
+ * What one tap on token `index` does while tagging `field`:
+ *
+ * - on a tagged token: clears that tag, or trims it when the tap is on its
+ *   first or last piece — so a name that took one word too many is fixed with
+ *   one tap;
+ * - near the field's own tag on the same line: grows the tag to reach it, so
+ *   "arjun", ".", "k" becomes one payee with two taps, not three;
+ * - anywhere else: moves the field's tag there.
+ *
+ * Tapping a currency mark for the amount tags the figure after it, since the
+ * figure is what varies.
+ */
+export function tapToken(tokens: readonly Token[], tags: readonly Tag[], field: TemplateField, index: number): Tag[] {
+  const token = tokens[index];
+  if (token === undefined || token.kind === 'newline') return [...tags];
+
+  let target = index;
+  if (field === 'amount' && isCurrencyToken(token) && tokens[index + 1]?.kind === 'number') target = index + 1;
+
+  const hit = tags.find((tag) => target >= tag.start && target < tag.end);
+  if (hit !== undefined) {
+    const others = tags.filter((tag) => tag !== hit);
+    if (hit.end - hit.start > 1 && target === hit.start) return [...others, { ...hit, start: hit.start + 1 }];
+    if (hit.end - hit.start > 1 && target === hit.end - 1) return [...others, { ...hit, end: hit.end - 1 }];
+    return others;
+  }
+
+  const own = tags.find((tag) => tag.field === field);
+  const withoutOwn = tags.filter((tag) => tag.field !== field);
+  if (own !== undefined && field !== 'amount') {
+    const from = Math.min(own.start, target);
+    const to = Math.max(own.end, target + 1);
+    const crossesLine = tokens.slice(from, to).some((piece) => piece.kind === 'newline');
+    if (!crossesLine && to - from <= MAX_REACH) {
+      /* Growing over another field's tag takes it over, so tags never overlap. */
+      const rest = withoutOwn.filter((tag) => tag.end <= from || tag.start >= to);
+      return [...rest, { field, start: from, end: to }];
+    }
+  }
+  return [...withoutOwn.filter((tag) => !(target >= tag.start && target < tag.end)), { field, start: target, end: target + 1 }];
+}
+
+/* -------------------------------------------------------------------------- */
 /* Pre-tagging from the generic reading                                         */
 /* -------------------------------------------------------------------------- */
 

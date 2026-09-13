@@ -13,6 +13,7 @@ import {
   readsBack,
   suggestTags,
   taggedValues,
+  tapToken,
   tokenise,
   type CompiledTemplate,
   type MessageInput,
@@ -368,6 +369,48 @@ describe('segment encoding', () => {
     const { spec } = janaTemplate();
     const anchors = spec.segments.flatMap((segment) => (segment.type === 'anchor' ? [segment.text] : []));
     expect(anchors.some((text) => /\d/.test(text))).toBe(false);
+  });
+});
+
+describe('tapToken', () => {
+  const text = normaliseText('Rs.500.00 paid to arjun.k@okaxis on 10/09/26\nRef 1234567');
+  const tokens = tokenise(text);
+  const indexOf = (value: string) => tokens.findIndex((token) => token.text === value);
+  const words = (tags: Tag[], field: TemplateField) => {
+    const tag = tags.find((candidate) => candidate.field === field);
+    return tag === undefined ? null : tokens.slice(tag.start, tag.end).map((token) => token.text).join('');
+  };
+
+  it('tags the figure when the currency mark is tapped', () => {
+    expect(words(tapToken(tokens, [], 'amount', indexOf('INR')), 'amount')).toBe('500.00');
+  });
+
+  it('grows a payee to reach a second tap on the same line, punctuation and all', () => {
+    let tags = tapToken(tokens, [], 'counterparty', indexOf('arjun'));
+    tags = tapToken(tokens, tags, 'counterparty', indexOf('okaxis'));
+    expect(words(tags, 'counterparty')).toBe('arjun.k@okaxis');
+  });
+
+  it('trims a tag from either end, and clears a one-piece tag', () => {
+    let tags = tapToken(tokens, [], 'counterparty', indexOf('arjun'));
+    tags = tapToken(tokens, tags, 'counterparty', indexOf('on'));
+    expect(words(tags, 'counterparty')).toBe('arjun.k@okaxison');
+    tags = tapToken(tokens, tags, 'counterparty', indexOf('on'));
+    expect(words(tags, 'counterparty')).toBe('arjun.k@okaxis');
+    const single = tapToken(tokens, [], 'reference', indexOf('1234567'));
+    expect(tapToken(tokens, single, 'reference', indexOf('1234567'))).toEqual([]);
+  });
+
+  it('never grows a tag across a line, or over another field', () => {
+    let tags = tapToken(tokens, [], 'counterparty', indexOf('arjun'));
+    tags = tapToken(tokens, tags, 'counterparty', indexOf('Ref'));
+    expect(words(tags, 'counterparty')).toBe('Ref');
+
+    let both = tapToken(tokens, [], 'amount', indexOf('500.00'));
+    both = tapToken(tokens, both, 'counterparty', indexOf('paid'));
+    both = tapToken(tokens, both, 'counterparty', indexOf('INR'));
+    expect(words(both, 'amount')).toBeNull();
+    expect(words(both, 'counterparty')).toBe('INR500.00paid');
   });
 });
 

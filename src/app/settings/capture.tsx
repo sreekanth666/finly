@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   BatteryWarning,
   BellRing,
+  BookOpenText,
   ClipboardPaste,
   EyeOff,
   Inbox,
@@ -361,6 +362,16 @@ export default function CaptureSettingsScreen() {
               />
             </View>
           </View>
+          <Button
+            icon={BookOpenText}
+            label="Message formats you taught"
+            tone="secondary"
+            size="sm"
+            onPress={() => navigate('/settings/templates')}
+          />
+          <Typography type="body-xs" color="muted" className="px-1">
+            If Finly keeps misreading one bank’s messages, open one in the inbox and tap “Teach Finly this format”.
+          </Typography>
         </View>
 
         <View className="gap-3">

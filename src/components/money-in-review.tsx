@@ -8,7 +8,7 @@ import { Amount } from './amount';
 import { Button } from './button';
 import { FormScreen } from './form-screen';
 import { Icon } from './icon';
-import { MisreadReport } from './misread-report';
+import { MisreadActions } from './misread-actions';
 import { SectionHeader } from './section-header';
 import { SourceMessage } from './source-message';
 
@@ -159,7 +159,7 @@ export function MoneyInReview({ candidate, expenses }: MoneyInReviewProps) {
       </View>
 
       <SourceMessage text={candidate.sourceText} initiallyOpen />
-      <MisreadReport body={candidate.body} />
+      <MisreadActions candidateId={candidate.id} body={candidate.body} sender={candidate.sender} />
 
       <Button
         label="Not money received"

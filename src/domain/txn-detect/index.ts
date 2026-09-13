@@ -30,6 +30,7 @@ export { isRedacted, normaliseText } from './normalise';
 export { labelOf } from './counterparty';
 export { appHint, isSmsApp, PAYMENT_APPS, SMS_APP_PACKAGES } from './sources';
 export * from './user-templates';
+export * from './contribution';
 
 export const PARSER_VERSION = 1;
 
