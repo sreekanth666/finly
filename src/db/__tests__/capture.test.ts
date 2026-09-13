@@ -96,6 +96,48 @@ describe('detected transactions', () => {
   });
 });
 
+describe('taught templates (D18)', () => {
+  const template = (id: string, binding: string, outcome = 'transaction', direction = "'debit'") =>
+    `insert into capture_templates
+       (id,name,sender_key,package_name,issuer,outcome,direction,segments,sample_masked,created_at,updated_at)
+     values ('${id}','T',${binding},'${outcome}',${direction},'["f:amount"]','x',${NOW},${NOW})`;
+
+  it('must belong to a sender, one way or another', () => {
+    expect(rejects(db, template('t1', 'null,null,null'))).toBe(true);
+    expect(rejects(db, template('t2', "'HDFCBK',null,null"))).toBe(false);
+    expect(rejects(db, template('t3', "null,'com.phonepe.app',null"))).toBe(false);
+    expect(rejects(db, template('t4', "null,null,'HDFC Bank'"))).toBe(false);
+  });
+
+  it('only knows three outcomes and two directions', () => {
+    expect(rejects(db, template('t1', "'HDFCBK',null,null", 'income'))).toBe(true);
+    expect(rejects(db, template('t2', "'HDFCBK',null,null", 'transaction', "'sideways'"))).toBe(true);
+    expect(rejects(db, template('t3', "'HDFCBK',null,null", 'ignore', 'null'))).toBe(false);
+  });
+
+  it('starts enabled and unused', () => {
+    db.exec(template('t1', "'HDFCBK',null,null"));
+    expect(db.prepare(`select is_enabled as on_, times_matched as n from capture_templates`).get()).toEqual({
+      on_: 1,
+      n: 0,
+    });
+  });
+
+  it('marks candidates read before any template existed as rev 0, so the first template re-reads them', () => {
+    db.exec(message('m1'));
+    db.exec(candidate({ id: 'd1', messageId: 'm1' }));
+    expect(db.prepare(`select templates_rev as rev from detected_transactions`).get()).toEqual({ rev: 0 });
+  });
+
+  it('survives clearing the inbox, which only deletes messages and candidates', () => {
+    db.exec(template('t1', "'HDFCBK',null,null"));
+    db.exec(message('m1'));
+    db.exec('delete from detected_transactions');
+    db.exec('delete from captured_messages');
+    expect(db.prepare('select count(*) as n from capture_templates').get()).toEqual({ n: 1 });
+  });
+});
+
 describe('expenses, after D17', () => {
   it('are manual unless something says otherwise, and existing rows need nothing', () => {
     insertExpense(db, { id: 'e1', period: '2025-10', amountMinor: 100 });

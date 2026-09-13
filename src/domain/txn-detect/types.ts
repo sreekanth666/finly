@@ -7,6 +7,8 @@
 
 import type { Minor } from '@/domain/money';
 
+import type { CompiledTemplate } from './user-templates';
+
 /** One message as it reached the phone: a notification, or text the user pasted. */
 export type MessageInput = {
   body: string;
@@ -23,6 +25,11 @@ export type MessageInput = {
 export type DetectContext = {
   /** What the app calls its user, so money sent to themselves reads as a transfer. */
   ownerName?: string | null;
+  /**
+   * Formats the user taught (D18), compiled and ordered by `orderTemplates`.
+   * Absent or empty, `detect` reads exactly as it would without the feature.
+   */
+  templates?: readonly CompiledTemplate[];
 };
 
 export const DETECTION_KINDS = [

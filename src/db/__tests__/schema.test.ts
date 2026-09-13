@@ -32,6 +32,7 @@ describe('the generated migration', () => {
     expect(tables).toEqual([
       'accounts',
       'budgets',
+      'capture_templates',
       'captured_messages',
       'categories',
       'detected_transactions',

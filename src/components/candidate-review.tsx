@@ -7,7 +7,7 @@ import { View } from 'react-native';
 import { Button } from './button';
 import { ExpenseForm, type ExpenseDraft } from './expense-form';
 import { Icon } from './icon';
-import { MisreadReport } from './misread-report';
+import { MisreadActions } from './misread-actions';
 import { SourceMessage } from './source-message';
 
 import type { CandidateDetail } from '@/db/repositories/captures';
@@ -194,7 +194,7 @@ export function CandidateReview({ candidate, categories, accounts, rules }: Cand
           ))}
 
           <SourceMessage text={candidate.sourceText} initiallyOpen />
-          <MisreadReport body={candidate.body} />
+          <MisreadActions candidateId={candidate.id} body={candidate.body} sender={candidate.sender} />
 
           <View className="flex-row gap-3">
             <View className="flex-1">

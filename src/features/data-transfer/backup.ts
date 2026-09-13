@@ -12,6 +12,7 @@ import {
   accounts,
   budgets,
   capturedMessages,
+  captureTemplates,
   categories,
   detectedTransactions,
   expenses,
@@ -22,6 +23,7 @@ import {
   type AccountRow,
   type BudgetRow,
   type CapturedMessageRow,
+  type CaptureTemplateRow,
   type CategoryRow,
   type DetectedTransactionRow,
   type ExpenseRow,
@@ -39,10 +41,11 @@ import { sql } from 'drizzle-orm';
 
 export const BACKUP_FORMAT = 'finly.backup';
 /**
- * 2 added the review inbox's two tables (D17). A version-1 file restores with
- * both empty; `insertAll` already treats a missing table as none.
+ * 2 added the review inbox's two tables (D17). 3 added taught templates
+ * (D18). An older file restores with the newer tables empty; `insertAll`
+ * already treats a missing table as none.
  */
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 
 export type BackupData = {
   categories: CategoryRow[];
@@ -56,6 +59,7 @@ export type BackupData = {
   settings: SettingRow[];
   capturedMessages?: CapturedMessageRow[];
   detectedTransactions?: DetectedTransactionRow[];
+  captureTemplates?: CaptureTemplateRow[];
 };
 
 export type Backup = {
@@ -82,6 +86,7 @@ export function buildBackup(database: DbLike = db): Backup {
       settings: database.select().from(settings).all(),
       capturedMessages: database.select().from(capturedMessages).all(),
       detectedTransactions: database.select().from(detectedTransactions).all(),
+      captureTemplates: database.select().from(captureTemplates).all(),
     },
   };
 }
@@ -139,6 +144,7 @@ export async function restoreBackup(
       // Children first on the way out, so nothing is orphaned mid-delete.
       tx.delete(detectedTransactions).run();
       tx.delete(capturedMessages).run();
+      tx.delete(captureTemplates).run();
       tx.delete(ruleActions).run();
       tx.delete(ruleConditions).run();
       tx.delete(settlements).run();
@@ -173,6 +179,7 @@ export async function restoreBackup(
       insertAll(settings, data.settings);
       insertAll(capturedMessages, data.capturedMessages);
       insertAll(detectedTransactions, data.detectedTransactions);
+      insertAll(captureTemplates, data.captureTemplates);
 
       return {
         expenses: expenseCount,

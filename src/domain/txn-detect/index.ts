@@ -21,13 +21,16 @@ import { labelOf, readCounterparty } from './counterparty';
 import { readDate } from './date';
 import { readChannel, readDirection, readInstrument, readReference } from './fields';
 import { isRedacted, normaliseText } from './normalise';
-import { appHint, resolveIssuer, senderHint } from './sources';
+import { appHint, isSmsApp, resolveIssuer, senderHeader, senderHint } from './sources';
 import type { Channel, Confidence, DetectContext, Detection, DetectionKind, Direction, MessageInput } from './types';
+import { matchTemplates } from './user-templates';
 
 export * from './types';
 export { isRedacted, normaliseText } from './normalise';
 export { labelOf } from './counterparty';
 export { appHint, isSmsApp, PAYMENT_APPS, SMS_APP_PACKAGES } from './sources';
+export * from './user-templates';
+export * from './contribution';
 
 export const PARSER_VERSION = 1;
 
@@ -97,61 +100,105 @@ export function detect(input: MessageInput, context: DetectContext = {}): Detect
 
   const app = appHint(input.packageName);
   const amounts = readAmounts(text);
-  const direction = readDirection(text);
+  const genericDirection = readDirection(text);
   const instrument = readInstrument(text);
   const channel = readChannel(text, app?.channel ?? null);
-  const counterparty = channel === 'atm' ? null : readCounterparty(text, direction);
+  const genericCounterparty = channel === 'atm' ? null : readCounterparty(text, genericDirection);
   const hint = senderHint(input.sender) ?? senderHint(input.title);
   const issuer = resolveIssuer({ sender: input.sender, title: input.title, body: text });
 
-  const { kind, reason } = classify({
+  const classification = classify({
     text,
-    direction,
+    direction: genericDirection,
     hasAmount: amounts.best !== null,
     channel,
-    counterparty,
+    counterparty: genericCounterparty,
     ownerName: context.ownerName ?? null,
   });
-  reasons.push(reason);
+
+  /* D18: a format the user taught, tried only once the classifier has spoken,
+     because whether a template may overrule it depends on what it said. */
+  const taught =
+    context.templates === undefined || context.templates.length === 0
+      ? null
+      : matchTemplates(context.templates, {
+          text,
+          binding: {
+            senderKey: senderHeader(input.sender) ?? senderHeader(input.title),
+            packageName: input.packageName != null && !isSmsApp(input.packageName) ? input.packageName : null,
+            issuer,
+          },
+          classified: classification.kind,
+        });
+
+  const kind: DetectionKind =
+    taught === null
+      ? classification.kind
+      : taught.outcome === 'transaction'
+        ? 'transaction'
+        : taught.outcome === 'transfer'
+          ? 'transfer'
+          : /* A muted format lands in Filtered as an offer: no new kind, no table rebuild. */ 'promo';
+  reasons.push(
+    taught === null
+      ? classification.reason
+      : taught.outcome === 'ignore'
+        ? `template:mute:${taught.templateId}`
+        : `template:${taught.templateId}`,
+  );
+
+  const direction = taught?.direction ?? genericDirection;
+  const counterparty =
+    taught?.counterparty ??
+    (direction === genericDirection || channel === 'atm' ? genericCounterparty : readCounterparty(text, direction));
+  const taughtAmount = taught?.amountMinor ?? null;
+  const ambiguous = taughtAmount === null && amounts.ambiguous;
 
   const date = UNDATED_KINDS.includes(kind)
     ? { occurredAt: input.receivedAt, confidence: 'fallback_received' as const, implausible: false }
     : readDate(text, input.receivedAt);
 
-  if (amounts.best === null) reasons.push('amount:none');
+  if (taughtAmount !== null) reasons.push('amount:template');
+  else if (amounts.best === null) reasons.push('amount:none');
   else reasons.push(amounts.best.marked ? 'amount:marked' : 'amount:bare');
-  if (amounts.ambiguous) reasons.push('amount:ambiguous');
-  if (amounts.best !== null && amounts.best.currency !== 'INR') reasons.push('amount:foreign');
+  if (ambiguous) reasons.push('amount:ambiguous');
+  const currency = taughtAmount !== null ? taught!.currency : (amounts.best?.currency ?? null);
+  if (currency !== null && currency !== 'INR') reasons.push('amount:foreign');
   if (direction === null) reasons.push('direction:none');
   reasons.push(`date:${date.confidence}`);
   if (date.implausible) reasons.push('date:implausible');
   if (counterparty === null) reasons.push('counterparty:none');
 
-  const sourceKnown = instrument.tail !== null || issuer !== null || app !== null;
+  const instrumentTail = taught?.tail ?? instrument.tail;
+  /* A taught template is bound to its sender, so a match is itself a known source. */
+  const sourceKnown = instrumentTail !== null || issuer !== null || app !== null || taught !== null;
   if (!sourceKnown) reasons.push('source:unknown');
 
-  const instrumentType = instrument.type ?? (hint?.isCard === true && instrument.tail !== null ? 'card' : null);
+  const instrumentType = instrument.type ?? (hint?.isCard === true && instrumentTail !== null ? 'card' : null);
   const label = counterparty === null ? null : labelOf(counterparty);
 
   const draft: Omit<Detection, 'confidence'> = {
     kind,
     direction,
-    amountMinor: amounts.best?.amountMinor ?? null,
-    currency: amounts.best?.currency ?? null,
-    amountCandidates: amounts.candidates as Minor[],
+    amountMinor: taughtAmount ?? amounts.best?.amountMinor ?? null,
+    currency,
+    amountCandidates:
+      taughtAmount === null
+        ? (amounts.candidates as Minor[])
+        : [taughtAmount, ...amounts.candidates.filter((candidate) => candidate !== taughtAmount)],
     occurredAt: date.occurredAt,
     dateConfidence: date.confidence,
     counterparty,
     item: label ?? fallbackItem({ kind, direction, channel, text }),
     instrumentType,
-    instrumentTail: instrument.tail,
+    instrumentTail,
     issuer,
-    reference: readReference(text),
+    reference: taught?.reference ?? readReference(text),
     channel,
     reasons,
   };
 
-  return { ...draft, confidence: confidenceOf(draft, amounts.ambiguous, sourceKnown) };
+  return { ...draft, confidence: confidenceOf(draft, ambiguous, sourceKnown) };
 }
 
 export { bodyKeyOf, captureKey, type CaptureSource } from './capture-key';
