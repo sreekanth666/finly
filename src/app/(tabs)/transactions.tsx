@@ -50,7 +50,8 @@ export default function TransactionsScreen() {
   const [undoable, setUndoable] = useState<{ id: string; item: string } | null>(null);
 
   /*
-   * `?scope=&period=&at=` when opened from the spend summary on Balance.
+   * `?scope=&period=&at=` when opened from the spend summary on Balance, and
+   * `?account=&at=` from a card's own screen.
    *
    * This tab stays mounted for the life of the app, so the params cannot seed
    * the state above — those initialisers ran long before the tap. They are
@@ -62,6 +63,7 @@ export default function TransactionsScreen() {
   const params = useLocalSearchParams<{
     scope?: string | string[];
     period?: string | string[];
+    account?: string | string[];
     at?: string | string[];
   }>();
   const requestedAt = firstParam(params.at);
@@ -79,7 +81,9 @@ export default function TransactionsScreen() {
     setAppliedAt(requestedAt);
     setFilter('all');
     setSearch('');
-    setAccountId(null);
+    /* An id that names no account simply matches nothing, which the empty
+       state already explains with a way out. */
+    setAccountId(firstParam(params.account) ?? null);
     setLimit(PAGE_SIZE);
     setBudgetScope(isBudgetScope(scope) ? scope : null);
     setMonthsBack(back >= 0 ? back : null);

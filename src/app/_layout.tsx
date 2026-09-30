@@ -230,6 +230,8 @@ export default function RootLayout() {
                 {/* Detail is a destination, so it pushes; editing is a task, so it doesn't. */}
                 <Stack.Screen name="expense/[id]/index" />
                 <Stack.Screen name="expense/[id]/edit" options={{ presentation: 'modal' }} />
+                {/* A card is a destination, reached from its row on Home or Insights. */}
+                <Stack.Screen name="card/[id]" />
                 <Stack.Screen name="rule/new" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="rule/[id]" options={{ presentation: 'modal' }} />
                 {/* A destination reached from the avatar on every tab, so it

@@ -214,7 +214,10 @@ export default function BalanceScreen() {
               <Typography type="body-sm" weight="semibold">
                 Cards
               </Typography>
-              <CardUtilisationList cards={cards.data ?? []} />
+              <CardUtilisationList
+                cards={cards.data ?? []}
+                onPressCard={(id) => navigate(`/card/${id}`)}
+              />
             </View>
           )
         )}

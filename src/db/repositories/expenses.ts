@@ -377,6 +377,26 @@ export function cycleSpend(
   return asMinor(row?.spent ?? 0);
 }
 
+/**
+ * Everything a card has spent since a moment — the spending half of what it
+ * owes (D20). The same effective amount as `cycleSpend`, with no end: a card
+ * owes for what it bought until that is paid, whichever cycle it fell in.
+ */
+export function cardSpendSince(accountId: string, since: number, database: DbLike = db): Minor {
+  const settled = settledTotals(database);
+
+  const row = database
+    .select({
+      spent: sql<number>`sum(max(0, ${expenses.amountMinor} - coalesce(${settled.total}, 0)))`,
+    })
+    .from(expenses)
+    .leftJoin(settled, eq(settled.expenseId, expenses.id))
+    .where(and(alive, eq(expenses.accountId, accountId), gte(expenses.occurredAt, since)))
+    .get();
+
+  return asMinor(row?.spent ?? 0);
+}
+
 /** The account the last expense was paid from — the entry form's default (§7.2). */
 export const lastUsedAccountId = (database: DbLike = db): string | null =>
   database

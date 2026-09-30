@@ -12,6 +12,7 @@ import {
   accounts,
   budgets,
   capturedMessages,
+  cardPayments,
   captureTemplates,
   categories,
   detectedTransactions,
@@ -23,6 +24,7 @@ import {
   type AccountRow,
   type BudgetRow,
   type CapturedMessageRow,
+  type CardPaymentRow,
   type CaptureTemplateRow,
   type CategoryRow,
   type DetectedTransactionRow,
@@ -42,10 +44,11 @@ import { sql } from 'drizzle-orm';
 export const BACKUP_FORMAT = 'finly.backup';
 /**
  * 2 added the review inbox's two tables (D17). 3 added taught templates
- * (D18). An older file restores with the newer tables empty; `insertAll`
- * already treats a missing table as none.
+ * (D18). 4 added card payments (D20); the owed anchor rides along on the
+ * account rows. An older file restores with the newer tables empty;
+ * `insertAll` already treats a missing table as none.
  */
-export const BACKUP_VERSION = 3;
+export const BACKUP_VERSION = 4;
 
 export type BackupData = {
   categories: CategoryRow[];
@@ -60,6 +63,7 @@ export type BackupData = {
   capturedMessages?: CapturedMessageRow[];
   detectedTransactions?: DetectedTransactionRow[];
   captureTemplates?: CaptureTemplateRow[];
+  cardPayments?: CardPaymentRow[];
 };
 
 export type Backup = {
@@ -87,6 +91,7 @@ export function buildBackup(database: DbLike = db): Backup {
       capturedMessages: database.select().from(capturedMessages).all(),
       detectedTransactions: database.select().from(detectedTransactions).all(),
       captureTemplates: database.select().from(captureTemplates).all(),
+      cardPayments: database.select().from(cardPayments).all(),
     },
   };
 }
@@ -148,6 +153,9 @@ export async function restoreBackup(
       tx.delete(ruleActions).run();
       tx.delete(ruleConditions).run();
       tx.delete(settlements).run();
+      /* After the inbox, which points at payments, and before the expenses and
+         accounts payments point at. */
+      tx.delete(cardPayments).run();
       tx.delete(expenses).run();
       tx.delete(rules).run();
       tx.delete(budgets).run();
@@ -173,6 +181,7 @@ export async function restoreBackup(
       insertAll(budgets, data.budgets);
       const expenseCount = insertAll(expenses, data.expenses);
       const settlementCount = insertAll(settlements, data.settlements);
+      insertAll(cardPayments, data.cardPayments);
       const ruleCount = insertAll(rules, data.rules);
       insertAll(ruleConditions, data.ruleConditions);
       insertAll(ruleActions, data.ruleActions);

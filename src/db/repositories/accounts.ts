@@ -10,7 +10,7 @@
  * card cannot take a year of expenses down with it.
  */
 
-import { and, asc, count, eq, isNull } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, or } from 'drizzle-orm';
 
 import { asMinor, type Minor } from '@/domain/money';
 
@@ -19,6 +19,7 @@ import { AccountInUseError, ValidationError } from '../errors';
 import { newId } from '../id';
 import {
   accounts,
+  cardPayments,
   expenses,
   ruleActions,
   settlements,
@@ -93,6 +94,9 @@ const normalise = (input: AccountInput) => {
     // quietly show up in utilisation, so they are dropped rather than stored.
     creditLimitMinor: isCard ? (input.creditLimitMinor ?? null) : null,
     statementDay: isCard ? (input.statementDay ?? null) : null,
+    /* A card turned into a bank account stops owing anything. Left alone, the
+       anchor would come back to life if it were ever turned back. */
+    ...(isCard ? {} : { openingOwedMinor: null, openingOwedAt: null }),
     colorToken: input.colorToken,
   };
 };
@@ -151,6 +155,7 @@ export function reorderAccounts(orderedIds: readonly string[], database: DbLike 
 export type AccountReferences = {
   expenses: number;
   settlements: number;
+  cardPayments: number;
   ruleActions: number;
   total: number;
 };
@@ -162,6 +167,13 @@ export function countAccountReferences(id: string, database: DbLike = db): Accou
   const settlementCount =
     database.select({ n: count() }).from(settlements).where(eq(settlements.accountId, id)).get()?.n ??
     0;
+  /* Both ends: the card that was paid, and the account that paid it. */
+  const cardPaymentCount =
+    database
+      .select({ n: count() })
+      .from(cardPayments)
+      .where(or(eq(cardPayments.accountId, id), eq(cardPayments.fromAccountId, id)))
+      .get()?.n ?? 0;
   const ruleActionCount =
     database
       .select({ n: count() })
@@ -172,8 +184,9 @@ export function countAccountReferences(id: string, database: DbLike = db): Accou
   return {
     expenses: expenseCount,
     settlements: settlementCount,
+    cardPayments: cardPaymentCount,
     ruleActions: ruleActionCount,
-    total: expenseCount + settlementCount + ruleActionCount,
+    total: expenseCount + settlementCount + cardPaymentCount + ruleActionCount,
   };
 }
 

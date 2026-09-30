@@ -40,6 +40,7 @@ export function listDetectionFacts(limit: number, database: DbLike = db): Detect
       suggestedCategoryId: detectedTransactions.suggestedCategoryId,
       suggestedAccountId: detectedTransactions.suggestedAccountId,
       expenseSource: expenses.source,
+      cardPaymentId: detectedTransactions.cardPaymentId,
       expenseAmount: expenses.amountMinor,
       expenseAt: expenses.occurredAt,
       expenseItem: expenses.item,
@@ -118,6 +119,8 @@ export function listProblemMessages(limit: number, database: DbLike = db): Probl
           and(
             inArray(detectedTransactions.kind, ['transfer', 'failed', 'upcoming', 'statement', 'balance', 'promo', 'reminder']),
             inArray(detectedTransactions.status, ['confirmed', 'settled']),
+            /* A card bill recorded as a payment (D20) was filed correctly. */
+            isNull(detectedTransactions.cardPaymentId),
           ),
           and(
             eq(expenses.source, 'detected'),

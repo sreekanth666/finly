@@ -112,6 +112,14 @@ const input = (overrides: Partial<ReportInput> = {}): ReportInput => ({
 });
 
 describe('summariseDetections', () => {
+  it('does not count a card bill recorded as a payment as rescued from Filtered (D20)', () => {
+    const rescued = (facts: DetectionFact[]) =>
+      summariseDetections(facts, { parserVersion: 2, now: NOW }).corrections.rescuedFromFiltered;
+
+    expect(rescued([fact({ kind: 'transfer', status: 'confirmed', expenseSource: 'detected' })])).toBe(1);
+    expect(rescued([fact({ kind: 'transfer', status: 'confirmed', cardPaymentId: 'pay-sentinel' })])).toBe(0);
+  });
+
   const summary = summariseDetections(FACTS, { parserVersion: 2, now: NOW });
 
   it('counts corrections as ground truth for misreads', () => {

@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { ArrowLeft, Plus, Trash2, Undo2 } from 'lucide-react-native';
+import { ArrowLeft, CreditCard, Plus, Trash2, Undo2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 
 import { AddSettlementSheet, type SettlementDraft } from '@/components/add-settlement-sheet';
 import { Amount } from '@/components/amount';
 import { Button } from '@/components/button';
+import { ConvertToCardPaymentSheet } from '@/components/convert-to-card-payment-sheet';
 import { Icon } from '@/components/icon';
 import { iconFor } from '@/components/icon-registry';
 import { IconButton } from '@/components/icon-button';
@@ -14,6 +15,7 @@ import { NotFound } from '@/components/not-found';
 import { SafeAreaView } from '@/components/safe-area-view';
 import { SectionHeader } from '@/components/section-header';
 import { SourceMessage } from '@/components/source-message';
+import { convertExpenseToCardPayment } from '@/db/repositories/card-payments';
 import { softDeleteExpense } from '@/db/repositories/expenses';
 import {
   addSettlement,
@@ -112,6 +114,8 @@ export default function ExpenseDetailScreen() {
   const detail = useExpenseDetail(id);
   const accounts = useAccounts();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isConvertOpen, setIsConvertOpen] = useState(false);
+  const convert = useAction(convertExpenseToCardPayment);
   const settle = useAction(addSettlement);
   const remove = useAction(softDeleteExpense);
   const removeSettlement = useAction(softDeleteSettlement);
@@ -167,6 +171,19 @@ export default function ExpenseDetailScreen() {
     expense.settledMinor,
   );
   const hasReturns = isSettled || isPartlySettled;
+
+  const cards = (accounts.data ?? []).filter(
+    (account) => account.type === 'credit_card' && !account.isArchived,
+  );
+
+  /* The expense is gone once this lands, so its screen is replaced by the card's
+     — where the payment now lives, and where the undo is offered. */
+  const convertTo = async (cardId: string) => {
+    const outcome = await convert.run(expense.id, cardId);
+    if (!outcome.ok) return;
+    setIsConvertOpen(false);
+    router.replace({ pathname: '/card/[id]', params: { id: cardId, converted: outcome.value } });
+  };
 
   const confirmDelete = () => {
     Alert.alert('Delete this expense?', 'It will be removed from your totals.', [
@@ -370,7 +387,41 @@ export default function ExpenseDetailScreen() {
             />
           )}
         </View>
+
+        {/* D20: before card payments existed, a bill payment could only be
+            logged as an expense. Offered only where there is a card to move it
+            to, and not once money has come back — a payment has none. */}
+        {cards.length > 0 && (
+          <View className="gap-2">
+            <Button
+              icon={CreditCard}
+              label="This was a card bill payment"
+              tone="secondary"
+              isDisabled={hasReturns}
+              onPress={() => {
+                convert.reset();
+                setIsConvertOpen(true);
+              }}
+            />
+            {hasReturns && (
+              <Typography type="body-xs" color="muted">
+                Remove the settlements first — a card payment has no money back.
+              </Typography>
+            )}
+          </View>
+        )}
       </ScrollView>
+
+      <ConvertToCardPaymentSheet
+        isOpen={isConvertOpen}
+        onOpenChange={setIsConvertOpen}
+        expenseTitle={expense.item}
+        cards={cards}
+        suggestedCardId={cards.some((card) => card.id === expense.account?.id) ? (expense.account?.id ?? null) : null}
+        isSubmitting={convert.isPending}
+        errorMessage={convert.errorMessage}
+        onConvert={(cardId) => void convertTo(cardId)}
+      />
 
       <AddSettlementSheet
         isOpen={isSheetOpen}

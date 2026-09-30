@@ -19,6 +19,7 @@ import { splitSpend } from '@/domain/spend';
 import { addPeriods, comparePeriods, currentPeriod, formatPeriodLong } from '@/domain/period';
 import { useCardStandings } from '@/features/accounts/hooks';
 import { useInsights } from '@/features/insights/hooks';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 
 /** Screen padding (px-5 both sides) plus the card's own p-4 both sides. */
 const CONTENT_INSET = 72;
@@ -26,6 +27,8 @@ const DONUT_MAX_SIZE = 220;
 
 export default function InsightsScreen() {
   const { width } = useWindowDimensions();
+  /* One push per press: a card row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
 
   /*
    * §7.6 asks for Insights per month, and the design pass had no way to change
@@ -167,7 +170,10 @@ export default function InsightsScreen() {
                 onRetry={cardStandings.refetch}
               />
             ) : (
-              <CardUtilisationList cards={cardStandings.data ?? []} />
+              <CardUtilisationList
+                cards={cardStandings.data ?? []}
+                onPressCard={(id) => navigate(`/card/${id}`)}
+              />
             )}
           </View>
         )}
