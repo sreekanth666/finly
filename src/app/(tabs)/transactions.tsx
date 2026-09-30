@@ -1,5 +1,6 @@
 import { Typography } from 'heroui-native';
 import { Plus, Receipt, Search, X } from 'lucide-react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { FlatList, Pressable, TextInput, View } from 'react-native';
 
@@ -18,7 +19,8 @@ import { restoreExpense, softDeleteExpense } from '@/db/repositories/expenses';
 import type { ExpenseListItem } from '@/db/repositories/expenses';
 import { useAction } from '@/db/use-action';
 import { flattenGroups, type FeedRow } from '@/domain/feed';
-import { addPeriods, currentPeriod } from '@/domain/period';
+import { addPeriods, currentPeriod, isPeriodKey, periodsBetween } from '@/domain/period';
+import { isBudgetScope, type BudgetScope } from '@/domain/spend';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
 import { useNavigateOnce } from '@/features/navigation/hooks';
@@ -30,19 +32,58 @@ const HEADER_HEIGHT = 36;
 
 type FilterId = 'all' | string;
 
+const firstParam = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
 export default function TransactionsScreen() {
   /* One push per press: the row stays tappable for the whole transition. */
   const navigate = useNavigateOnce();
 
   const [filter, setFilter] = useState<FilterId>('all');
   const [search, setSearch] = useState('');
-  const [budgetOnly, setBudgetOnly] = useState(false);
+  const [budgetScope, setBudgetScope] = useState<BudgetScope | null>(null);
   /* §7.3 names three filters. The repository has supported period and account
      since M1; only the category chips were ever wired up. */
   const [accountId, setAccountId] = useState<string | null>(null);
   const [monthsBack, setMonthsBack] = useState<number | null>(null);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [undoable, setUndoable] = useState<{ id: string; item: string } | null>(null);
+
+  /*
+   * `?scope=&period=&at=` when opened from the spend summary on Balance.
+   *
+   * This tab stays mounted for the life of the app, so the params cannot seed
+   * the state above — those initialisers ran long before the tap. They are
+   * applied here instead, once per request: `at` changes with every tap, which
+   * is what lets the same card re-apply after the filters were cleared by hand.
+   * Everything else is reset, so the list is exactly the expenses behind the
+   * figure that was tapped. Anything malformed is ignored rather than refused.
+   */
+  const params = useLocalSearchParams<{
+    scope?: string | string[];
+    period?: string | string[];
+    at?: string | string[];
+  }>();
+  const requestedAt = firstParam(params.at);
+  const [appliedAt, setAppliedAt] = useState<string | undefined>(undefined);
+
+  if (requestedAt !== undefined && requestedAt !== appliedAt) {
+    const scope = firstParam(params.scope);
+    const requestedPeriod = firstParam(params.period);
+    /* Empty for a month that has not happened yet, which leaves -1. */
+    const back =
+      requestedPeriod !== undefined && isPeriodKey(requestedPeriod)
+        ? periodsBetween(requestedPeriod, currentPeriod()).length - 1
+        : -1;
+
+    setAppliedAt(requestedAt);
+    setFilter('all');
+    setSearch('');
+    setAccountId(null);
+    setLimit(PAGE_SIZE);
+    setBudgetScope(isBudgetScope(scope) ? scope : null);
+    setMonthsBack(back >= 0 ? back : null);
+  }
 
   /*
    * Deferring the search keeps typing responsive: the query runs against the
@@ -70,7 +111,7 @@ export default function TransactionsScreen() {
       categoryIds: filter === 'all' ? undefined : [filter],
       accountIds: accountId === null ? undefined : [accountId],
       search: deferredSearch,
-      budgetOnly,
+      budgetScope: budgetScope ?? undefined,
     },
     limit,
   );
@@ -86,14 +127,14 @@ export default function TransactionsScreen() {
   const isFiltered =
     filter !== 'all' ||
     search.trim().length > 0 ||
-    budgetOnly ||
+    budgetScope !== null ||
     accountId !== null ||
     monthsBack !== null;
 
   const clearFilters = () => {
     setFilter('all');
     setSearch('');
-    setBudgetOnly(false);
+    setBudgetScope(null);
     setAccountId(null);
     setMonthsBack(null);
   };
@@ -151,8 +192,8 @@ export default function TransactionsScreen() {
             onMonthsBackChange={setMonthsBack}
             accountId={accountId}
             onAccountIdChange={setAccountId}
-            budgetOnly={budgetOnly}
-            onBudgetOnlyChange={setBudgetOnly}
+            budgetScope={budgetScope}
+            onBudgetScopeChange={setBudgetScope}
             accounts={accounts.data ?? []}
             resultCount={feed.data?.total}
           />

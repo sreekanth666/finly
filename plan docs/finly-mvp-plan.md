@@ -410,8 +410,10 @@ load in Expo Go.
 
 Month header with switcher · the Safe-to-Spend ring, now driven by real data
 (`remaining(P)` against `available(P)`) · a carry-over line when non-zero
-("₹800 carried from January") · card row showing cycle spend, utilisation and
-days to statement · the last few expenses · FAB to add.
+("₹800 carried from January") · total spent for the month, split into its
+budget and off-budget parts, each opening Transactions filtered to that part
+and month · card row showing cycle spend, utilisation and days to statement ·
+the last few expenses · FAB to add.
 
 ### 7.2 Add / Edit expense — the flow that has to be excellent
 
@@ -433,7 +435,7 @@ rule-filled field is marked so it's obvious what was decided for you.
 ### 7.3 Transactions
 
 Grouped by day like the mockup, with month/category/account filters, text search
-over item and note, and a "budget only" toggle. Settled expenses show the
+over item and note, and a budget scope (all / budget / off budget). Settled expenses show the
 original amount struck through beside the effective one. Swipe to delete with
 undo (soft delete makes this free).
 
@@ -452,6 +454,8 @@ conditions, actions, and a live preview of how many existing expenses would matc
 
 Spend by category (donut + ranked list) · month-over-month bars against the
 budget line · card utilisation per card · top items and merchants for the month.
+The charts count the budget only; when a month has off-budget spend, a row under
+the donut adds the two into a total.
 
 ### 7.7 Settings
 

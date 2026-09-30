@@ -224,6 +224,41 @@ describe('the budget / utilisation split (§4.5)', () => {
   });
 });
 
+describe('off-budget spend and the month total (D3)', () => {
+  const spent = (where: string): number =>
+    (
+      db
+        .prepare(
+          `select coalesce(${EFFECTIVE}, 0) as spent from expenses e ${SETTLED_JOIN}
+           where e.deleted_at is null and e.budget_period = ? ${where}`,
+        )
+        .get('2026-08') as { spent: number }
+    ).spent;
+
+  it('nets a settlement and skips a deleted expense on the off-budget side too', () => {
+    insertExpense(db, { id: 'laptop', period: '2026-08', amountMinor: 4500000, countsToBudget: false });
+    insertSettlement(db, 's1', 'laptop', 500000);
+    insertExpense(db, { id: 'gone', period: '2026-08', amountMinor: 900000, countsToBudget: false, deleted: true });
+    insertExpense(db, { id: 'food', period: '2026-08', amountMinor: 100000 });
+
+    expect(spent('and e.counts_to_budget = 0')).toBe(4000000);
+  });
+
+  it('splits the month into two sides that add back up to all of it', () => {
+    insertExpense(db, { id: 'food', period: '2026-08', amountMinor: 100000 });
+    insertSettlement(db, 's1', 'food', 25000);
+    insertExpense(db, { id: 'laptop', period: '2026-08', amountMinor: 4500000, countsToBudget: false });
+    insertExpense(db, { id: 'other-month', period: '2026-07', amountMinor: 300000, countsToBudget: false });
+
+    const budget = spent('and e.counts_to_budget = 1');
+    const offBudget = spent('and e.counts_to_budget = 0');
+
+    expect(budget).toBe(75000);
+    expect(offBudget).toBe(4500000);
+    expect(budget + offBudget).toBe(spent(''));
+  });
+});
+
 describe('the settlement cap (§5)', () => {
   /** Mirrors addSettlement: read the total, compare, then insert. */
   const tryAdd = (expenseId: string, amount: number, expenseAmount: number): boolean => {

@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { CalendarClock, Plus, Receipt, Undo2, X } from 'lucide-react-native';
+import { Plus, Receipt, Undo2, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 
@@ -16,16 +16,16 @@ import { InboxButton } from '@/components/inbox-button';
 import { ReviewBanner } from '@/components/review-banner';
 import { ScreenHeader } from '@/components/screen-header';
 import { CardUtilisationList } from '@/components/card-utilisation-list';
-import { StatCard } from '@/components/stat-card';
+import { SpendSummary } from '@/components/spend-summary';
 import { TransactionRow } from '@/components/transaction-row';
-import { useDbQuery, type TableName } from '@/db/live';
-import { offBudgetSpend } from '@/db/repositories/expenses';
 import { absMinor, asMinor, formatMinor, speakMinor, ZERO_MINOR } from '@/domain/money';
 import { currentPeriod, daysRemainingIn, formatPeriodLong } from '@/domain/period';
+import type { BudgetScope } from '@/domain/spend';
 import {
   dismissCarryOverNotice,
   useBudgetHistory,
   useCarryOverNotice,
+  useOffBudgetSpend,
 } from '@/features/budget/hooks';
 import { useCardStandings } from '@/features/accounts/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
@@ -34,8 +34,6 @@ import { useNavigateOnce } from '@/features/navigation/hooks';
 const RING_MAX_SIZE = 320;
 const SCREEN_PADDING = 40;
 const RECENT_COUNT = 4;
-
-const OFF_BUDGET_TABLES: readonly TableName[] = ['expenses', 'settlements'];
 
 export default function BalanceScreen() {
   /* One push per press: the row stays tappable for the whole transition. */
@@ -56,9 +54,7 @@ export default function BalanceScreen() {
   const period = periods[index];
   const periodKey = period?.period ?? currentPeriod();
 
-  const offBudget = useDbQuery(`off-budget:${periodKey}`, OFF_BUDGET_TABLES, (database) =>
-    offBudgetSpend(periodKey, database),
-  );
+  const offBudget = useOffBudgetSpend(periodKey);
 
   const cards = useCardStandings();
   const recent = useExpenseFeed({ period: periodKey }, RECENT_COUNT);
@@ -86,9 +82,9 @@ export default function BalanceScreen() {
   /*
    * P1: the design pass showed a total balance, upcoming bills and auto savings.
    * None of them had anything behind them — D4 excludes an income ledger and
-   * account balances, and there is no bills or savings table. These two are
-   * derived from what the app actually knows, and answer the question the plan
-   * says the home screen exists to answer.
+   * account balances, and there is no bills or savings table. The daily figure
+   * and the spend summary are derived from what the app actually knows, and
+   * answer the question the plan says the home screen exists to answer.
    */
   const perDay =
     isCurrent && daysLeft > 0 && period.remaining > 0
@@ -96,6 +92,16 @@ export default function BalanceScreen() {
       : ZERO_MINOR;
 
   const changedPeriods = notice.data?.periods ?? [];
+
+  /* The feed opens on the same month and the same side as the figure that was
+     tapped, so the list adds up to the number that led there. The tab is already
+     mounted, so `at` is what tells it this is a new request rather than the
+     params it has already applied. */
+  const openFeed = (scope: BudgetScope) =>
+    navigate({
+      pathname: '/transactions',
+      params: { scope, period: periodKey, at: String(Date.now()) },
+    });
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -173,35 +179,24 @@ export default function BalanceScreen() {
               </View>
             </ProgressRing>
           </View>
+
+          {/* Only while the month is being lived in, and only with something
+              left: a past month has no "today", and the ring already says how
+              it ended. */}
+          {perDay > 0 && (
+            <Typography type="body-sm" color="muted" className="mt-3">
+              {daysLeft === 1
+                ? `${formatMinor(perDay, { showFraction: false })} left for the last day of the month`
+                : `${formatMinor(perDay, { showFraction: false })} a day for ${daysLeft} days`}
+            </Typography>
+          )}
         </View>
 
-        <View className="flex-row gap-3">
-          <StatCard
-            tone="accent"
-            title={isCurrent ? 'Left to spend today' : 'Ended with'}
-            caption={
-              isCurrent
-                ? daysLeft === 1
-                  ? 'last day of the month'
-                  : `over ${daysLeft} days`
-                : period.isOverspent
-                  ? 'overspent'
-                  : 'left over'
-            }
-            amount={isCurrent ? perDay : absMinor(period.remaining)}
-            icon={CalendarClock}
-          />
-          {/* A failed read must not render as ₹0 — that is a number the user
-              would believe. */}
-          <StatCard
-            tone="iris"
-            title="Off budget"
-            caption={offBudget.error === null ? 'tracked, outside the cap' : 'could not be read'}
-            amount={offBudget.data ?? ZERO_MINOR}
-            isUnavailable={offBudget.error !== null}
-            icon={Receipt}
-          />
-        </View>
+        <SpendSummary
+          budgetMinor={period.spent}
+          offBudgetMinor={offBudget.error === null ? (offBudget.data ?? ZERO_MINOR) : null}
+          onPressScope={openFeed}
+        />
 
         {/* §7.1: cycle spend, utilisation and days to statement per card.
             Utilisation is a billing-cycle figure, not a monthly one, so it does

@@ -35,7 +35,7 @@ const filterKey = (filter: ExpenseFilter): string =>
     (filter.categoryIds ?? []).join('|'),
     (filter.accountIds ?? []).join('|'),
     filter.search ?? '',
-    filter.budgetOnly === true ? '1' : '0',
+    filter.budgetScope ?? '',
   ].join('~');
 
 export type ExpenseFeed = {

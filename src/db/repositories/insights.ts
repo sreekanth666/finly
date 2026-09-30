@@ -27,7 +27,9 @@ const EFFECTIVE = sql<number>`sum(max(0, ${expenses.amountMinor} - coalesce(sett
  * spending and the trend bar for the same month did not, one screen showed two
  * different answers to one question — and a ₹45,000 laptop is exactly the kind
  * of expense that makes the gap large enough to notice and impossible to
- * explain. Off-budget spending is shown as its own figure instead.
+ * explain. Off-budget spending is shown as its own figure instead, in a row
+ * under the donut that adds the two into a labelled total — the charts stay on
+ * the one definition, and the full cost of the month is still on the screen.
  */
 const inPeriod = (period: PeriodKey) =>
   and(isNull(expenses.deletedAt), eq(expenses.countsToBudget, true), eq(expenses.budgetPeriod, period));

@@ -1,5 +1,5 @@
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
-import { BottomSheet, Switch, Typography } from "heroui-native";
+import { BottomSheet, Typography } from "heroui-native";
 import { SlidersHorizontal } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { Keyboard, Pressable, View } from "react-native";
@@ -12,27 +12,36 @@ import { VERTICAL_ONLY_PAN } from "./sheet-pan";
 
 import type { AccountRow } from "@/db/schema";
 import { addPeriods, currentPeriod, formatPeriodLong } from "@/domain/period";
+import { isBudgetScope, type BudgetScope } from "@/domain/spend";
 
-/** As far back as the month picker offers. A year covers every carry-over. */
+/** As far back as the month picker offers unasked. A year covers every carry-over. */
 const MONTHS = 12;
 
 /** The id the chip bars use for "not filtered", which is `null` everywhere else. */
 const ANY = "any";
+
+/* Both sides of the counts-to-budget flag (D3). "Budget only" was a switch
+   until the off-budget side needed a way in too. */
+const SCOPE_OPTIONS: FilterOption<string>[] = [
+  { id: ANY, label: "All" },
+  { id: "budget", label: "Budget" },
+  { id: "off-budget", label: "Off budget" },
+];
 
 export type TransactionFiltersProps = {
   monthsBack: number | null;
   onMonthsBackChange: (next: number | null) => void;
   accountId: string | null;
   onAccountIdChange: (next: string | null) => void;
-  budgetOnly: boolean;
-  onBudgetOnlyChange: (next: boolean) => void;
+  budgetScope: BudgetScope | null;
+  onBudgetScopeChange: (next: BudgetScope | null) => void;
   accounts: AccountRow[];
   /** Undefined while the feed is still resolving, which only affects the label. */
   resultCount: number | undefined;
 };
 
 /**
- * Month, account and budget-only, behind one control beside the search field.
+ * Month, account and budget scope, behind one control beside the search field.
  *
  * These three used to sit on the screen as two more rows of chips under the
  * categories, which put three chip rows in a column and read as one
@@ -51,8 +60,8 @@ export function TransactionFilters({
   onMonthsBackChange,
   accountId,
   onAccountIdChange,
-  budgetOnly,
-  onBudgetOnlyChange,
+  budgetScope,
+  onBudgetScopeChange,
   accounts,
   resultCount,
 }: TransactionFiltersProps) {
@@ -99,17 +108,22 @@ export function TransactionFilters({
   const activeCount =
     (monthsBack === null ? 0 : 1) +
     (accountId === null ? 0 : 1) +
-    (budgetOnly ? 1 : 0);
+    (budgetScope === null ? 0 : 1);
+
+  /* Balance's month switcher reaches back past a year, and its spend summary
+     opens this screen on whatever month it was showing. The list stretches to
+     include that month, so the selection always has a chip to sit on. */
+  const monthCount = Math.max(MONTHS, (monthsBack ?? 0) + 1);
 
   const monthOptions = useMemo<FilterOption<string>[]>(
     () => [
       { id: ANY, label: "Any month" },
-      ...Array.from({ length: MONTHS }, (_, index) => ({
+      ...Array.from({ length: monthCount }, (_, index) => ({
         id: String(index),
         label: formatPeriodLong(addPeriods(monthAnchor, -index)),
       })),
     ],
-    [monthAnchor],
+    [monthAnchor, monthCount],
   );
 
   const accountOptions = useMemo<FilterOption<string>[]>(
@@ -135,7 +149,7 @@ export function TransactionFilters({
   const reset = () => {
     onMonthsBackChange(null);
     onAccountIdChange(null);
-    onBudgetOnlyChange(false);
+    onBudgetScopeChange(null);
   };
 
   const applyLabel =
@@ -254,20 +268,17 @@ export function TransactionFilters({
                   </View>
                 )}
 
-                <View className="flex-row items-center gap-3 rounded-3xl bg-surface px-4 py-3.5">
-                  <View className="flex-1 gap-0.5">
-                    <Typography type="body-sm" weight="semibold">
-                      Budget only
-                    </Typography>
-                    <Typography type="body-xs" color="muted">
-                      Hide anything set not to count toward the month.
-                    </Typography>
+                <View className="gap-2">
+                  <SectionHeader label="Counts toward the budget" />
+                  <View className="-mx-5">
+                    <FilterChipBar
+                      options={SCOPE_OPTIONS}
+                      selectedId={budgetScope ?? ANY}
+                      onSelect={(id) =>
+                        onBudgetScopeChange(isBudgetScope(id) ? id : null)
+                      }
+                    />
                   </View>
-                  <Switch
-                    isSelected={budgetOnly}
-                    onSelectedChange={onBudgetOnlyChange}
-                    accessibilityLabel="Show only expenses that count toward the budget"
-                  />
                 </View>
 
                 {/* The filters apply as they are tapped, so this only dismisses —

@@ -17,6 +17,7 @@ import { and, asc, count, desc, eq, gte, inArray, isNull, lt, or, sql } from 'dr
 import { asMinor, getActiveCurrency, type Minor } from '@/domain/money';
 import { periodOf, type PeriodKey } from '@/domain/period';
 import { summariseSettlements } from '@/domain/settlement';
+import type { BudgetScope } from '@/domain/spend';
 
 import { markCarryDirty, markCarryDirtyForMove } from '../carry-over';
 import { db, type DbLike } from '../client';
@@ -83,8 +84,8 @@ export type ExpenseFilter = {
   accountIds?: readonly string[];
   /** Matched against item and note, case-insensitively. */
   search?: string;
-  /** Only expenses that count toward the budget (D3). */
-  budgetOnly?: boolean;
+  /** One side of the counts-to-budget flag (D3). Absent means both. */
+  budgetScope?: BudgetScope;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -115,8 +116,8 @@ function buildWhere(filter: ExpenseFilter) {
   if (filter.accountIds !== undefined && filter.accountIds.length > 0) {
     clauses.push(inArray(expenses.accountId, [...filter.accountIds]));
   }
-  if (filter.budgetOnly === true) {
-    clauses.push(eq(expenses.countsToBudget, true));
+  if (filter.budgetScope !== undefined) {
+    clauses.push(eq(expenses.countsToBudget, filter.budgetScope === 'budget'));
   }
 
   const search = filter.search?.trim();
