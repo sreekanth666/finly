@@ -42,6 +42,7 @@ import {
 } from '../schema';
 import { writeTransaction } from '../transaction';
 import { rememberAccountTail } from './accounts';
+import { addCardPayment, findMatchingPayment } from './card-payments';
 import {
   attachSourceText,
   createExpense,
@@ -411,6 +412,7 @@ export type CandidateDetail = CandidateSummary & {
   suggestedRuleId: string | null;
   expenseId: string | null;
   settlementId: string | null;
+  cardPaymentId: string | null;
   duplicateOf: string | null;
   /** What a confirmed expense will keep in `source_text`. */
   sourceText: string;
@@ -523,6 +525,7 @@ export function getCandidateDetail(id: string, database: DbLike = db): Candidate
     suggestedRuleId: candidate.suggestedRuleId,
     expenseId: candidate.expenseId,
     settlementId: candidate.settlementId,
+    cardPaymentId: candidate.cardPaymentId,
     duplicateOf: candidate.duplicateOf,
     sourceText: sourceTextOf(message),
     duplicates,
@@ -657,6 +660,65 @@ export function settleCandidate(id: string, expenseId: string, database: DbLike 
       .where(eq(detectedTransactions.id, id))
       .run();
     return settlementId;
+  }, database);
+}
+
+export type CardPaymentDecision = {
+  cardId: string;
+  fromAccountId: string | null;
+  /** Overrides what was read, for an alert whose amount was misread. */
+  amountMinor?: Minor;
+};
+
+/**
+ * A card-bill alert, recorded as a payment toward the card (D20). Either
+ * direction: the bank's "paid to CRED" is a debit and the issuer's "payment
+ * received" is a credit, and both describe the same event. When that event is
+ * already recorded — the other alert came first, or it was typed in — this one
+ * is linked to it rather than recorded twice, which would halve what the card
+ * seems to owe. Returns the payment and whether it was new.
+ */
+export function recordCandidateAsCardPayment(
+  id: string,
+  decision: CardPaymentDecision,
+  database: DbLike = db,
+): { paymentId: string; isNew: boolean } {
+  return writeTransaction((tx) => {
+    const row = requireCandidate(id, tx);
+    const amountMinor = decision.amountMinor ?? row.amountMinor;
+    if (amountMinor === null) {
+      throw new ValidationError('amount', 'Enter the amount paid.');
+    }
+
+    const existing = findMatchingPayment(decision.cardId, amountMinor, row.occurredAt, tx);
+    const paymentId =
+      existing ??
+      addCardPayment(
+        {
+          accountId: decision.cardId,
+          amountMinor,
+          paidAt: row.occurredAt,
+          fromAccountId: decision.fromAccountId,
+          note: row.item,
+          source: 'detected',
+          sourceText: sourceTextOf(messageOf(row, tx)),
+        },
+        tx,
+      );
+
+    const now = Date.now();
+    tx.update(detectedTransactions)
+      .set({ status: 'confirmed', cardPaymentId: paymentId, resolvedAt: now, updatedAt: now })
+      .where(eq(detectedTransactions.id, id))
+      .run();
+
+    /* Only the issuer's own alert names the card's digits; the bank's names the
+       account the money left. */
+    if (row.instrumentType === 'card' && row.instrumentTail !== null) {
+      rememberAccountTail(decision.cardId, row.instrumentTail, row.issuer, tx);
+    }
+
+    return { paymentId, isNew: existing === null };
   }, database);
 }
 

@@ -45,6 +45,14 @@ export const accounts = sqliteTable(
     creditLimitMinor: integer('credit_limit_minor').$type<Minor>(),
     /** Credit cards only. 1–31; short months clamp (§4.5). */
     statementDay: integer('statement_day'),
+    /**
+     * Credit cards only (D20): what the user said they owed, and when. The
+     * unpaid balance counts from this moment — spend before it is already in
+     * the figure, and nothing earlier is ever re-read. Both null means the card
+     * is not tracked and shows cycle spend, as D6 did.
+     */
+    openingOwedMinor: integer('opening_owed_minor').$type<Minor>(),
+    openingOwedAt: integer('opening_owed_at'),
     /** A theme token name, never a hex — see scripts/check-colors.mjs. */
     colorToken: text('color_token').notNull().default('accent'),
     sortOrder: integer('sort_order').notNull().default(0),
@@ -150,6 +158,40 @@ export const settlements = sqliteTable(
   (table) => [
     check('settlements_amount_positive', sql`${table.amountMinor} > 0`),
     index('idx_settlements_expense').on(table.expenseId, table.deletedAt),
+  ],
+);
+
+/**
+ * Money paid toward a credit card's bill (D20). Not spending: the purchases it
+ * pays for are expenses already, so a payment only lowers what the card owes
+ * and never touches the budget.
+ */
+export const cardPayments = sqliteTable(
+  'card_payments',
+  {
+    id: text('id').primaryKey(),
+    /** The card paid. */
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    amountMinor: integer('amount_minor').notNull().$type<Minor>(),
+    paidAt: integer('paid_at').notNull(),
+    /** Where the money came from, when known. */
+    fromAccountId: text('from_account_id').references(() => accounts.id),
+    note: text('note'),
+    /** Enforced in the repository, as `expenses.source` is. */
+    source: text('source').notNull().default('manual').$type<CardPaymentSource>(),
+    /** The alert it was recorded from, verbatim. */
+    sourceText: text('source_text'),
+    /** The expense it was converted from, kept so the conversion can be undone. */
+    expenseId: text('expense_id').references(() => expenses.id, { onDelete: 'set null' }),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+    deletedAt: integer('deleted_at'),
+  },
+  (table) => [
+    check('card_payments_amount_positive', sql`${table.amountMinor} > 0`),
+    index('idx_card_payments_account').on(table.accountId, table.deletedAt, table.paidAt),
   ],
 );
 
@@ -298,6 +340,14 @@ export const detectedTransactions = sqliteTable(
     expenseId: text('expense_id').references(() => expenses.id, { onDelete: 'set null' }),
     /** A credit recorded as money back against an expense (D1). */
     settlementId: text('settlement_id').references(() => settlements.id, { onDelete: 'set null' }),
+    /**
+     * A card-bill alert recorded as a payment toward the card (D20). The status
+     * is `confirmed`: a new status would change `detected_status`, and changing
+     * a CHECK on an existing SQLite table means rebuilding it.
+     */
+    cardPaymentId: text('card_payment_id').references(() => cardPayments.id, {
+      onDelete: 'set null',
+    }),
     parserVersion: integer('parser_version').notNull(),
     /**
      * The `capture_templates_rev` this was read with (D18). Teaching, editing
@@ -418,6 +468,9 @@ export type RuleActionType = 'set_category' | 'set_account' | 'set_counts_to_bud
 export const EXPENSE_SOURCES = ['manual', 'detected', 'import'] as const;
 export type ExpenseSource = (typeof EXPENSE_SOURCES)[number];
 
+export const CARD_PAYMENT_SOURCES = ['manual', 'detected', 'converted'] as const;
+export type CardPaymentSource = (typeof CARD_PAYMENT_SOURCES)[number];
+
 export type CaptureSourceColumn = 'notification' | 'paste' | 'share';
 
 export type DetectionKindColumn =
@@ -495,6 +548,8 @@ export type ExpenseRow = typeof expenses.$inferSelect;
 export type NewExpenseRow = typeof expenses.$inferInsert;
 export type SettlementRow = typeof settlements.$inferSelect;
 export type NewSettlementRow = typeof settlements.$inferInsert;
+export type CardPaymentRow = typeof cardPayments.$inferSelect;
+export type NewCardPaymentRow = typeof cardPayments.$inferInsert;
 export type BudgetRow = typeof budgets.$inferSelect;
 export type NewBudgetRow = typeof budgets.$inferInsert;
 export type RuleRow = typeof rules.$inferSelect;

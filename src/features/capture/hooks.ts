@@ -13,6 +13,8 @@ import {
   countCandidatesToReview,
   getCandidateDetail,
   linkCandidateToExpense,
+  recordCandidateAsCardPayment,
+  type CardPaymentDecision,
   listPendingCandidates,
   resolveCandidate,
   restoreCandidate,
@@ -88,6 +90,12 @@ export function useLinkCandidate() {
 
 export function useSettleCandidate() {
   return useAction((id: string, expenseId: string) => settleCandidate(id, expenseId));
+}
+
+export function useRecordCardPayment() {
+  return useAction((id: string, decision: CardPaymentDecision) =>
+    recordCandidateAsCardPayment(id, decision),
+  );
 }
 
 export function useResolveCandidate() {

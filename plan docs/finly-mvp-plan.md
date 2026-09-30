@@ -25,7 +25,8 @@ and at any moment the home screen answers "how much can I spend today?" without
 arithmetic.
 
 **Non-goals for the MVP:** bill/receipt attachments, income and account
-balances, EMI plans, per-category budgets, card payment tracking, notifications
+balances, EMI plans, per-category budgets, card due dates (payments arrived
+in D20), notifications
 beyond the one daily logging reminder (D16) and the transaction inbox's count (D17), multi-device sync, multi-currency.
 
 ---
@@ -42,7 +43,7 @@ reader can tell a decision from an accident.
 | D3 | The monthly flag means **counts toward the budget, or not** | A one-off laptop is real spending but not part of the routine ₹5,000 |
 | D4 | **Expenses and settlements only** — no income ledger | Keeps the MVP to the job the sheet does |
 | D5 | Expenses carry a **category** from a fixed list, plus free-text item and note | The one field that makes Insights possible |
-| D6 | Utilisation = **current billing cycle spend ÷ credit limit** | Needs only statement day and limit; no card payment tracking |
+| D6 | Utilisation = **current billing cycle spend ÷ credit limit** — for a card that is not tracked. D20 upgrades a tracked card to unpaid balance ÷ limit | Needs only statement day and limit |
 | D7 | Rules **auto-fill during entry** | Directly serves entry speed, and grows into the full engine later |
 | D8 | **CSV import + JSON/CSV export** | Existing history comes across; local-only data must have an escape route |
 | D9 | **One overall monthly cap**, no per-category budgets | Category caps go stale; look at Insights first, add caps where they earn it |
@@ -50,12 +51,13 @@ reader can tell a decision from an accident.
 | D11 | **expo-sqlite + Drizzle ORM** | Typed schema, compile-time column safety, disciplined migrations |
 | D12 | **Move to dev builds**; keep victory-native + Skia | Expo Go can't load Skia; dev builds also unblock future native modules |
 | D13 | Insights ships **all four** views: category, trend, card utilisation, top items | Each answers a question currently asked of the sheet |
-| D14 | Cards store **statement day only**, no due dates or reminders | Due dates imply tracking payment, which is out of scope |
+| D14 | Cards store **statement day only**, no due dates or reminders | Payments are recorded (D20), but a due date is a reminder, and D16 keeps reminders to the one |
 | D15 | The app is named **Finly** | Matches the repo, package and slug; mockup wordmark gets re-set |
 | D16 | One **opt-in local daily reminder** to log expenses, skipped on days something was already logged. Scheduled on the device, no server; no card due-date reminders (D14 stands) | Safe-to-spend is only as right as what was logged, and an entry missed on the day is easily never made. Local-only keeps the no-server promise |
 | D17 | **Detected transactions go to a review inbox**, never straight to expenses. Sources: a user-granted Android notification listener (which also sees bank SMS through the SMS app's own notification) and a paste box. Parsing is on the device; nothing is uploaded. Low-confidence candidates are kept, not dropped. The original message is stored on the confirmed expense in `source_text`, not appended to the note. `READ_SMS`/`RECEIVE_SMS` are **not** requested | Typing every UPI payment is the chore that makes people abandon a tracker, but a misread amount written silently into the budget is worse than a missed one, so the user confirms. Play restricts SMS permissions to default SMS apps and rejects most budgeting declarations; notification access is a user grant outside that group. Keeping the raw text out of `note` keeps search and `note contains` rules from matching boilerplate like "call" and "block" on every detected expense |
 | D18 | **Users teach message formats by example**: tap the amount, payee, reference or card digits in a misread alert, and Finly derives a template for that sender. Every template is bound to one sender, may overrule only the negative gate its own sample tripped, and changes nothing when it does not match. A template, or a masked misread, can be **emailed to the developer** from the user's own mail app; Finly still sends nothing itself | No parser keeps up with every issuer's wording, and the user is the one who notices. Tagging an example asks nothing technical of them. Binding and the gate rule keep a bad template's reach to one sender, and to the kind of message it was taught on. Email keeps the no-network promise while letting a fix made on one phone reach everyone in an update |
 | D19 | **Contact the developer by email only**: Settings → About and "Report a detection problem" open the user's own mail app with the recipient, subject, message and a `finly-report.txt` filled in (expo-mail-composer, falling back to a mailto link, then Share). The report is built from counts and bank names — detection settings, listener health, corrections at confirm, a per-sender table — and, only if chosen, message skeletons with every name, amount and number replaced. Every section can be switched off and is shown before sending | Detection will go wrong on formats nobody has seen, and the phone knows things the user can't describe: which bank, whether the listener is running, what was corrected. Counts and skeletons carry that without carrying anything personal, and the user still presses send, so the no-network promise holds |
+| D20 | **Card bill payments are their own records**, and a tracked card shows its **unpaid balance**: what the user said it owed at one moment, plus effective card spend since, minus payments since. Each card is anchored once, from its own app or statement, and can be re-anchored ("Adjust balance"). A card never anchored keeps D6's cycle spend. Payments come from the card screen, from card-bill alerts in the inbox (linked, not doubled, when a matching payment is already recorded), or by converting an expense that was really a bill payment | Paying the bill was the one money event with nowhere to go: logged as an expense it counted the card's purchases twice, and cycle spend could not fall when it was paid. The anchor exists because the app holds a card's purchases but never held the payments before them, so summing history would show a year of paid-off spending as owed |
 
 ---
 
@@ -85,8 +87,8 @@ sources of truth that drift.
 
 The schema is shaped so these arrive as additive migrations, never as a rewrite:
 receipt attachments, merchant normalisation, `is_recurring` + recurrence rules,
-EMI plans, split expenses, counterparties (who owes you), card payments, tags,
-per-category budgets. Section 9 maps each to its migration.
+EMI plans, split expenses, counterparties (who owes you), tags, per-category
+budgets. Card payments were on this list and arrived as D20, additively. Section 9 maps each to its migration.
 
 ---
 
@@ -180,6 +182,17 @@ utilisation(card)       = cycleSpend / credit_limit_minor
   uses it.
 - `counts_to_budget` does **not** affect utilisation. A ₹45,000 laptop is
   excluded from the budget but absolutely is on the card.
+- **Tracked cards (D20)** measure what they owe instead of what the cycle spent:
+
+```
+owed(card)        = opening_owed_minor
+                  + Σ effective(e) for card expenses with occurred_at ≥ opening_owed_at
+                  − Σ amount(p)    for card payments with paid_at ≥ opening_owed_at
+utilisation(card) = max(0, owed) / credit_limit_minor     -- negative owed is credit
+```
+
+  A card payment never touches the budget: the purchases it pays for were
+  counted in the months they happened.
 
 ### 4.6 Rules
 
@@ -274,6 +287,27 @@ CREATE TABLE settlements (
 );
 
 CREATE INDEX idx_settlements_expense ON settlements(expense_id, deleted_at);
+
+-- Money paid toward a credit card's bill (D20). Not spending.
+CREATE TABLE card_payments (
+  id              TEXT    PRIMARY KEY,
+  account_id      TEXT    NOT NULL REFERENCES accounts(id),  -- the card paid
+  amount_minor    INTEGER NOT NULL,
+  paid_at         INTEGER NOT NULL,
+  from_account_id TEXT    REFERENCES accounts(id),           -- where the money came from
+  note            TEXT,
+  source          TEXT    NOT NULL DEFAULT 'manual',          -- manual | detected | converted
+  source_text     TEXT,
+  expense_id      TEXT    REFERENCES expenses(id) ON DELETE SET NULL, -- converted from
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL,
+  deleted_at      INTEGER,
+  CHECK (amount_minor > 0)
+);
+
+CREATE INDEX idx_card_payments_account ON card_payments(account_id, deleted_at, paid_at);
+-- accounts gains opening_owed_minor and opening_owed_at (both null until anchored),
+-- and detected_transactions gains card_payment_id.
 
 -- One row per month, created lazily on first use of that period
 CREATE TABLE budgets (
@@ -410,8 +444,10 @@ load in Expo Go.
 
 Month header with switcher · the Safe-to-Spend ring, now driven by real data
 (`remaining(P)` against `available(P)`) · a carry-over line when non-zero
-("₹800 carried from January") · card row showing cycle spend, utilisation and
-days to statement · the last few expenses · FAB to add.
+("₹800 carried from January") · total spent for the month, split into its
+budget and off-budget parts, each opening Transactions filtered to that part
+and month · card row showing cycle spend, utilisation and days to statement ·
+the last few expenses · FAB to add.
 
 ### 7.2 Add / Edit expense — the flow that has to be excellent
 
@@ -433,14 +469,24 @@ rule-filled field is marked so it's obvious what was decided for you.
 ### 7.3 Transactions
 
 Grouped by day like the mockup, with month/category/account filters, text search
-over item and note, and a "budget only" toggle. Settled expenses show the
+over item and note, and a budget scope (all / budget / off budget). Settled expenses show the
 original amount struck through beside the effective one. Swipe to delete with
 undo (soft delete makes this free).
 
 ### 7.4 Expense detail
 
 Full record, its settlements, and **Add settlement** (amount, date, where the
-money landed, note). Shows "₹500 of ₹500 returned — counts as ₹0".
+money landed, note). Shows "₹500 of ₹500 returned — counts as ₹0". Where a
+credit card exists, **This was a card bill payment** moves the expense to that
+card's payments (D20), with undo; not offered once money has come back.
+
+### 7.4a Card
+
+Reached by tapping a card on Balance or Insights. What it owes (or has spent
+this cycle, until anchored) against its limit, with the utilisation band;
+**Set what you owe** / **Adjust balance**; **Record payment** (amount, date, paid
+from, note); its payments, swipe to delete with undo; and a way into
+Transactions filtered to the card.
 
 ### 7.5 Rules
 
@@ -452,6 +498,8 @@ conditions, actions, and a live preview of how many existing expenses would matc
 
 Spend by category (donut + ranked list) · month-over-month bars against the
 budget line · card utilisation per card · top items and merchants for the month.
+The charts count the budget only; when a month has off-budget spend, a row under
+the donut adds the two into a total.
 
 ### 7.7 Settings
 
@@ -548,8 +596,8 @@ Ordered by expected value, each additive against the existing schema:
    field the user already knows they want.
 2. **Recurring expenses** — `expenses.is_recurring` + a `recurrences` table;
    forecasting the fixed monthly base.
-3. **Card payments and true utilisation** — a `card_payments` table upgrades D6
-   from cycle spend to unpaid balance.
+3. ~~**Card payments and true utilisation**~~ — shipped as D20: a
+   `card_payments` table upgrades D6 from cycle spend to unpaid balance.
 4. **Income and balances** — a `transactions` supertype over expenses.
 5. **People and lending** — `counterparties` + `settlements.counterparty_id`,
    turning settlements into a per-person ledger.

@@ -24,6 +24,7 @@ export type TableName =
   | 'categories'
   | 'expenses'
   | 'settlements'
+  | 'card_payments'
   | 'budgets'
   | 'rules'
   | 'rule_conditions'

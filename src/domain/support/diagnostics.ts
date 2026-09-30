@@ -34,6 +34,12 @@ export type DetectionFact = {
   suggestedCategoryId: string | null;
   suggestedAccountId: string | null;
   expenseSource: string | null;
+  /**
+   * Set when a card-bill alert was recorded as a payment toward the card (D20).
+   * Filtered was right about those, so they are not a rescue. Optional so a
+   * fact built without it reads as no payment.
+   */
+  cardPaymentId?: string | null;
   expenseAmount: number | null;
   expenseAt: number | null;
   expenseItem: string | null;
@@ -182,7 +188,11 @@ export function summariseDetections(
       corrections.markedNotPayment += 1;
     }
     if (fact.status === 'duplicate') corrections.duplicates += 1;
-    if ((fact.status === 'confirmed' || fact.status === 'settled') && FILTERED.has(fact.kind)) {
+    if (
+      (fact.status === 'confirmed' || fact.status === 'settled') &&
+      FILTERED.has(fact.kind) &&
+      fact.cardPaymentId == null
+    ) {
       corrections.rescuedFromFiltered += 1;
     }
 

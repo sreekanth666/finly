@@ -2,9 +2,12 @@ import type { DatabaseSync } from 'node:sqlite';
 
 import {
   EFFECTIVE,
+  insertCardPayment,
   insertExpense,
   insertSettlement,
+  NOW,
   openMigratedDatabase,
+  OWED,
   rejects,
   seedCatalogue,
   SETTLED_JOIN,
@@ -34,6 +37,7 @@ describe('the generated migration', () => {
       'budgets',
       'capture_templates',
       'captured_messages',
+      'card_payments',
       'categories',
       'detected_transactions',
       'expenses',
@@ -224,6 +228,41 @@ describe('the budget / utilisation split (§4.5)', () => {
   });
 });
 
+describe('off-budget spend and the month total (D3)', () => {
+  const spent = (where: string): number =>
+    (
+      db
+        .prepare(
+          `select coalesce(${EFFECTIVE}, 0) as spent from expenses e ${SETTLED_JOIN}
+           where e.deleted_at is null and e.budget_period = ? ${where}`,
+        )
+        .get('2026-08') as { spent: number }
+    ).spent;
+
+  it('nets a settlement and skips a deleted expense on the off-budget side too', () => {
+    insertExpense(db, { id: 'laptop', period: '2026-08', amountMinor: 4500000, countsToBudget: false });
+    insertSettlement(db, 's1', 'laptop', 500000);
+    insertExpense(db, { id: 'gone', period: '2026-08', amountMinor: 900000, countsToBudget: false, deleted: true });
+    insertExpense(db, { id: 'food', period: '2026-08', amountMinor: 100000 });
+
+    expect(spent('and e.counts_to_budget = 0')).toBe(4000000);
+  });
+
+  it('splits the month into two sides that add back up to all of it', () => {
+    insertExpense(db, { id: 'food', period: '2026-08', amountMinor: 100000 });
+    insertSettlement(db, 's1', 'food', 25000);
+    insertExpense(db, { id: 'laptop', period: '2026-08', amountMinor: 4500000, countsToBudget: false });
+    insertExpense(db, { id: 'other-month', period: '2026-07', amountMinor: 300000, countsToBudget: false });
+
+    const budget = spent('and e.counts_to_budget = 1');
+    const offBudget = spent('and e.counts_to_budget = 0');
+
+    expect(budget).toBe(75000);
+    expect(offBudget).toBe(4500000);
+    expect(budget + offBudget).toBe(spent(''));
+  });
+});
+
 describe('the settlement cap (§5)', () => {
   /** Mirrors addSettlement: read the total, compare, then insert. */
   const tryAdd = (expenseId: string, amount: number, expenseAmount: number): boolean => {
@@ -262,5 +301,137 @@ describe('the settlement cap (§5)', () => {
       .get('2026-02') as { spent: number };
 
     expect(row.spent).toBe(0);
+  });
+});
+
+describe('card payments and what a card owes (D20)', () => {
+  const DAY = 86_400_000;
+  const ANCHOR = NOW;
+
+  const anchor = (owedMinor: number, at = ANCHOR) =>
+    db.exec(`update accounts set opening_owed_minor = ${owedMinor}, opening_owed_at = ${at} where id = 'a-card'`);
+
+  const owed = (): number => (db.prepare(OWED).get('a-card') as { owed: number }).owed;
+
+  it('refuses a payment of zero', () => {
+    expect(
+      rejects(
+        db,
+        `insert into card_payments (id,account_id,amount_minor,paid_at,source,created_at,updated_at)
+         values ('p','a-card',0,0,'manual',0,0)`,
+      ),
+    ).toBe(true);
+  });
+
+  it('refuses a payment toward a card that does not exist', () => {
+    expect(
+      rejects(
+        db,
+        `insert into card_payments (id,account_id,amount_minor,paid_at,source,created_at,updated_at)
+         values ('p','no-such-card',100,0,'manual',0,0)`,
+      ),
+    ).toBe(true);
+  });
+
+  it('adds spending and subtracts payments made after the anchor', () => {
+    anchor(1845000);
+    insertExpense(db, { id: 'dinner', period: '2026-10', amountMinor: 320000, occurredAt: ANCHOR + DAY });
+    insertCardPayment(db, { id: 'p1', amountMinor: 1845000, paidAt: ANCHOR + 2 * DAY });
+
+    expect(owed()).toBe(320000);
+  });
+
+  it('ignores everything before the anchor — it is already in the figure the user entered', () => {
+    insertExpense(db, { id: 'old-purchase', period: '2026-09', amountMinor: 900000, occurredAt: ANCHOR - DAY });
+    insertCardPayment(db, { id: 'old-payment', amountMinor: 500000, paidAt: ANCHOR - DAY });
+    anchor(1000000);
+
+    expect(owed()).toBe(1000000);
+  });
+
+  it('skips a deleted payment and a deleted expense', () => {
+    anchor(0);
+    insertExpense(db, { id: 'kept', period: '2026-10', amountMinor: 100000, occurredAt: ANCHOR + DAY });
+    insertExpense(db, { id: 'gone', period: '2026-10', amountMinor: 700000, occurredAt: ANCHOR + DAY, deleted: true });
+    insertCardPayment(db, { id: 'undone', amountMinor: 50000, paidAt: ANCHOR + DAY, deleted: true });
+
+    expect(owed()).toBe(100000);
+  });
+
+  it('nets money back on a card purchase, as utilisation always has', () => {
+    anchor(0);
+    insertExpense(db, { id: 'shoes', period: '2026-10', amountMinor: 400000, occurredAt: ANCHOR + DAY });
+    insertSettlement(db, 'refund', 'shoes', 150000);
+
+    expect(owed()).toBe(250000);
+  });
+
+  it('goes negative when more was paid than owed', () => {
+    anchor(100000);
+    insertCardPayment(db, { id: 'p1', amountMinor: 150000, paidAt: ANCHOR + DAY });
+
+    expect(owed()).toBe(-50000);
+  });
+
+  it('counts only the card it belongs to', () => {
+    db.exec(
+      `insert into accounts (id,name,type,credit_limit_minor,statement_day,color_token,sort_order,is_archived,created_at,updated_at)
+       values ('a-other','ICICI','credit_card',200000,5,'accent',1,0,${NOW},${NOW})`,
+    );
+    anchor(0);
+    insertCardPayment(db, { id: 'elsewhere', accountId: 'a-other', amountMinor: 90000, paidAt: ANCHOR + DAY });
+
+    expect(owed()).toBe(0);
+  });
+
+  it('takes a converted bill payment out of the budget while lowering what the card owes', () => {
+    /* The workaround this replaces: the bill logged as an expense. Converting
+       soft-deletes it and writes the payment, in one transaction. */
+    anchor(2200000);
+    insertExpense(db, { id: 'food', period: '2026-10', amountMinor: 100000, occurredAt: ANCHOR + DAY, accountId: null });
+    insertExpense(db, {
+      id: 'bill',
+      period: '2026-10',
+      amountMinor: 2200000,
+      occurredAt: ANCHOR + DAY,
+      countsToBudget: false,
+      accountId: null,
+    });
+
+    db.exec(`update expenses set deleted_at = ${NOW} where id = 'bill'`);
+    db.exec(
+      `insert into card_payments (id,account_id,amount_minor,paid_at,source,expense_id,created_at,updated_at)
+       values ('p-bill','a-card',2200000,${ANCHOR + DAY},'converted','bill',${NOW},${NOW})`,
+    );
+
+    const month = db
+      .prepare(
+        `select ${EFFECTIVE} as spent from expenses e ${SETTLED_JOIN}
+         where e.deleted_at is null and e.budget_period = ?`,
+      )
+      .get('2026-10') as { spent: number };
+
+    expect(month.spent).toBe(100000);
+    expect(owed()).toBe(0);
+  });
+
+  it('keeps a payment when the expense it was converted from is purged', () => {
+    insertExpense(db, { id: 'bill', period: '2026-10', amountMinor: 50000, accountId: null });
+    db.exec(
+      `insert into card_payments (id,account_id,amount_minor,paid_at,source,expense_id,created_at,updated_at)
+       values ('p','a-card',50000,${NOW},'converted','bill',${NOW},${NOW})`,
+    );
+
+    db.exec("delete from expenses where id = 'bill'");
+
+    const row = db.prepare("select expense_id from card_payments where id = 'p'").get() as {
+      expense_id: string | null;
+    };
+    expect(row.expense_id).toBeNull();
+  });
+
+  it('will not orphan a payment by deleting the card it paid', () => {
+    insertCardPayment(db, { id: 'p', amountMinor: 50000 });
+    expect(rejects(db, "delete from accounts where id = 'a-card'")).toBe(true);
   });
 });

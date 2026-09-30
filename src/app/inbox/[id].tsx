@@ -1,6 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 
 import { CandidateReview } from '@/components/candidate-review';
+import { CardPaymentReview } from '@/components/card-payment-review';
 import { MoneyInReview } from '@/components/money-in-review';
 import { NotFound } from '@/components/not-found';
 import { useActiveRules } from '@/features/rules/hooks';
@@ -24,6 +26,9 @@ export default function CandidateScreen() {
   const accounts = useAccounts();
   const rules = useActiveRules();
   const recent = useRecentExpenses(SETTLE_WINDOW);
+  /* A card bill opens as a payment toward the card (D20); this is the way back
+     to the ordinary form, for one that really was spending. */
+  const [isExpense, setIsExpense] = useState(false);
 
   const failure = detail.error ?? categories.error ?? accounts.error ?? rules.error;
   if (failure !== null && failure !== undefined) {
@@ -42,11 +47,23 @@ export default function CandidateScreen() {
         title="Already dealt with"
         description={
           candidate.status === 'confirmed'
-            ? 'This was added as an expense.'
+            ? candidate.cardPaymentId !== null
+              ? 'This was recorded as a card payment.'
+              : 'This was added as an expense.'
             : candidate.status === 'settled'
               ? 'This was recorded as money back.'
               : 'This was dismissed.'
         }
+      />
+    );
+  }
+
+  if (candidate.reasons.includes('transfer:card-bill') && !isExpense) {
+    return (
+      <CardPaymentReview
+        candidate={candidate}
+        accounts={accounts.data ?? []}
+        onAddAsExpense={() => setIsExpense(true)}
       />
     );
   }

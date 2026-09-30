@@ -15,9 +15,11 @@ import { SectionHeader } from '@/components/section-header';
 import { SpendTrend } from '@/components/spend-trend';
 import { TopItemsList } from '@/components/top-items-list';
 import { formatMinor } from '@/domain/money';
+import { splitSpend } from '@/domain/spend';
 import { addPeriods, comparePeriods, currentPeriod, formatPeriodLong } from '@/domain/period';
 import { useCardStandings } from '@/features/accounts/hooks';
 import { useInsights } from '@/features/insights/hooks';
+import { useNavigateOnce } from '@/features/navigation/hooks';
 
 /** Screen padding (px-5 both sides) plus the card's own p-4 both sides. */
 const CONTENT_INSET = 72;
@@ -25,6 +27,8 @@ const DONUT_MAX_SIZE = 220;
 
 export default function InsightsScreen() {
   const { width } = useWindowDimensions();
+  /* One push per press: a card row stays tappable for the whole transition. */
+  const navigate = useNavigateOnce();
 
   /*
    * §7.6 asks for Insights per month, and the design pass had no way to change
@@ -94,10 +98,37 @@ export default function InsightsScreen() {
                 total={view.totalSpentMinor}
                 size={donutSize}
               />
+              {/* The charts here mean the budget only. When something was
+                  spent outside it, this is where the two are added up — with
+                  nothing off budget the total is the donut's own figure. */}
               {view.offBudgetMinor > 0 && (
-                <Typography type="body-xs" color="muted" className="px-1">
-                  {`Plus ${formatMinor(view.offBudgetMinor)} spent outside the budget, which the figures above deliberately leave out.`}
-                </Typography>
+                <View className="gap-2.5 rounded-3xl bg-surface p-4">
+                  <View className="flex-row items-center justify-between gap-3">
+                    <Typography type="body-sm" color="muted">
+                      Budget
+                    </Typography>
+                    <Typography type="body-sm">{formatMinor(view.totalSpentMinor)}</Typography>
+                  </View>
+                  <View className="flex-row items-center justify-between gap-3">
+                    <Typography type="body-sm" color="muted">
+                      Off budget
+                    </Typography>
+                    <Typography type="body-sm">{formatMinor(view.offBudgetMinor)}</Typography>
+                  </View>
+                  <View className="flex-row items-center justify-between gap-3 border-t border-border pt-2.5">
+                    <Typography type="body-sm" weight="semibold">
+                      Total spent
+                    </Typography>
+                    <Typography type="body-sm" weight="semibold">
+                      {formatMinor(
+                        splitSpend(view.totalSpentMinor, view.offBudgetMinor).totalMinor,
+                      )}
+                    </Typography>
+                  </View>
+                  <Typography type="body-xs" color="muted">
+                    The charts on this screen count the budget only.
+                  </Typography>
+                </View>
               )}
             </View>
 
@@ -139,7 +170,10 @@ export default function InsightsScreen() {
                 onRetry={cardStandings.refetch}
               />
             ) : (
-              <CardUtilisationList cards={cardStandings.data ?? []} />
+              <CardUtilisationList
+                cards={cardStandings.data ?? []}
+                onPressCard={(id) => navigate(`/card/${id}`)}
+              />
             )}
           </View>
         )}

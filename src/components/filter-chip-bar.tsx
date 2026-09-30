@@ -33,7 +33,7 @@ const EDGE_INSET = 20;
 /**
  * Class strings are spelled out per state rather than built from a template, so
  * the CSS compiler can see every utility this component can render — the same
- * reason StatCard does it.
+ * reason SpendSummary does it.
  *
  * The pill is a plain Pressable rather than HeroUI's Chip: Chip colors its
  * label through a `variant`-x-`color` compound class, which is defined in

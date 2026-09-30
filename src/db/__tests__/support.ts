@@ -52,7 +52,7 @@ export const SETTLED_JOIN = `
   ) s on s.expense_id = e.id
 `;
 
-const NOW = 1_760_000_000_000;
+export const NOW = 1_760_000_000_000;
 
 export function seedCatalogue(database: DatabaseSync): void {
   database.exec(
@@ -105,6 +105,37 @@ export function insertSettlement(
      values ('${id}','${expenseId}',${amountMinor},${NOW},${NOW},${NOW},${deleted ? NOW : 'null'})`,
   );
 }
+
+export type CardPaymentSeed = {
+  id: string;
+  accountId?: string;
+  amountMinor: number;
+  paidAt?: number;
+  deleted?: boolean;
+};
+
+export function insertCardPayment(database: DatabaseSync, seed: CardPaymentSeed): void {
+  database.exec(
+    `insert into card_payments (id,account_id,amount_minor,paid_at,source,created_at,updated_at,deleted_at)
+     values ('${seed.id}','${seed.accountId ?? 'a-card'}',${seed.amountMinor},${seed.paidAt ?? NOW},
+             'manual',${NOW},${NOW},${seed.deleted === true ? NOW : 'null'})`,
+  );
+}
+
+/**
+ * What a card owes (D20), as the app computes it: the anchor, plus effective
+ * card spend since it, minus payments since it. The two halves are separate
+ * scalar subqueries, as `cardSpendSince` and `paidSince` are separate queries.
+ */
+export const OWED = `
+  select a.opening_owed_minor
+    + coalesce((select ${EFFECTIVE} from expenses e ${SETTLED_JOIN}
+                where e.deleted_at is null and e.account_id = a.id and e.occurred_at >= a.opening_owed_at), 0)
+    - coalesce((select sum(p.amount_minor) from card_payments p
+                where p.deleted_at is null and p.account_id = a.id and p.paid_at >= a.opening_owed_at), 0)
+    as owed
+  from accounts a where a.id = ?
+`;
 
 /** True when the statement was rejected — the shape most constraint tests want. */
 export function rejects(database: DatabaseSync, sql: string): boolean {
