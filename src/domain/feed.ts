@@ -82,3 +82,25 @@ export function flattenGroups<T extends { id: string }>(
 
   return rows;
 }
+
+/**
+ * Where each flattened row starts, plus the feed's total height at the end.
+ *
+ * `getItemLayout` is called for every row FlatList lays out and again on every
+ * scroll-to, so summing the rows above on each call made layout quadratic in
+ * the feed's length. Computed once per `rows`, each call is a lookup.
+ */
+export function feedRowOffsets(
+  rows: readonly FeedRow<unknown>[],
+  heights: { header: number; row: number },
+): number[] {
+  const offsets = [0];
+  let offset = 0;
+
+  for (const row of rows) {
+    offset += row.type === 'header' ? heights.header : heights.row;
+    offsets.push(offset);
+  }
+
+  return offsets;
+}

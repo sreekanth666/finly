@@ -18,7 +18,7 @@ import { UndoToast } from '@/components/undo-toast';
 import { restoreExpense, softDeleteExpense } from '@/db/repositories/expenses';
 import type { ExpenseListItem } from '@/db/repositories/expenses';
 import { useAction } from '@/db/use-action';
-import { flattenGroups, type FeedRow } from '@/domain/feed';
+import { feedRowOffsets, flattenGroups, type FeedRow } from '@/domain/feed';
 import { addPeriods, currentPeriod, isPeriodKey, periodsBetween } from '@/domain/period';
 import { isBudgetScope, type BudgetScope } from '@/domain/spend';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
@@ -123,6 +123,10 @@ export default function TransactionsScreen() {
   const rows = useMemo<FeedRow<ExpenseListItem>[]>(
     () => (feed.data === undefined ? [] : flattenGroups(feed.data.groups)),
     [feed.data],
+  );
+  const offsets = useMemo(
+    () => feedRowOffsets(rows, { header: HEADER_HEIGHT, row: TRANSACTION_ROW_HEIGHT }),
+    [rows],
   );
 
   const remove = useAction(softDeleteExpense);
@@ -256,13 +260,9 @@ export default function TransactionsScreen() {
           /* Uniform row heights are the whole reason the feed is flattened: a
              variable-height day group cannot supply this, and without it a fast
              scroll leaves blank space behind. */
-          getItemLayout={(data, index) => {
-            let offset = 0;
-            for (let cursor = 0; cursor < index; cursor += 1) {
-              offset += data?.[cursor]?.type === 'header' ? HEADER_HEIGHT : TRANSACTION_ROW_HEIGHT;
-            }
-            const length = data?.[index]?.type === 'header' ? HEADER_HEIGHT : TRANSACTION_ROW_HEIGHT;
-            return { length, offset, index };
+          getItemLayout={(_, index) => {
+            const offset = offsets[index] ?? 0;
+            return { length: (offsets[index + 1] ?? offset) - offset, offset, index };
           }}
           initialNumToRender={12}
           maxToRenderPerBatch={10}

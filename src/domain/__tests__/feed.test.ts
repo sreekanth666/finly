@@ -1,4 +1,4 @@
-import { flattenGroups, groupByLocalDay } from '@/domain/feed';
+import { feedRowOffsets, flattenGroups, groupByLocalDay, type FeedRow } from '@/domain/feed';
 
 const at = (year: number, month1: number, day: number, hour = 12, minute = 0): number =>
   new Date(year, month1 - 1, day, hour, minute).getTime();
@@ -87,5 +87,41 @@ describe('flattenGroups', () => {
   it('gives every row a key distinct from every header key', () => {
     const rows = flattenGroups(groupByLocalDay([expense('a', at(2026, 8, 26))], NOW));
     expect(new Set(rows.map((row) => row.key)).size).toBe(rows.length);
+  });
+});
+
+describe('feedRowOffsets', () => {
+  const HEIGHTS = { header: 36, row: 60 };
+  const header = (key: string): FeedRow<never> => ({ type: 'header', key, label: key });
+  const row = (key: string): FeedRow<{ id: string }> => ({ type: 'row', key, item: { id: key } });
+
+  /** What getItemLayout used to do on every call, kept here as the reference. */
+  const loopOffset = (rows: readonly FeedRow<unknown>[], index: number): number => {
+    let offset = 0;
+    for (let cursor = 0; cursor < index; cursor += 1) {
+      offset += rows[cursor]?.type === 'header' ? HEIGHTS.header : HEIGHTS.row;
+    }
+    return offset;
+  };
+
+  it('gives the top of each row, then the total height', () => {
+    const rows = [header('a'), row('1'), row('2'), header('b'), row('3')];
+    expect(feedRowOffsets(rows, HEIGHTS)).toEqual([0, 36, 96, 156, 192, 252]);
+  });
+
+  it('is just the zero offset for an empty feed', () => {
+    expect(feedRowOffsets([], HEIGHTS)).toEqual([0]);
+  });
+
+  it('matches the per-row loop over a long mixed feed', () => {
+    const rows: FeedRow<unknown>[] = Array.from({ length: 500 }, (_, index) =>
+      index % 7 === 0 || index % 11 === 0 ? header(`h${index}`) : row(`r${index}`),
+    );
+    const offsets = feedRowOffsets(rows, HEIGHTS);
+
+    expect(offsets).toHaveLength(rows.length + 1);
+    for (let index = 0; index <= rows.length; index += 1) {
+      expect(offsets[index]).toBe(loopOffset(rows, index));
+    }
   });
 });
