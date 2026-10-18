@@ -23,6 +23,7 @@ module.exports = {
   testMatch: [
     '<rootDir>/src/domain/__tests__/**/*.test.ts',
     '<rootDir>/src/db/__tests__/**/*.test.ts',
+    '<rootDir>/src/db/__tests__/**/*.test.tsx',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { db, sqlite, type Db } from './client';
 import { toError } from './errors';
+import { sameResult } from './same-result';
 
 export type TableName =
   | 'accounts'
@@ -73,6 +74,32 @@ export async function withSuppressedInvalidation<T>(task: () => Promise<T> | T):
 }
 
 /* -------------------------------------------------------------------------- */
+/* Write clock                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How many writes each table has seen, so a query can tell whether anything it
+ * reads changed since it last looked. Registered at import, ahead of every
+ * hook's own listener, so a count is always current by the time a hook hears
+ * about the same write. It counts during bulk writes too; the pulse at the end
+ * wakes the screens either way.
+ */
+const tableVersions = new Map<string, number>();
+
+addDatabaseChangeListener((event) => {
+  // The file, not the schema name; see the comment in useDbQuery's listener.
+  if (event.databaseFilePath !== sqlite.databasePath) return;
+  tableVersions.set(event.tableName, (tableVersions.get(event.tableName) ?? 0) + 1);
+});
+
+/** Versions only grow, so the sum moves exactly when one of the tables was written. */
+const stampOf = (tables: Iterable<string>): number => {
+  let stamp = 0;
+  for (const table of tables) stamp += tableVersions.get(table) ?? 0;
+  return stamp;
+};
+
+/* -------------------------------------------------------------------------- */
 /* useDbQuery                                                                   */
 /* -------------------------------------------------------------------------- */
 
@@ -106,17 +133,27 @@ export function useDbQuery<T>(
 
   const tablesKey = tables.join(',');
 
+  // The write clock as the first read saw it. Taken before that read, so a
+  // write that lands during it still counts as unseen.
+  const [mounted] = useState(() => ({ tablesKey, stamp: stampOf(tables) }));
   const [state, setState] = useState<ReadState<T>>(() => runRead(read));
   // Which key the value in state answers, so a key change is reflected in the
   // same render rather than one frame late.
   const answeredKey = useRef(key);
 
-  const refetch = useCallback(() => {
-    setState(runRead(readRef.current));
+  // A re-read that finds the same rows keeps the old result, so the screen does
+  // not re-render for a write that changed nothing it shows.
+  const keepIfSame = useCallback((next: ReadState<T>) => {
+    setState((previous) => (sameResult(previous, next) ? previous : next));
   }, []);
+
+  const refetch = useCallback(() => {
+    keepIfSame(runRead(readRef.current));
+  }, [keepIfSame]);
 
   if (answeredKey.current !== key) {
     answeredKey.current = key;
+    // A different question: always answer it, and in this render.
     setState(runRead(read));
   }
 
@@ -128,7 +165,7 @@ export function useDbQuery<T>(
       if (scheduled !== null) return;
       scheduled = requestAnimationFrame(() => {
         scheduled = null;
-        setState(runRead(readRef.current));
+        keepIfSame(runRead(readRef.current));
       });
     };
 
@@ -147,15 +184,17 @@ export function useDbQuery<T>(
     });
     const stopPulse = onBulkChange(schedule);
 
-    // A write may have landed between the initial read and this subscription.
-    schedule();
+    // A write may have landed between the first read and this subscription. The
+    // write clock says whether one did, so a quiet mount reads only once. A
+    // change of tables was never read against, so it always reads.
+    if (mounted.tablesKey !== tablesKey || stampOf(watched) !== mounted.stamp) schedule();
 
     return () => {
       subscription.remove();
       stopPulse();
       if (scheduled !== null) cancelAnimationFrame(scheduled);
     };
-  }, [tablesKey]);
+  }, [keepIfSame, mounted, tablesKey]);
 
   return { ...state, refetch } as QueryResult<T>;
 }
