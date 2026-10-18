@@ -71,7 +71,7 @@ const FACTS: DetectionFact[] = [
 const input = (overrides: Partial<ReportInput> = {}): ReportInput => ({
   topic: 'detection',
   userText: 'My HDFC alerts stopped showing up.',
-  sections: { appDevice: true, detection: true, shapes: true },
+  sections: { appDevice: true, detection: true, shapes: true, labelled: true },
   app: { version: '1.0.1', build: 'release', parserVersion: 2 },
   device: {
     os: 'Android',
@@ -108,6 +108,16 @@ const input = (overrides: Partial<ReportInput> = {}): ReportInput => ({
     { senderKey: 'JANABK', packageName: null, issuer: null, outcome: 'transaction', direction: 'debit', overridesGate: null, timesMatched: 4, isEnabled: true },
   ],
   shapes: [{ sender: 'HDFCBK', kind: 'unknown', confidence: 'low', reasons: ['amount:none'], skeleton: 'Sent Rs.9.99 To AA A A' }],
+  labelled: [
+    {
+      sender: 'VM-ICICIT-P',
+      packageName: null,
+      read: 'transaction',
+      verdict: 'not_payment',
+      truth: { kind: 'unknown', group: 'must_not_count' },
+      skeleton: 'Convert your purchase of INR 9.99 into easy Aa',
+    },
+  ],
   ...overrides,
 });
 
@@ -184,15 +194,26 @@ describe('buildSupportEmail', () => {
   });
 
   it('leaves out each section that is switched off', () => {
-    const noShapes = buildSupportEmail(input({ sections: { appDevice: true, detection: true, shapes: false } }), NOW);
+    const noShapes = buildSupportEmail(input({ sections: { appDevice: true, detection: true, shapes: false, labelled: false } }), NOW);
     expect(noShapes.attachment?.text).not.toContain('Message shapes');
-    const noDevice = buildSupportEmail(input({ sections: { appDevice: false, detection: true, shapes: false } }), NOW);
+    expect(noShapes.attachment?.text).not.toContain('Reviewed messages');
+    expect(noShapes.attachment?.text).not.toContain('Convert your purchase');
+    expect(JSON.parse(noShapes.attachment!.text.split('\n').at(-1)!).labelled).toBeUndefined();
+    const noDevice = buildSupportEmail(input({ sections: { appDevice: false, detection: true, shapes: false, labelled: false } }), NOW);
     expect(`${noDevice.body}${noDevice.attachment?.text}`).not.toContain('Xiaomi');
+  });
+
+  it('carries reviewed messages with what the user did, for the corpus, only when asked', () => {
+    const email = buildSupportEmail(input(), NOW);
+    expect(email.attachment?.text).toContain('1. VM-ICICIT-P — read as transaction, you said it is not a payment');
+    expect(email.attachment?.text).toContain('Convert your purchase of INR 9.99 into easy Aa');
+    const json = JSON.parse(email.attachment!.text.split('\n').at(-1)!);
+    expect(json.labelled).toEqual(input().labelled);
   });
 
   it('sends only what was written when nothing else is chosen, with no attachment', () => {
     const email = buildSupportEmail(
-      input({ topic: 'other', userText: 'Love the app.', sections: { appDevice: false, detection: false, shapes: false } }),
+      input({ topic: 'other', userText: 'Love the app.', sections: { appDevice: false, detection: false, shapes: false, labelled: false } }),
       NOW,
     );
     expect(email).toEqual({ subject: 'Finly 1.0.1: feedback', body: 'Love the app.', attachment: null });

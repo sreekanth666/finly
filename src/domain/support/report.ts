@@ -8,13 +8,14 @@
  * user sees all of it before their mail app opens.
  *
  * Deliberately absent, whatever is switched on: any message text, raw or
- * masked; amounts, balances, references and card digits; payees, expense
+ * masked (a skeleton is not message text: see `skeleton.ts`); amounts, balances, references and card digits; payees, expense
  * items, notes, categories, accounts, rules and budget; the profile name;
  * template names and samples; any timestamp of a single payment; any device
  * or install identifier.
  */
 
 import type { DetectionSummary } from './diagnostics';
+import type { LabelledShape } from './labelled';
 
 export type ReportTopic = 'detection' | 'other';
 
@@ -25,6 +26,8 @@ export type ReportSections = {
   detection: boolean;
   /** Skeletons of messages Finly had trouble with. Off unless chosen. */
   shapes: boolean;
+  /** Skeletons of reviewed messages with what the user did with each (D21). Off unless chosen. */
+  labelled: boolean;
 };
 
 export type AppInfo = { version: string | null; build: 'development' | 'release'; parserVersion: number };
@@ -95,6 +98,7 @@ export type ReportInput = {
   summary: DetectionSummary | null;
   templates: readonly TemplateFact[];
   shapes: readonly MessageShape[];
+  labelled: readonly LabelledShape[];
 };
 
 export type SupportEmail = {
@@ -210,6 +214,25 @@ function shapeLines(shapes: readonly MessageShape[]): string[] {
   return lines;
 }
 
+const VERDICT_WORDS: Record<LabelledShape['verdict'], string> = {
+  spent: 'confirmed as spending',
+  settled: 'settled an expense with it',
+  card_payment: 'recorded as a card payment',
+  not_payment: 'said it is not a payment',
+  dismissed: 'discarded it',
+  pending: 'not reviewed yet',
+};
+
+function labelledLines(labelled: readonly LabelledShape[]): string[] {
+  if (labelled.length === 0) return ['Reviewed messages: none to show'];
+  const lines = ['Reviewed messages, to help improve detection (every name, amount and number replaced; dates and times kept):'];
+  labelled.forEach((shape, index) => {
+    const from = shape.sender ?? shape.packageName ?? 'SMS, no sender id';
+    lines.push('', `${index + 1}. ${from} — read as ${shape.read}, you ${VERDICT_WORDS[shape.verdict]}`, shape.skeleton);
+  });
+  return lines;
+}
+
 export function buildSupportEmail(input: ReportInput, now: number = Date.now()): SupportEmail {
   const { sections } = input;
   const subject = `Finly ${input.app.version ?? ''}: ${input.topic === 'detection' ? 'detection problem' : 'feedback'}`.replace(
@@ -243,6 +266,10 @@ export function buildSupportEmail(input: ReportInput, now: number = Date.now()):
     file.push(...shapeLines(input.shapes), '');
   }
 
+  if (sections.labelled) {
+    file.push(...labelledLines(input.labelled), '');
+  }
+
   if (file.length === 0) {
     return { subject, body: bodyLines.join('\n').trim(), attachment: null };
   }
@@ -256,6 +283,7 @@ export function buildSupportEmail(input: ReportInput, now: number = Date.now()):
     summary: includeDetection ? input.summary : undefined,
     templates: includeDetection ? input.templates : undefined,
     shapes: sections.shapes ? input.shapes : undefined,
+    labelled: sections.labelled ? input.labelled : undefined,
   };
   file.push('MACHINE-READABLE', JSON.stringify(payload));
 

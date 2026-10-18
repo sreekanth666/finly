@@ -10,11 +10,17 @@ import { useMemo } from 'react';
 import { PixelRatio, Platform } from 'react-native';
 
 import { useDbQuery } from '@/db/live';
-import { listDetectionFacts, listProblemMessages, listTemplateFacts } from '@/db/repositories/diagnostics';
+import {
+  listDetectionFacts,
+  listProblemMessages,
+  listReviewedMessages,
+  listTemplateFacts,
+} from '@/db/repositories/diagnostics';
 import { getSetting } from '@/db/repositories/settings';
 import { templatesRev } from '@/db/repositories/templates';
 import { getActiveCurrency } from '@/domain/money';
 import { senderKeyOf, summariseDetections, type DetectionSummary } from '@/domain/support/diagnostics';
+import { labelledShapeOf, type LabelledShape } from '@/domain/support/labelled';
 import type { AppInfo, DetectionStatus, DeviceInfo, MessageShape, TemplateFact } from '@/domain/support/report';
 import { skeletonOf } from '@/domain/support/skeleton';
 import { appHint, PARSER_VERSION, SMS_APP_PACKAGES } from '@/domain/txn-detect';
@@ -24,6 +30,8 @@ import { captureNative, useListenerState, useNativeStats } from '@/features/capt
 /** How many stored rows a report looks at, and how many message shapes it may carry. */
 const FACT_LIMIT = 2000;
 const SHAPE_LIMIT = 10;
+/** How many reviewed messages "Help improve detection" may carry. */
+const LABELLED_LIMIT = 300;
 
 const pick = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 ? value : null);
 
@@ -75,13 +83,16 @@ export type Diagnostics = {
   summary: DetectionSummary | null;
   templates: TemplateFact[];
   shapes: MessageShape[];
+  labelled: LabelledShape[];
 };
 
 /**
  * @param withShapes read problem messages and turn them into skeletons. Off,
  * no message text is read at all.
+ * @param withLabelled read reviewed messages and turn them into skeletons with
+ * the user's verdict. Off, likewise.
  */
-export function useDiagnostics(withShapes: boolean): Diagnostics {
+export function useDiagnostics(withShapes: boolean, withLabelled = false): Diagnostics {
   const facts = useDbQuery('support:facts', ['detected_transactions', 'captured_messages', 'expenses'], (database) =>
     listDetectionFacts(FACT_LIMIT, database),
   );
@@ -95,6 +106,11 @@ export function useDiagnostics(withShapes: boolean): Diagnostics {
     `support:problems:${withShapes}`,
     ['detected_transactions', 'captured_messages', 'expenses'],
     (database) => (withShapes ? listProblemMessages(SHAPE_LIMIT, database) : []),
+  );
+  const reviewed = useDbQuery(
+    `support:reviewed:${withLabelled}`,
+    ['detected_transactions', 'captured_messages'],
+    (database) => (withLabelled ? listReviewedMessages(LABELLED_LIMIT, database) : []),
   );
   const settings = useCaptureSettings();
   const inbox = useInbox();
@@ -163,5 +179,13 @@ export function useDiagnostics(withShapes: boolean): Diagnostics {
     [problems.data],
   );
 
-  return { app, device, status, summary, templates: templates.data ?? [], shapes };
+  const labelled = useMemo<LabelledShape[]>(
+    () =>
+      (reviewed.data ?? [])
+        .map(labelledShapeOf)
+        .filter((shape): shape is LabelledShape => shape !== null),
+    [reviewed.data],
+  );
+
+  return { app, device, status, summary, templates: templates.data ?? [], shapes, labelled };
 }
