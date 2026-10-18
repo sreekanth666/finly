@@ -33,4 +33,4 @@ declare module 'node:sqlite' {
   }
 }
 
-declare const process: { cwd(): string };
+declare const process: { cwd(): string; env: Record<string, string | undefined> };

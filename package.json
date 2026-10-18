@@ -68,6 +68,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:tz": "TZ=Asia/Kolkata jest && TZ=UTC jest && TZ=America/Los_Angeles jest",
+    "detector:eval": "DETECTOR_REPORT=1 jest src/domain/__tests__/txn-detect/detector-eval.test.ts",
     "db:generate": "drizzle-kit generate",
     "check:money": "node scripts/check-money.mjs",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm check:colors && pnpm check:money"

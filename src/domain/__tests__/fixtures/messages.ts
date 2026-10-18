@@ -1319,7 +1319,7 @@ export const EDGE_CASES: MessageFixture[] = [
       sender: 'JD-FEDBNK-S',
       receivedAt: at(2026, 3, 10, 9, 16),
     },
-    expected: { counterparty: 'shop.upi@okaxis' },
+    expected: { kind: 'transaction', counterparty: 'shop.upi@okaxis' },
   },
   {
     name: 'ATM charges are a bank charge, not cash drawn',
