@@ -173,6 +173,20 @@ export function senderHeader(sender: string | null | undefined): string | null {
 }
 
 /**
+ * Whether a sender or title is certainly a DLT sender id, and so never a
+ * person. `senderHeader` alone is not enough for that: any six-letter word
+ * fits a header, and a contact saved as "Suresh" arrives as the sender. An id
+ * with its operator prefix (`JD-HDFCBK`, `VM-SBIUPI-S`) is never a name; a bare
+ * header counts only when it is a bank's, from the table above.
+ */
+export function isDltSenderId(value: string | null | undefined): boolean {
+  if (value == null) return false;
+  const trimmed = value.trim();
+  if (/^[A-Z]{2}-[A-Z0-9]{6}(?:-[A-Z])?$/i.test(trimmed)) return true;
+  return /^[A-Z0-9]{6}$/.test(trimmed) && SENDER_HEADERS[trimmed] !== undefined;
+}
+
+/**
  * The TRAI suffix of `JD-HDFCBK-P`: what kind of message the sender registered
  * it as — **P**romotional, **S**ervice, **T**ransactional or **G**overnment.
  * Null when the id carries none. Read apart from `senderHeader`, which template

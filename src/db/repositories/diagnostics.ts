@@ -154,7 +154,7 @@ export function listReviewedMessages(limit: number, database: DbLike = db): Revi
     })
     .from(detectedTransactions)
     .innerJoin(capturedMessages, eq(capturedMessages.id, detectedTransactions.messageId))
-    .where(and(alive, ne(detectedTransactions.status, 'duplicate')))
+    .where(and(alive, isNull(capturedMessages.deletedAt), ne(detectedTransactions.status, 'duplicate')))
     .orderBy(desc(detectedTransactions.createdAt))
     .limit(limit)
     .all();

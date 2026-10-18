@@ -593,6 +593,7 @@ export type SettingRow = typeof settings.$inferSelect;
 export type CapturedMessageRow = typeof capturedMessages.$inferSelect;
 export type NewCapturedMessageRow = typeof capturedMessages.$inferInsert;
 export type DetectedTransactionRow = typeof detectedTransactions.$inferSelect;
+export type DetectorLabelRow = typeof detectorLabels.$inferSelect;
 export type CaptureTemplateRow = typeof captureTemplates.$inferSelect;
 export type NewCaptureTemplateRow = typeof captureTemplates.$inferInsert;
 export type NewDetectedTransactionRow = typeof detectedTransactions.$inferInsert;

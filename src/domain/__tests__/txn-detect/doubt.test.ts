@@ -86,6 +86,8 @@ describe('doubt', () => {
     expect(friend.reasons).toContain('doubt:no-sender');
     const contact = detect(sms('Rs.800.00 debited from A/c XX1234 to BOOKMYSHOW', null, { title: 'HDFC Bank' }));
     expect(isDoubted(contact.reasons)).toBe(false);
+    const contactName = detect(sms('I paid Rs 800 for the tickets, send me your share', 'Suresh'));
+    expect(contactName.reasons).toContain('doubt:no-sender');
     const pasted = detect({ body: 'I paid Rs 800 for the tickets', receivedAt: AT });
     expect(isDoubted(pasted.reasons)).toBe(false);
   });

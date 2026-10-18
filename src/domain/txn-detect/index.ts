@@ -21,7 +21,7 @@ import { labelOf, readCounterparty } from './counterparty';
 import { readDate } from './date';
 import { readChannel, readDirection, readInstrument, readReference } from './fields';
 import { isRedacted, normaliseText } from './normalise';
-import { appHint, isSmsApp, resolveIssuer, senderHeader, senderHint, senderSuffix } from './sources';
+import { appHint, isDltSenderId, isSmsApp, resolveIssuer, senderHeader, senderHint, senderSuffix } from './sources';
 import type { Channel, Confidence, DetectContext, Detection, DetectionKind, Direction, MessageInput } from './types';
 import { matchTemplates } from './user-templates';
 
@@ -71,8 +71,8 @@ function doubtsOf(input: {
   if ((senderSuffix(input.sender) ?? senderSuffix(input.title)) === 'P') doubts.push('doubt:promo-sender');
   if (
     isSmsApp(input.packageName) &&
-    senderHeader(input.sender) === null &&
-    senderHeader(input.title) === null &&
+    !isDltSenderId(input.sender) &&
+    !isDltSenderId(input.title) &&
     input.issuer === null &&
     input.instrumentTail === null
   ) {

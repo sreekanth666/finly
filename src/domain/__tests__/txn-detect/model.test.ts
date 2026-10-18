@@ -181,6 +181,7 @@ describe('what the model is asked, and whose labels count', () => {
     expect(labelKeyOf({ sender: 'AD-ATMSBI' })).toBe('ATMSBI');
     expect(labelKeyOf({ sender: null, packageName: 'com.phonepe.app' })).toBe('com.phonepe.app');
     expect(labelKeyOf({ sender: null, title: 'Mom', packageName: 'com.google.android.apps.messaging' })).toBeNull();
+    expect(labelKeyOf({ sender: 'Suresh', packageName: 'com.google.android.apps.messaging' })).toBeNull();
   });
 });
 

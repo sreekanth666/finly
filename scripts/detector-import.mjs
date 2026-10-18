@@ -24,7 +24,10 @@ import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const CORPUS = join(ROOT, 'data', 'detector', 'corpus.jsonl');
 const SOURCES = ['report', 'owner', 'volunteer'];
-const SENDER_ID = /^(?:[A-Z]{2}-)?[A-Z0-9]{6}(?:-[A-Z])?$/i;
+/* Only an id with its operator prefix: a bare six letters can be a contact's
+   name. The report already drops anything less (isDltSenderId); this is the
+   second lock, and pnpm check is the third. */
+const SENDER_ID = /^[A-Z]{2}-[A-Z0-9]{6}(?:-[A-Z])?$/i;
 
 function fail(message) {
   console.error(message);

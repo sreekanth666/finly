@@ -6,7 +6,7 @@
 
 import { skeletonOf } from '@/domain/support/skeleton';
 
-import { isSmsApp, senderHeader, senderSuffix } from '../sources';
+import { isDltSenderId, isSmsApp, senderHeader, senderSuffix } from '../sources';
 import type { Detection, MessageInput } from '../types';
 import type { ModelInput } from './features';
 
@@ -26,9 +26,10 @@ export const isAssessable = (detection: Pick<Detection, 'kind' | 'direction' | '
  * nothing, and the model's score stands alone.
  */
 export function labelKeyOf(input: Pick<MessageInput, 'sender' | 'title' | 'packageName'>): string | null {
-  const header = senderHeader(input.sender) ?? senderHeader(input.title);
+  const id = isDltSenderId(input.sender) ? input.sender : isDltSenderId(input.title) ? input.title : null;
+  const header = senderHeader(id);
   if (header !== null) {
-    const suffix = senderSuffix(input.sender) ?? senderSuffix(input.title);
+    const suffix = senderSuffix(id);
     return suffix === null ? header : `${header}-${suffix}`;
   }
   if (input.packageName != null && !isSmsApp(input.packageName)) return input.packageName;

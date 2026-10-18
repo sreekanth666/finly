@@ -44,8 +44,10 @@ const WALLET_TOPUP =
  * a real alert opens with the payment and may carry a pitch after it. So these
  * file a message only when they appear before its first past money verb.
  */
+/* Not "pre-approved" or "reward points": a real alert can open with them —
+   "Your pre-approved loan EMI of Rs 3,000 has been debited". */
 const LEADING_PROMO =
-  /\b(?:pre-?approved|apply now|shop now|download now|limited period|lucky draw|get flat|reward points? worth|convert (?:your |this |the )?(?:purchase|transaction|txn|spends?)\b.{0,80}?\b(?:into|to) (?:easy |no[- ]cost )?emis?)\b/i;
+  /\b(?:apply now|shop now|download now|limited period|lucky draw|get flat|convert (?:your |this |the )?(?:purchase|transaction|txn|spends?)\b.{0,80}?\b(?:into|to) (?:easy |no[- ]cost )?emis?)\b/i;
 const LEADING_FUTURE_CREDIT = /\b(?:will|would|can|could|shall) be credited\b/i;
 /** A card's limit changing is a notice, not money; only with no money verb at all. */
 const LIMIT_CHANGE =

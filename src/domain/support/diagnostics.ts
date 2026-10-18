@@ -10,7 +10,7 @@
  */
 
 import { dayKey } from '@/domain/period';
-import { appHint, isSmsApp, senderHeader } from '@/domain/txn-detect/sources';
+import { appHint, isDltSenderId, isSmsApp, senderHeader } from '@/domain/txn-detect/sources';
 
 /** One detected candidate, joined to the expense it became, if any. */
 export type DetectionFact = {
@@ -98,12 +98,12 @@ const TOP_SENDERS = 15;
 
 /**
  * Who a row came from, in words that identify a bank or an app and never a
- * person: the DLT header, then the issuer, then the app. A notification title
- * can be a contact's name, so it is only ever used through `senderHeader`,
- * which accepts nothing but a sender id.
+ * person: the DLT header, then the issuer, then the app. A sender or title can
+ * be a contact's name, so either is only used once `isDltSenderId` says it is
+ * certainly a sender id.
  */
 export function senderKeyOf(fact: Pick<DetectionFact, 'sender' | 'title' | 'issuer' | 'packageName' | 'source'>): string {
-  const header = senderHeader(fact.sender) ?? senderHeader(fact.title);
+  const header = senderHeader(isDltSenderId(fact.sender) ? fact.sender : isDltSenderId(fact.title) ? fact.title : null);
   if (header !== null) return header;
   if (fact.issuer !== null) return fact.issuer;
   if (fact.packageName !== null) {

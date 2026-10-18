@@ -50,7 +50,7 @@ describe('labelledShapeOf', () => {
     const shape = labelledShapeOf(message())!;
     expect(shape).toEqual({
       sender: 'JD-HDFCBK-T',
-      packageName: null,
+      packageName: 'com.google.android.apps.messaging',
       read: 'transaction',
       verdict: 'spent',
       truth: { kind: 'transaction' },
@@ -62,11 +62,14 @@ describe('labelledShapeOf', () => {
   it('takes a sender id from the title, but never a contact name', () => {
     expect(labelledShapeOf(message({ sender: null, title: 'AX-SBIUPI-S' }))!.sender).toBe('AX-SBIUPI-S');
     expect(labelledShapeOf(message({ sender: null, title: 'Mom' }))!.sender).toBeNull();
+    expect(labelledShapeOf(message({ sender: 'Suresh' }))!.sender).toBeNull();
+    expect(labelledShapeOf(message({ sender: null, title: 'Anjali' }))!.sender).toBeNull();
     expect(labelledShapeOf(message({ sender: '+919876543210' }))!.sender).toBeNull();
   });
 
-  it('names the app that posted it, unless it is an SMS app', () => {
+  it('names the app that posted it, SMS app included, as the phone’s model sees it', () => {
     expect(labelledShapeOf(message({ sender: null, packageName: 'com.phonepe.app' }))!.packageName).toBe('com.phonepe.app');
+    expect(labelledShapeOf(message())!.packageName).toBe('com.google.android.apps.messaging');
   });
 
   it('leaves a duplicate out', () => {

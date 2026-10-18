@@ -17,7 +17,7 @@
 import { skeletonOf } from '@/domain/support/skeleton';
 
 import { hash53 } from '../hash';
-import { isSmsApp, senderHeader, senderSuffix } from '../sources';
+import { isDltSenderId, isSmsApp, senderHeader, senderSuffix } from '../sources';
 import { DETECTION_KINDS, type DetectionKind } from '../types';
 
 export const CORPUS_GROUPS = ['must_capture', 'must_not_count', 'ambiguous'] as const;
@@ -107,7 +107,7 @@ export function rowProblem(value: unknown, publicSources: ReadonlySet<string> = 
   if (!nullableString(row.sender) || !nullableString(row.title) || !nullableString(row.packageName)) {
     return 'sender, title and packageName are strings or null';
   }
-  if (typeof row.sender === 'string' && senderHeader(row.sender) === null) return 'sender is not a DLT sender id';
+  if (typeof row.sender === 'string' && !isDltSenderId(row.sender)) return 'sender is not a DLT sender id';
   if (typeof row.title === 'string' && skeletonOf(row.title) !== row.title) return 'title is not a skeleton';
   if (!(DETECTION_KINDS as readonly unknown[]).includes(row.kind)) return `unknown kind ${String(row.kind)}`;
   if (row.group !== undefined && !(CORPUS_GROUPS as readonly unknown[]).includes(row.group)) {

@@ -58,11 +58,11 @@ const KEEP = new Set(
     // model (D21). Ordinary words, never names.
     'approved', 'pre', 'preapproved', 'instant', 'instantly', 'claim', 'free', 'gift', 'scratch', 'reward',
     'rewards', 'points', 'redeem', 'bonus', 'exclusive', 'sale', 'buy', 'shop', 'get', 'flat', 'off', 'lakh',
-    'lakhs', 'convert', 'conversion', 'easy', 'increased', 'enhanced', 'limited', 'period', 'chance', 'only',
+    'lakhs', 'convert', 'conversion', 'easy', 'increased', 'enhanced', 'limited', 'period', 'only',
     'today', 'expire', 'expires', 'expiring', 'expiry', 'valid', 'validity', 'plan', 'pack', 'subscription',
     'renew', 'renewal', 'premium', 'policy', 'insurance', 'order', 'ordered', 'placed', 'delivered', 'shipped',
     'dispatched', 'delivery', 'booking', 'booked', 'cancelled', 'pending', 'processed', 'reminder', 'kyc',
-    'lucky', 'draw', 'after', 'within', 'can', 'reply', 'spends', 'enjoy', 'higher', 'use', 'before', 'worth',
+    'draw', 'after', 'within', 'can', 'reply', 'spends', 'enjoy', 'higher', 'use', 'before', 'worth',
     'next', 'last', 'month', 'into', 'emis', 'lapse', 'hours', 'yesterday', 'check', 'once', 'approve', 'know', 'sender',
     // Time words. Month and weekday names are kept only inside a date (see
     // PROTECTED): on their own, "May" and "August" are also people.

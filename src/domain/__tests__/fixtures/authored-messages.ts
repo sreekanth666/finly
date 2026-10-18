@@ -130,4 +130,11 @@ export const AUTHORED_MESSAGES: AuthoredMessage[] = [
     note: 'a real credit that mentions a later credit must stay a credit',
     body: 'Rs 5,000.00 credited to A/c XX4321 on 05-10-26 by NEFT from ACME LTD. Interest will be credited quarterly. -SBI',
   },
+  {
+    id: 'au:preapproved-loan-emi-debited',
+    sender: 'JD-HDFCBK-S',
+    kind: 'transaction',
+    note: 'a real EMI debit that opens with "pre-approved" must stay a payment',
+    body: 'Your pre-approved loan EMI of Rs 3,000.00 has been debited from A/c XX1234 on 05-10-26. -HDFC Bank',
+  },
 ];

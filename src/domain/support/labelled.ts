@@ -13,7 +13,7 @@
  */
 
 import type { CorpusGroup } from '@/domain/txn-detect/model/corpus';
-import { isSmsApp, senderHeader } from '@/domain/txn-detect/sources';
+import { isDltSenderId } from '@/domain/txn-detect/sources';
 import { DETECTION_KINDS, type DetectionKind } from '@/domain/txn-detect/types';
 
 import { skeletonOf } from './skeleton';
@@ -35,7 +35,7 @@ export type ReviewedMessage = {
 export type LabelledShape = {
   /** A DLT sender id such as `JD-HDFCBK-P`, or null. Never a contact name or a number. */
   sender: string | null;
-  /** The app that posted it, unless it is an SMS app, whose name says nothing. */
+  /** The app that posted it, SMS app included; null for pasted text. */
   packageName: string | null;
   /** How Finly read it. */
   read: string;
@@ -98,15 +98,16 @@ export function truthOf(verdict: Verdict, read: string): LabelledShape['truth'] 
 export function labelledShapeOf(message: ReviewedMessage): LabelledShape | null {
   const verdict = verdictOf(message);
   if (verdict === null) return null;
-  const sender =
-    senderHeader(message.sender) !== null
-      ? message.sender!.trim()
-      : senderHeader(message.title) !== null
-        ? message.title!.trim()
-        : null;
+  const sender = isDltSenderId(message.sender)
+    ? message.sender!.trim()
+    : isDltSenderId(message.title)
+      ? message.title!.trim()
+      : null;
   return {
     sender,
-    packageName: message.packageName !== null && !isSmsApp(message.packageName) ? message.packageName : null,
+    /* Kept for SMS apps too: a package name is an app, never a person, and
+       the model reads an SMS differently from a pasted message. */
+    packageName: message.packageName,
     read: message.kind,
     verdict,
     truth: truthOf(verdict, message.kind),

@@ -8,7 +8,7 @@ import {
   type CorpusRow,
 } from '@/domain/txn-detect/model/corpus';
 import { evaluate, type Scored } from '@/domain/txn-detect/model/metrics';
-import { senderHeader, senderSuffix } from '@/domain/txn-detect/sources';
+import { isDltSenderId, senderHeader, senderSuffix } from '@/domain/txn-detect/sources';
 
 const row = (overrides: Partial<CorpusRow> = {}): CorpusRow => ({
   id: 'r1',
@@ -30,6 +30,15 @@ describe('senderSuffix', () => {
     expect(senderSuffix('AD-ATMSBI')).toBeNull();
     expect(senderSuffix('HDFC Bank')).toBeNull();
     expect(senderSuffix(null)).toBeNull();
+  });
+
+  it('trusts a sender id only when it cannot be a person’s name', () => {
+    expect(isDltSenderId('JD-HDFCBK-P')).toBe(true);
+    expect(isDltSenderId('AD-ATMSBI')).toBe(true);
+    expect(isDltSenderId('HDFCBK')).toBe(true);
+    for (const name of ['Suresh', 'SURESH', 'Mother', 'Anjali', 'JANABK', '+919876543210', 'HDFC Bank']) {
+      expect([name, isDltSenderId(name)]).toEqual([name, false]);
+    }
   });
 
   it('leaves the header template binding depends on as it was', () => {
@@ -54,6 +63,7 @@ describe('parseCorpus', () => {
     expect(parseCorpus(lines(row({ sender: '+919876543210' }))).problems).toEqual([
       'line 1: sender is not a DLT sender id',
     ]);
+    expect(parseCorpus(lines(row({ sender: 'Suresh' }))).problems).toEqual(['line 1: sender is not a DLT sender id']);
   });
 
   it('names every other problem by its line', () => {
