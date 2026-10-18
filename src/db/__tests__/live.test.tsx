@@ -183,7 +183,10 @@ describe('useDbQuery', () => {
 
     act(() => renderer?.update(<Probe queryKey="k2" read={read} />));
 
+    // No frame flushed: the answer for k2 is on screen in the same commit, and
+    // it is k2's own result, not k1's kept because the rows happen to match.
     expect(read.mock.calls.length).toBe(before + 1);
+    expect(renders.at(-1)).toBe(read.mock.results.at(-1)?.value);
   });
 
   it('does not re-render a query that keeps failing the same way', () => {
