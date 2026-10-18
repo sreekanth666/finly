@@ -1,7 +1,7 @@
 /**
  * The whole detector corpus (D21), as the evaluation and the trainer see it:
- * the rows in `data/detector/corpus.jsonl`, plus every message fixture reduced
- * to its skeleton.
+ * the real messages in `data/detector/corpus.jsonl`, plus every message
+ * fixture and authored message reduced to its skeleton.
  *
  * The fixtures are read from `messages.ts` rather than copied into the file, so
  * a fixture added for a misread lands in the evaluation the same day, with the
@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { skeletonOf } from '@/domain/support/skeleton';
-import { detect, sectionOf, type DetectionKind } from '@/domain/txn-detect';
+import { detect, isDoubted, sectionOf, type DetectionKind } from '@/domain/txn-detect';
 import {
   groupOf,
   parseCorpus,
@@ -26,6 +26,7 @@ import {
 import type { Placement, Scored } from '@/domain/txn-detect/model/metrics';
 import { senderHeader } from '@/domain/txn-detect/sources';
 
+import { AUTHORED_MESSAGES } from './authored-messages';
 import { ALL_MESSAGES } from './messages';
 
 export const CORPUS_DIR = join(process.cwd(), 'data', 'detector');
@@ -60,11 +61,24 @@ export function fixtureRows(): CorpusRow[] {
   );
 }
 
+export const authoredRows = (): CorpusRow[] =>
+  AUTHORED_MESSAGES.map((message) => ({
+    id: message.id,
+    body: skeletonOf(message.body),
+    sender: message.sender ?? null,
+    title: null,
+    packageName: message.packageName ?? null,
+    kind: message.kind,
+    ...(message.group === undefined ? {} : { group: message.group }),
+    source: 'authored',
+    note: message.note,
+  }));
+
 export type LoadedCorpus = { rows: CorpusRow[]; problems: string[] };
 
 export function loadCorpus(): LoadedCorpus {
   const parsed = parseCorpus(readFileSync(join(CORPUS_DIR, 'corpus.jsonl'), 'utf8'), publicSources());
-  const rows = [...fixtureRows(), ...parsed.rows];
+  const rows = [...fixtureRows(), ...authoredRows(), ...parsed.rows];
   const seen = new Set<string>();
   const problems = [...parsed.problems];
   for (const row of rows) {
@@ -83,7 +97,7 @@ export function rulesPlacement(row: CorpusRow): Placement {
     packageName: row.packageName,
     receivedAt: READ_AT,
   });
-  return { kind: detection.kind, section: sectionOf(detection) };
+  return { kind: detection.kind, section: sectionOf({ ...detection, doubt: isDoubted(detection.reasons) }) };
 }
 
 export function scoreRules(rows: readonly CorpusRow[], split?: Split): Scored[] {
