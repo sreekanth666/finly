@@ -58,6 +58,7 @@ reader can tell a decision from an accident.
 | D18 | **Users teach message formats by example**: tap the amount, payee, reference or card digits in a misread alert, and Finly derives a template for that sender. Every template is bound to one sender, may overrule only the negative gate its own sample tripped, and changes nothing when it does not match. A template, or a masked misread, can be **emailed to the developer** from the user's own mail app; Finly still sends nothing itself | No parser keeps up with every issuer's wording, and the user is the one who notices. Tagging an example asks nothing technical of them. Binding and the gate rule keep a bad template's reach to one sender, and to the kind of message it was taught on. Email keeps the no-network promise while letting a fix made on one phone reach everyone in an update |
 | D19 | **Contact the developer by email only**: Settings → About and "Report a detection problem" open the user's own mail app with the recipient, subject, message and a `finly-report.txt` filled in (expo-mail-composer, falling back to a mailto link, then Share). The report is built from counts and bank names — detection settings, listener health, corrections at confirm, a per-sender table — and, only if chosen, message skeletons with every name, amount and number replaced. Every section can be switched off and is shown before sending | Detection will go wrong on formats nobody has seen, and the phone knows things the user can't describe: which bank, whether the listener is running, what was corrected. Counts and skeletons carry that without carrying anything personal, and the user still presses send, so the no-network promise holds |
 | D20 | **Card bill payments are their own records**, and a tracked card shows its **unpaid balance**: what the user said it owed at one moment, plus effective card spend since, minus payments since. Each card is anchored once, from its own app or statement, and can be re-anchored ("Adjust balance"). A card never anchored keeps D6's cycle spend. Payments come from the card screen, from card-bill alerts in the inbox (linked, not doubled, when a matching payment is already recorded), or by converting an expense that was really a bill payment | Paying the bill was the one money event with nowhere to go: logged as an expense it counted the card's purchases twice, and cycle spend could not fall when it was paid. The anchor exists because the app holds a card's purchases but never held the payments before them, so summing history would show a year of paid-off spending as owed |
+| D21 | **The reader may doubt a payment, never invent or discard one.** The rules and their gates decide what a message is. Two kinds of doubt move a debit the rules called a transaction from Needs review to Maybe, where it still counts in the badge, can still be confirmed, and is never batch-added: a rule's (a promotional `-P` sender id; an SMS with no sender id, bank or card digits), always on; and a small on-device model's, behind a switch that is off by default. The model is a hashed character and word n-gram logistic regression over the message's skeleton (D19), trained offline by `pnpm train:detector` and shipped as about 88 KB of int8 weights in TypeScript, with no native code. It scores only what no gate filed and no taught format (D18) read. A user's own confirmations and "not a payment" marks, counted per sender on the phone, pull its score toward their record; a discard teaches nothing. It ships doubting nothing until training finds a threshold that, on senders it never saw, demotes no more than 2% of real spending; `pnpm check` refuses any model that does more, loses money that moved, or was trained on another corpus. Its data is the corpus in `data/detector/`: skeletons only, from fixtures, written examples and reports users chose to send with "Help improve detection" | Users reported offers, loan pitches and notices in Needs review. The rules catch payments well but read a message one pattern at a time, and some false positives only show as many weak signals together. Doubting rather than filtering keeps D17's promise that nothing is lost: a wrong doubt costs one tap. Measuring against a corpus split by sender, and shipping a model only when it earns it, keeps a model from trading the misses users never report for the false positives they do. No network: the model's evidence reaches the developer only in an email the user sends |
 
 ---
 
@@ -382,6 +383,16 @@ cannot be hard-deleted while expenses reference it (archive instead).
 - `expenses.source` (manual | detected | import) and `expenses.source_text`, the
   original alert kept verbatim and never searched.
 
+**The detector's model (D21)**, added by migration `0004`, additive only:
+
+- `detected_transactions.model_score`, `model_key` and `model_version` — the
+  model's probability that a candidate is not a payment, the sender key its
+  user labels count under, and the model that scored it. A newer model re-reads
+  pending, untouched candidates, as a newer parser does.
+- `detector_labels` — per sender key, how many payments the user confirmed and
+  how many messages they marked not a payment. Kept apart from candidates so a
+  label outlives retention; soft-deleted by "Forget what Finly learned".
+
 The detector itself is pure (`src/domain/txn-detect/`) and held to a masked
 corpus of real and representative alerts. The Android listener is a local Expo
 module (`modules/finly-capture`) that gates and queues natively and runs no
@@ -504,12 +515,17 @@ the donut adds the two into a total.
 ### 7.7 Settings
 
 Monthly budget · accounts and cards · categories · daily reminder (D16) ·
-transaction detection (D17) · import and export · about, with Contact the developer (D19).
+transaction detection (D17), with **Move doubtful payments to Maybe** and
+**Forget what Finly learned from your choices** (D21) · import and export ·
+about, with Contact the developer (D19), whose report can include **Help improve
+detection**: skeletons of reviewed messages and what the user did with each.
 
 ### 7.8 Review inbox (D17)
 
 A pushed route, not a fifth tab, reached from a count on the Balance header and
-a home banner. Sections: **Needs review** (debits), **Maybe** (low confidence),
+a home banner. Sections: **Needs review** (debits), **Maybe** (low confidence,
+or a payment the reader doubts — D21 — with a line on the review screen saying
+why),
 **Money in** (credits, which can settle an expense under D1 and never become
 income under D4), and **Filtered** (OTPs, offers, statements, reminders, failed
 payments, card-bill and investment transfers), collapsed but always rescuable.
@@ -557,6 +573,14 @@ correctness risk actually lives:
 Repository tests run against an in-memory SQLite database: soft delete respected
 everywhere, settlements capped at the expense amount, cascade on expense delete.
 
+The detector is also held to a labelled corpus (D21), split by sender so that a
+bank's near-identical alerts never sit on both sides. `pnpm check` fails if
+money that moved is read as anything else, or if the shipped model is stale,
+demotes more real spending on unseen senders than its budget, adds to the
+badge, or is too large or slow. `pnpm detector:eval` prints review precision,
+false positives in the badge and demotions; `pnpm detector:import` adds a
+report's reviewed messages; `pnpm train:detector` retrains, deterministically.
+
 Manual acceptance per milestone, on an Android dev build.
 
 ---
@@ -592,6 +616,7 @@ Each is independently shippable and leaves the app usable.
 | **Dev-build friction** (D12) | Documented rebuild step whenever native dependencies change |
 | **Play policy on notification access** (D17) | Prominent disclosure before the system screen, an allowlist and a native gate so non-financial text is never stored, no SMS permissions, Data Safety and privacy policy updated |
 | **The listener is killed or never rebound** — OEM battery managers, force-stop on Android 14+, OTP redaction on 15+ (D17) | Rebind and backfill on every app open, diagnostics on the settings screen, the paste box as the fallback; the inbox is a convenience, never the only way to log |
+| **The model doubts real spending, or learns from too little** (D21) | It only ever moves a payment to Maybe, where it still counts; it is off until the user switches it on; it ships doubting nothing until a threshold is earned on senders it never saw; `pnpm check` caps its demotions; reports show how its scores split between payments users confirmed and ones they rejected |
 
 ---
 

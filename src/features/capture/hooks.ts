@@ -26,11 +26,15 @@ import {
   type CandidateSummary,
   type ConfirmInput,
 } from '@/db/repositories/captures';
+import { forgetLabels, listLabelCounts } from '@/db/repositories/detector-labels';
 import { getFlag, getSetting, setFlag, setSetting } from '@/db/repositories/settings';
 import { useAction } from '@/db/use-action';
 import { listActiveRules } from '@/db/repositories/rules';
 import { getActiveCurrency } from '@/domain/money';
 import { sectionOf, splitForAdd, type InboxSection } from '@/domain/txn-detect';
+import { shippedModel } from '@/domain/txn-detect/model/assess';
+import { modelDoubts, type ModelContext } from '@/domain/txn-detect/model/doubt';
+import type { Model } from '@/domain/txn-detect/model/weights-format';
 
 import { ingestText, purgeExpired, retentionDays } from './ingest';
 import { oneTapInput } from './presentation';
@@ -40,17 +44,48 @@ const INBOX_TABLES: readonly TableName[] = [
   'captured_messages',
   'categories',
   'accounts',
+  /* The model's switch, and what the user has taught it per sender (D21). */
+  'settings',
+  'detector_labels',
 ];
 
 /** How many pending candidates one screen shows. More waits for the next pass. */
 const INBOX_LIMIT = 300;
 
-export type Inbox = Record<InboxSection, CandidateSummary[]>;
+export type InboxCandidate = CandidateSummary & { modelDoubt: boolean };
+
+export type Inbox = Record<InboxSection, InboxCandidate[]>;
+
+/** The shipped model, or none if it cannot be read: the rules alone still sort the inbox. */
+function loadModel(): Model | null {
+  try {
+    return shippedModel();
+  } catch {
+    return null;
+  }
+}
+
+const readModelContext = (database: Db): ModelContext => ({
+  enabled: getFlag('capture_detector_enabled', database),
+  counts: listLabelCounts(database),
+  model: loadModel(),
+});
+
+/**
+ * A candidate with the model's doubt applied (D21): doubted by the rules or by
+ * the model, and `modelDoubt` saying which, for the review screen's sentence.
+ */
+function withModel<T extends CandidateSummary>(candidate: T, context: ModelContext): T & { modelDoubt: boolean } {
+  const modelDoubt = !candidate.doubt && modelDoubts(candidate, context);
+  return { ...candidate, doubt: candidate.doubt || modelDoubt, modelDoubt };
+}
 
 const readInbox = (database: Db): Inbox => {
   const inbox: Inbox = { review: [], maybe: [], money_in: [], filtered: [] };
+  const context = readModelContext(database);
   for (const candidate of listPendingCandidates(INBOX_LIMIT, database)) {
-    inbox[sectionOf(candidate)].push(candidate);
+    const read = withModel(candidate, context);
+    inbox[sectionOf(read)].push(read);
   }
   return inbox;
 };
@@ -74,10 +109,13 @@ export function useReviewCount() {
 }
 
 export function useCandidate(id: string) {
-  return useDbQuery<CandidateDetail | null>(
+  return useDbQuery<(CandidateDetail & { modelDoubt: boolean }) | null>(
     `capture:candidate:${id}`,
     [...INBOX_TABLES, 'expenses', 'settlements'],
-    (database) => getCandidateDetail(id, database),
+    (database) => {
+      const detail = getCandidateDetail(id, database);
+      return detail === null ? null : withModel(detail, readModelContext(database));
+    },
   );
 }
 
@@ -161,6 +199,10 @@ export type CaptureSettings = {
   stats: { messages: number; pending: number };
   /** D21: the model may move doubtful payments to Maybe. Off, it only scores them. */
   detectorEnabled: boolean;
+  /** Senders the user's own choices have taught it something about. */
+  learnedSenders: number;
+  /** Whether the shipped model has a threshold at all; without one it moves nothing yet. */
+  modelCanDoubt: boolean;
 };
 
 export function parsePackages(json: string | null): string[] {
@@ -183,13 +225,17 @@ const readSettings = (database: Db): CaptureSettings => {
     retentionDays: retentionDays(database),
     stats: captureStats(database),
     detectorEnabled: getFlag('capture_detector_enabled', database),
+    learnedSenders: [...listLabelCounts(database).values()].filter(
+      (counts) => counts.confirmed + counts.notTransaction > 0,
+    ).length,
+    modelCanDoubt: loadModel()?.threshold.doubt != null,
   };
 };
 
 export function useCaptureSettings() {
   return useDbQuery<CaptureSettings>(
     'capture:settings',
-    ['settings', 'captured_messages', 'detected_transactions'],
+    ['settings', 'captured_messages', 'detected_transactions', 'detector_labels'],
     readSettings,
   );
 }
@@ -217,6 +263,15 @@ export function useSetRetentionDays() {
     setSetting('capture_retention_days', String(days));
     purgeExpired();
   });
+}
+
+export function useSetDetectorEnabled() {
+  return useAction((enabled: boolean) => setFlag('capture_detector_enabled', enabled));
+}
+
+/** "Forget what Finly learned from your choices" (D21). Taught formats stay. */
+export function useForgetLabels() {
+  return useAction(() => forgetLabels());
 }
 
 export function useClearCaptures() {

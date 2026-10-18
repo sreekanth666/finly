@@ -290,6 +290,9 @@ export type CandidateSummary = {
   alsoSeenIn: { source: CaptureSourceColumn; packageName: string | null }[];
   /** The reader doubted it is a payment (D21), so it waits in Maybe. */
   doubt: boolean;
+  /** D21: the model's stored score and label key; applied by the inbox, not here. */
+  modelScore: number | null;
+  modelKey: string | null;
 };
 
 const summarySelection = {
@@ -345,6 +348,8 @@ const toSummary = (
   account: row.account?.id == null ? null : row.account,
   alsoSeenIn,
   doubt: isDoubted(parseStringList(row.candidate.reasons)),
+  modelScore: row.candidate.modelScore,
+  modelKey: row.candidate.modelKey,
 });
 
 const summaryQuery = (database: DbLike) =>

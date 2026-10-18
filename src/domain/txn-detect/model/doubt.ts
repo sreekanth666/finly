@@ -35,3 +35,18 @@ export function nextCounts(current: LabelCounts | null, field: keyof LabelCounts
   const base = current ?? { confirmed: 0, notTransaction: 0 };
   return { ...base, [field]: Math.max(0, base[field] + delta) };
 }
+
+/** What the inbox needs to apply the model (D21), read once per pass. */
+export type ModelContext = {
+  /** The user's switch. Off, the model only scores, in shadow. */
+  enabled: boolean;
+  counts: ReadonlyMap<string, LabelCounts>;
+  model: Pick<Model, 'alpha' | 'threshold'> | null;
+};
+
+/** Whether the model, adjusted by this user's labels, doubts a stored candidate. */
+export function modelDoubts(candidate: { modelScore: number | null; modelKey: string | null }, context: ModelContext): boolean {
+  if (!context.enabled || context.model === null || candidate.modelScore === null) return false;
+  const counts = candidate.modelKey === null ? undefined : context.counts.get(candidate.modelKey);
+  return isDoubtful(candidate.modelScore, counts, context.model);
+}

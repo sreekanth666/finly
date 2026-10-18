@@ -53,13 +53,20 @@ const DOUBT_WORDS: Record<string, string> = {
   'doubt:no-sender': 'It names no bank and no card or account, and has no sender id, so it may be a person writing.',
 };
 
-/** Why a doubted payment is in Maybe, in a sentence; null when it is not doubted. */
-export function doubtSentence(reasons: readonly string[]): string | null {
+/**
+ * Why a doubted payment is in Maybe, in a sentence; null when it is not
+ * doubted. A rule's reason comes first, because it can be named; the model's
+ * (D21) can only be described.
+ */
+export function doubtSentence(reasons: readonly string[], modelDoubted = false): string | null {
   for (const reason of reasons) {
     const words = DOUBT_WORDS[reason];
     if (words !== undefined) return `In Maybe, not Needs review. ${words}`;
   }
-  return isDoubted(reasons) ? 'In Maybe, not Needs review: Finly is not sure this is a payment.' : null;
+  if (isDoubted(reasons)) return 'In Maybe, not Needs review: Finly is not sure this is a payment.';
+  return modelDoubted
+    ? 'In Maybe, not Needs review. It reads more like an offer or a notice than a payment. What you choose for this sender teaches Finly.'
+    : null;
 }
 
 export function sectionOf(candidate: {

@@ -11,7 +11,9 @@ import {
   Mail,
   MessageSquareText,
   Plus,
+  RotateCcw,
   ShieldAlert,
+  Sparkles,
   Trash2,
 } from '@/components/icons';
 import { useState } from 'react';
@@ -28,9 +30,11 @@ import { PAYMENT_APPS, RETENTION_CHOICES } from '@/domain/txn-detect';
 import {
   useCaptureSettings,
   useClearCaptures,
+  useForgetLabels,
   useSetCaptureEnabled,
   useSetCaptureNotify,
   useSetCapturePackages,
+  useSetDetectorEnabled,
   useSetRetentionDays,
 } from '@/features/capture/hooks';
 import {
@@ -123,6 +127,8 @@ export default function CaptureSettingsScreen() {
   const setNotify = useSetCaptureNotify();
   const setRetention = useSetRetentionDays();
   const clear = useClearCaptures();
+  const setDetector = useSetDetectorEnabled();
+  const forget = useForgetLabels();
 
   const chosen = settings.data?.packages ?? [];
   const apps = useAppChoices(PAYMENT_APPS, chosen);
@@ -130,7 +136,13 @@ export default function CaptureSettingsScreen() {
 
   const isEnabled = settings.data?.enabled ?? false;
   const failure =
-    setEnabled.errorMessage ?? setPackages.errorMessage ?? setNotify.errorMessage ?? setRetention.errorMessage ?? clear.errorMessage;
+    setEnabled.errorMessage ??
+    setPackages.errorMessage ??
+    setNotify.errorMessage ??
+    setRetention.errorMessage ??
+    clear.errorMessage ??
+    setDetector.errorMessage ??
+    forget.errorMessage;
 
   const toggle = async (next: boolean) => {
     if (!next) {
@@ -183,6 +195,19 @@ export default function CaptureSettingsScreen() {
       ],
     );
   };
+
+  const confirmForget = () => {
+    Alert.alert(
+      'Forget what Finly learned?',
+      'Your confirmations and “not a transaction” choices stop counting for each sender. Formats you taught, and everything in the inbox, stay as they are.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Forget', style: 'destructive', onPress: () => void forget.run() },
+      ],
+    );
+  };
+
+  const learned = settings.data?.learnedSenders ?? 0;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -373,6 +398,46 @@ export default function CaptureSettingsScreen() {
           <Typography type="body-xs" color="muted" className="px-1">
             If Finly keeps misreading one bank’s messages, open one in the inbox and tap “Teach Finly this format”.
           </Typography>
+        </View>
+
+        <View className="gap-3">
+          <SectionHeader label="Doubtful payments" />
+          <View className="rounded-3xl bg-surface">
+            <View className="flex-row items-center gap-3 px-4 py-3.5">
+              <Icon icon={Sparkles} color={settings.data?.detectorEnabled === true ? 'accent' : 'muted'} size={18} />
+              <View className="flex-1 gap-0.5">
+                <Typography type="body-sm" weight="semibold">
+                  Move doubtful payments to Maybe
+                </Typography>
+                <Typography type="body-xs" color="muted">
+                  {settings.data?.modelCanDoubt === false
+                    ? 'This version is still learning and moves nothing yet.'
+                    : 'Payments that read like an offer or a notice wait in Maybe. They still count and can still be confirmed.'}
+                </Typography>
+              </View>
+              <Switch
+                isSelected={settings.data?.detectorEnabled ?? false}
+                isDisabled={setDetector.isPending}
+                onSelectedChange={(next) => void setDetector.run(next)}
+                accessibilityLabel="Move doubtful payments to Maybe"
+              />
+            </View>
+          </View>
+          <Typography type="body-xs" color="muted" className="px-1">
+            {learned === 0
+              ? 'Confirming a payment or marking a message “not a transaction” teaches Finly about that sender, on this phone. Discarding teaches nothing.'
+              : `Your choices have taught Finly about ${learned} ${learned === 1 ? 'sender' : 'senders'}, on this phone. Discarding teaches nothing.`}
+          </Typography>
+          {learned > 0 && (
+            <Button
+              icon={RotateCcw}
+              label="Forget what Finly learned from your choices"
+              tone="secondary"
+              size="sm"
+              isDisabled={forget.isPending}
+              onPress={confirmForget}
+            />
+          )}
         </View>
 
         <View className="gap-3">

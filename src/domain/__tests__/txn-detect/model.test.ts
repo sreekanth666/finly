@@ -1,5 +1,5 @@
 import { isAssessable, labelKeyOf } from '@/domain/txn-detect/model/assess';
-import { isDoubtful, nextCounts, personalised } from '@/domain/txn-detect/model/doubt';
+import { isDoubtful, modelDoubts, nextCounts, personalised } from '@/domain/txn-detect/model/doubt';
 import { bucketOf, featureNamesOf, featuresOf, type ModelInput } from '@/domain/txn-detect/model/features';
 import {
   chooseThreshold,
@@ -193,5 +193,28 @@ describe('nextCounts', () => {
   it('starts a forgotten sender from nothing', () => {
     expect(nextCounts(null, 'notTransaction', 1)).toEqual({ confirmed: 0, notTransaction: 1 });
     expect(nextCounts(null, 'confirmed', -1)).toEqual({ confirmed: 0, notTransaction: 0 });
+  });
+});
+
+describe('modelDoubts', () => {
+  const model = { alpha: 4, threshold: { doubt: 0.7, filter: null } };
+  const counts = new Map([['HDFCBK-T', { confirmed: 6, notTransaction: 0 }]]);
+  const doubted = { modelScore: 0.9, modelKey: 'ICICIT-S' };
+
+  it('changes nothing while the switch is off, whatever the score', () => {
+    for (const modelScore of [0, 0.5, 0.71, 0.99, 1]) {
+      expect(modelDoubts({ modelScore, modelKey: null }, { enabled: false, counts, model })).toBe(false);
+    }
+  });
+
+  it('doubts only above the threshold, with the user’s own record for the sender weighed in', () => {
+    expect(modelDoubts(doubted, { enabled: true, counts, model })).toBe(true);
+    expect(modelDoubts({ modelScore: 0.6, modelKey: 'ICICIT-S' }, { enabled: true, counts, model })).toBe(false);
+    expect(modelDoubts({ modelScore: 0.9, modelKey: 'HDFCBK-T' }, { enabled: true, counts, model })).toBe(false);
+  });
+
+  it('doubts nothing it never scored, nor with no model to read', () => {
+    expect(modelDoubts({ modelScore: null, modelKey: 'ICICIT-S' }, { enabled: true, counts, model })).toBe(false);
+    expect(modelDoubts(doubted, { enabled: true, counts, model: null })).toBe(false);
   });
 });

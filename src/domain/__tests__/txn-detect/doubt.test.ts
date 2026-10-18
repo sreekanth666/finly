@@ -141,4 +141,11 @@ describe('doubtSentence', () => {
     expect(doubtSentence(['doubt:something-new'])).toBe('In Maybe, not Needs review: Finly is not sure this is a payment.');
     expect(doubtSentence(['kind:transaction'])).toBeNull();
   });
+
+  it('describes the model’s doubt, and names a rule’s first when both doubt', () => {
+    expect(doubtSentence(['kind:transaction'], true)).toBe(
+      'In Maybe, not Needs review. It reads more like an offer or a notice than a payment. What you choose for this sender teaches Finly.',
+    );
+    expect(doubtSentence(['doubt:no-sender'], true)).toContain('may be a person writing');
+  });
 });
