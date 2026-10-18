@@ -49,3 +49,7 @@ builds/
 
 # Gradle output of local Expo modules
 /modules/*/android/build/
+
+# Local SMS datasets for `pnpm detector:bench` (D21), and its output. Real or
+# licensed messages never enter the repo; the committed corpus holds skeletons.
+dataset/
