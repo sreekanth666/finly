@@ -17,10 +17,11 @@ import {
   type CardPaymentDecision,
   listPendingCandidates,
   resolveCandidate,
-  restoreCandidate,
+  resolveCandidates,
+  restoreCandidates,
   separateDuplicate,
   settleCandidate,
-  undoConfirm,
+  undoConfirms,
   type CandidateDetail,
   type CandidateSummary,
   type ConfirmInput,
@@ -29,7 +30,7 @@ import { getFlag, getSetting, setFlag, setSetting } from '@/db/repositories/sett
 import { useAction } from '@/db/use-action';
 import { listActiveRules } from '@/db/repositories/rules';
 import { getActiveCurrency } from '@/domain/money';
-import { canConfirmInOneTap, sectionOf, type InboxSection } from '@/domain/txn-detect';
+import { sectionOf, splitForAdd, type InboxSection } from '@/domain/txn-detect';
 
 import { ingestText, purgeExpired, retentionDays } from './ingest';
 import { oneTapInput } from './presentation';
@@ -102,14 +103,6 @@ export function useResolveCandidate() {
   return useAction((id: string, status: 'dismissed' | 'not_transaction') => resolveCandidate(id, status));
 }
 
-export function useRestoreCandidate() {
-  return useAction((id: string) => restoreCandidate(id));
-}
-
-export function useUndoConfirm() {
-  return useAction((id: string) => undoConfirm(id));
-}
-
 export function useSeparateDuplicate() {
   return useAction((id: string) => separateDuplicate(id));
 }
@@ -125,18 +118,29 @@ export function useConfirmAsRead() {
 }
 
 /**
- * Confirms every candidate in Needs review that can be confirmed as read — a
- * sure rupee amount and a named payee. Anything less sure stays for a look.
+ * Adds a batch as read, all or nothing: only what one tap could confirm — a
+ * sure amount in the app's currency, from Needs review. Anything less sure is
+ * left where it is for a look (D17). Returns the ids it added, for the undo.
  */
-export function useConfirmAllCertain() {
+export function useAddCandidates() {
   return useAction((candidates: readonly CandidateSummary[]) => {
     const rules = listActiveRules();
-    return confirmCandidates(
-      candidates
-        .filter((candidate) => canConfirmInOneTap(candidate, getActiveCurrency().code))
-        .map((candidate) => ({ id: candidate.id, input: oneTapInput(candidate, rules) })),
-    );
+    const { addable } = splitForAdd(candidates, getActiveCurrency().code);
+    confirmCandidates(addable.map((candidate) => ({ id: candidate.id, input: oneTapInput(candidate, rules) })));
+    return addable.map((candidate) => candidate.id);
   });
+}
+
+export function useDismissCandidates() {
+  return useAction((ids: readonly string[]) => resolveCandidates(ids, 'dismissed'));
+}
+
+export function useRestoreCandidates() {
+  return useAction((ids: readonly string[]) => restoreCandidates(ids));
+}
+
+export function useUndoConfirms() {
+  return useAction((ids: readonly string[]) => undoConfirms(ids));
 }
 
 export function usePasteMessage() {

@@ -79,6 +79,58 @@ export const canConfirmInOneTap = (
   candidate.amountMinor !== null &&
   candidate.currency === appCurrency;
 
+/**
+ * What a batch add may take: only what one tap could confirm, and only from
+ * Needs review. `canConfirmInOneTap` does not look at direction, so without the
+ * section a sure credit would slip into the budget as spending.
+ */
+export const canAddInBatch = (
+  candidate: Parameters<typeof sectionOf>[0] & Parameters<typeof canConfirmInOneTap>[0],
+  appCurrency = 'INR',
+): boolean => sectionOf(candidate) === 'review' && canConfirmInOneTap(candidate, appCurrency);
+
+/** A batch add splits into what goes in and what stays for a look (D17). */
+export function splitForAdd<T extends Parameters<typeof canAddInBatch>[0]>(
+  candidates: readonly T[],
+  appCurrency = 'INR',
+): { addable: T[]; skipped: T[] } {
+  const addable: T[] = [];
+  const skipped: T[] = [];
+  for (const candidate of candidates) (canAddInBatch(candidate, appCurrency) ? addable : skipped).push(candidate);
+  return { addable, skipped };
+}
+
+export type BatchAction = 'add' | 'discard' | 'discard_filtered';
+
+export type BatchPrompt = { title: string; message: string; confirmLabel: string; destructive: boolean };
+
+const plural = (count: number, one: string, many: string): string => `${count} ${count === 1 ? one : many}`;
+
+/** The words of the confirmation every batch action asks for first. */
+export function batchPrompt(action: BatchAction, count: number, skipped = 0): BatchPrompt {
+  if (action === 'add') {
+    const stays =
+      skipped === 0
+        ? 'Each is added as read, with its suggested category and account.'
+        : `${plural(skipped, 'other needs', 'others need')} a look and will stay in Review.`;
+    return {
+      title: `Add ${plural(count, 'payment', 'payments')}?`,
+      message: stays,
+      confirmLabel: 'Add',
+      destructive: false,
+    };
+  }
+  return {
+    title:
+      action === 'discard_filtered'
+        ? `Discard ${plural(count, 'filtered item', 'filtered items')}?`
+        : `Discard ${plural(count, 'item', 'items')}?`,
+    message: 'They leave Review without touching the budget. You can undo right after.',
+    confirmLabel: 'Discard',
+    destructive: true,
+  };
+}
+
 /** What to call where a message came from: "SMS", "PhonePe", or the package name. */
 export function sourceAppName(source: string, packageName: string | null): string {
   if (source === 'paste') return 'Pasted';

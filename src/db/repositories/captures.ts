@@ -786,6 +786,34 @@ export function confirmCandidates(
   }, database);
 }
 
+/** Dismisses a batch, all or nothing. Returns how many. */
+export function resolveCandidates(
+  ids: readonly string[],
+  status: 'dismissed' | 'not_transaction',
+  database: DbLike = db,
+): number {
+  return writeTransaction((tx) => {
+    for (const id of ids) resolveCandidate(id, status, tx);
+    return ids.length;
+  }, database);
+}
+
+/** The undo behind a batch dismiss. */
+export function restoreCandidates(ids: readonly string[], database: DbLike = db): number {
+  return writeTransaction((tx) => {
+    for (const id of ids) restoreCandidate(id, tx);
+    return ids.length;
+  }, database);
+}
+
+/** The undo behind a batch add. */
+export function undoConfirms(ids: readonly string[], database: DbLike = db): number {
+  return writeTransaction((tx) => {
+    for (const id of ids) undoConfirm(id, tx);
+    return ids.length;
+  }, database);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Re-reading after a parser upgrade, or a change to what was taught            */
 /* -------------------------------------------------------------------------- */

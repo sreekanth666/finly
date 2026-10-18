@@ -1,10 +1,13 @@
 import {
+  batchPrompt,
+  canAddInBatch,
   canConfirmInOneTap,
   countsTowardBadge,
   redactCodes,
   sectionOf,
   sourceAppName,
   sourceTextOf,
+  splitForAdd,
 } from '@/domain/txn-detect';
 
 describe('sectionOf', () => {
@@ -48,6 +51,78 @@ describe('canConfirmInOneTap', () => {
     expect(canConfirmInOneTap({ ...base, currency: 'USD' })).toBe(false);
     expect(canConfirmInOneTap({ ...base, amountMinor: null })).toBe(false);
     expect(canConfirmInOneTap({ ...base, kind: 'transfer' })).toBe(false);
+  });
+});
+
+describe('canAddInBatch', () => {
+  const base = {
+    kind: 'transaction' as const,
+    direction: 'debit' as const,
+    confidence: 'high' as const,
+    amountMinor: 500,
+    currency: 'INR',
+  };
+
+  it('takes a sure rupee payment from Needs review', () => {
+    expect(canAddInBatch(base)).toBe(true);
+  });
+
+  it('never takes a credit, even one read with confidence', () => {
+    const credit = { ...base, direction: 'credit' as const };
+    expect(canConfirmInOneTap(credit)).toBe(true);
+    expect(canAddInBatch(credit)).toBe(false);
+  });
+
+  it('leaves Maybe, Filtered, foreign and amountless items for a look', () => {
+    expect(canAddInBatch({ ...base, confidence: 'low' })).toBe(false);
+    expect(canAddInBatch({ ...base, kind: 'unknown' })).toBe(false);
+    expect(canAddInBatch({ ...base, kind: 'transfer' })).toBe(false);
+    expect(canAddInBatch({ ...base, currency: 'USD' })).toBe(false);
+    expect(canAddInBatch({ ...base, amountMinor: null })).toBe(false);
+    expect(canAddInBatch({ ...base, confidence: 'medium' })).toBe(false);
+  });
+
+  it('follows the app currency', () => {
+    expect(canAddInBatch({ ...base, currency: 'USD' }, 'USD')).toBe(true);
+  });
+});
+
+describe('splitForAdd', () => {
+  it('keeps order on both sides', () => {
+    const sure = { kind: 'transaction' as const, direction: 'debit' as const, confidence: 'high' as const, amountMinor: 1, currency: 'INR' };
+    const items = [
+      { ...sure, id: 'a' },
+      { ...sure, id: 'b', amountMinor: null },
+      { ...sure, id: 'c' },
+      { ...sure, id: 'd', direction: 'credit' as const },
+    ];
+    const { addable, skipped } = splitForAdd(items);
+    expect(addable.map((item) => item.id)).toEqual(['a', 'c']);
+    expect(skipped.map((item) => item.id)).toEqual(['b', 'd']);
+  });
+
+  it('splits nothing into nothing', () => {
+    expect(splitForAdd([])).toEqual({ addable: [], skipped: [] });
+  });
+});
+
+describe('batchPrompt', () => {
+  it('counts what an add takes and what it leaves', () => {
+    expect(batchPrompt('add', 12, 3)).toEqual({
+      title: 'Add 12 payments?',
+      message: '3 others need a look and will stay in Review.',
+      confirmLabel: 'Add',
+      destructive: false,
+    });
+    expect(batchPrompt('add', 1, 1).title).toBe('Add 1 payment?');
+    expect(batchPrompt('add', 1, 1).message).toBe('1 other needs a look and will stay in Review.');
+    expect(batchPrompt('add', 4).message).toBe('Each is added as read, with its suggested category and account.');
+  });
+
+  it('marks a discard as destructive and names a filtered one', () => {
+    expect(batchPrompt('discard', 8)).toMatchObject({ title: 'Discard 8 items?', confirmLabel: 'Discard', destructive: true });
+    expect(batchPrompt('discard', 1).title).toBe('Discard 1 item?');
+    expect(batchPrompt('discard_filtered', 5).title).toBe('Discard 5 filtered items?');
   });
 });
 
