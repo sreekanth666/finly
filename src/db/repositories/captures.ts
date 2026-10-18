@@ -15,6 +15,7 @@
 import { and, asc, between, count, desc, eq, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
 
 import { asMinor, type Minor } from '@/domain/money';
+import type { Assessment } from '@/domain/txn-detect/model/assess';
 import {
   bodyKeyOf,
   DUPLICATE_WINDOW_MS,
@@ -52,6 +53,7 @@ import {
   type ExpenseInput,
 } from './expenses';
 import { createRule, recordRuleApplied } from './rules';
+import { bumpLabel } from './detector-labels';
 import { addSettlement } from './settlements';
 
 const alive = isNull(detectedTransactions.deletedAt);
@@ -77,6 +79,8 @@ export type PreparedCapture = RawCapture & {
   contentHash: string;
   detection: Detection;
   suggestion: Suggestion;
+  /** The model's second opinion (D21); null when it was not asked or could not answer. */
+  assessment: Assessment | null;
 };
 
 export type IngestOutcome = {
@@ -145,7 +149,7 @@ function findPrimary(item: PreparedCapture, tx: DbLike): string | null {
   return match?.id ?? null;
 }
 
-type ReadWith = { parserVersion: number; templatesRev: number };
+export type ReadWith = { parserVersion: number; templatesRev: number; modelVersion: number };
 
 function ingestOne(item: PreparedCapture, readWith: ReadWith, tx: DbLike): IngestOutcome {
   const seen = tx
@@ -156,7 +160,7 @@ function ingestOne(item: PreparedCapture, readWith: ReadWith, tx: DbLike): Inges
     .get();
   if (seen !== undefined) return { candidateId: seen.id, status: 'seen' };
 
-  const { detection, suggestion } = item;
+  const { detection, suggestion, assessment } = item;
   const now = Date.now();
   const messageId = newId();
 
@@ -205,6 +209,9 @@ function ingestOne(item: PreparedCapture, readWith: ReadWith, tx: DbLike): Inges
       duplicateOf: primary,
       parserVersion: readWith.parserVersion,
       templatesRev: readWith.templatesRev,
+      modelScore: assessment?.score ?? null,
+      modelKey: assessment?.key ?? null,
+      modelVersion: readWith.modelVersion,
       createdAt: now,
       updatedAt: now,
     })
@@ -596,6 +603,7 @@ export function confirmCandidate(id: string, input: ConfirmInput, database: DbLi
       .set({ status: 'confirmed', expenseId, resolvedAt: now, updatedAt: now })
       .where(eq(detectedTransactions.id, id))
       .run();
+    bumpLabel(row.modelKey, 'confirmed', 1, tx);
 
     if (input.rememberAccount && input.expense.accountId != null && row.instrumentTail !== null) {
       rememberAccountTail(input.expense.accountId, row.instrumentTail, row.issuer, tx);
@@ -638,6 +646,7 @@ export function linkCandidateToExpense(id: string, expenseId: string, database: 
       .set({ status: 'confirmed', expenseId, resolvedAt: now, updatedAt: now })
       .where(eq(detectedTransactions.id, id))
       .run();
+    bumpLabel(row.modelKey, 'confirmed', 1, tx);
   }, database);
 }
 
@@ -715,6 +724,8 @@ export function recordCandidateAsCardPayment(
       .set({ status: 'confirmed', cardPaymentId: paymentId, resolvedAt: now, updatedAt: now })
       .where(eq(detectedTransactions.id, id))
       .run();
+    /* Money moved, though not spending: for the model, a payment. */
+    bumpLabel(row.modelKey, 'confirmed', 1, tx);
 
     /* Only the issuer's own alert names the card's digits; the bank's names the
        account the money left. */
@@ -733,12 +744,14 @@ export function resolveCandidate(
   database: DbLike = db,
 ): void {
   writeTransaction((tx) => {
-    requireCandidate(id, tx);
+    const row = requireCandidate(id, tx);
     const now = Date.now();
     tx.update(detectedTransactions)
       .set({ status, resolvedAt: now, updatedAt: now })
       .where(eq(detectedTransactions.id, id))
       .run();
+    /* A discard says nothing about whether it was a payment (D21). */
+    if (status === 'not_transaction') bumpLabel(row.modelKey, 'notTransaction', 1, tx);
   }, database);
 }
 
@@ -754,17 +767,19 @@ export function undoConfirm(id: string, database: DbLike = db): void {
       .set({ status: 'pending', expenseId: null, resolvedAt: null, updatedAt: Date.now() })
       .where(eq(detectedTransactions.id, id))
       .run();
+    bumpLabel(row.modelKey, 'confirmed', -1, tx);
   }, database);
 }
 
 /** The undo behind the swipe. */
 export function restoreCandidate(id: string, database: DbLike = db): void {
   writeTransaction((tx) => {
-    requireCandidate(id, tx, ['dismissed', 'not_transaction']);
+    const row = requireCandidate(id, tx, ['dismissed', 'not_transaction']);
     tx.update(detectedTransactions)
       .set({ status: 'pending', resolvedAt: null, isEdited: true, updatedAt: Date.now() })
       .where(eq(detectedTransactions.id, id))
       .run();
+    if (row.status === 'not_transaction') bumpLabel(row.modelKey, 'notTransaction', -1, tx);
   }, database);
 }
 
@@ -825,12 +840,12 @@ export function undoConfirms(ids: readonly string[], database: DbLike = db): num
 export type ReparseTarget = RawCapture & { id: string };
 
 /**
- * Pending candidates nobody has touched that were read by an older parser, or
- * under an older set of taught templates (D18).
+ * Pending candidates nobody has touched that were read by an older parser,
+ * under an older set of taught templates (D18), or scored by an older model
+ * (D21).
  */
 export function listReparseTargets(
-  belowVersion: number,
-  belowTemplatesRev: number,
+  below: { parserVersion: number; templatesRev: number; modelVersion: number },
   limit: number,
   database: DbLike = db,
 ): ReparseTarget[] {
@@ -853,8 +868,9 @@ export function listReparseTargets(
         eq(detectedTransactions.status, 'pending'),
         eq(detectedTransactions.isEdited, false),
         or(
-          lt(detectedTransactions.parserVersion, belowVersion),
-          lt(detectedTransactions.templatesRev, belowTemplatesRev),
+          lt(detectedTransactions.parserVersion, below.parserVersion),
+          lt(detectedTransactions.templatesRev, below.templatesRev),
+          lt(detectedTransactions.modelVersion, below.modelVersion),
         ),
       ),
     )
@@ -863,14 +879,13 @@ export function listReparseTargets(
 }
 
 export function applyReparse(
-  updates: readonly { id: string; detection: Detection; suggestion: Suggestion }[],
-  parserVersion: number,
-  templatesRev: number,
+  updates: readonly { id: string; detection: Detection; suggestion: Suggestion; assessment: Assessment | null }[],
+  readWith: ReadWith,
   database: DbLike = db,
 ): void {
   writeTransaction((tx) => {
     const now = Date.now();
-    for (const { id, detection, suggestion } of updates) {
+    for (const { id, detection, suggestion, assessment } of updates) {
       tx.update(detectedTransactions)
         .set({
           kind: detection.kind,
@@ -892,8 +907,11 @@ export function applyReparse(
           suggestedCategoryId: suggestion.categoryId,
           suggestedAccountId: suggestion.accountId,
           suggestedRuleId: suggestion.ruleId,
-          parserVersion,
-          templatesRev,
+          parserVersion: readWith.parserVersion,
+          templatesRev: readWith.templatesRev,
+          modelScore: assessment?.score ?? null,
+          modelKey: assessment?.key ?? null,
+          modelVersion: readWith.modelVersion,
           updatedAt: now,
         })
         .where(and(eq(detectedTransactions.id, id), eq(detectedTransactions.status, 'pending')))

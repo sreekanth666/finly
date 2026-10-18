@@ -45,6 +45,7 @@ import {
   type Detection,
   type SuggestContext,
 } from '@/domain/txn-detect';
+import { assess, MODEL_VERSION, type Assessment } from '@/domain/txn-detect/model/assess';
 
 const CHUNK = 100;
 const MS_PER_DAY = 86_400_000;
@@ -91,6 +92,18 @@ function safeDetect(raw: RawCapture, context: Context): Detection {
   }
 }
 
+/**
+ * The model's second opinion (D21). It only ever adds a doubt, so a model that
+ * breaks costs that and nothing else: the candidate is kept as the rules read it.
+ */
+function safeAssess(raw: RawCapture, detection: Detection): Assessment | null {
+  try {
+    return assess(raw, detection);
+  } catch {
+    return null;
+  }
+}
+
 function prepare(raw: RawCapture, context: Context): PreparedCapture {
   const detection = safeDetect(raw, context);
   return {
@@ -98,6 +111,7 @@ function prepare(raw: RawCapture, context: Context): PreparedCapture {
     contentHash: captureKey(raw),
     detection,
     suggestion: suggest(detection, context.suggest),
+    assessment: safeAssess(raw, detection),
   };
 }
 
@@ -121,7 +135,7 @@ export async function ingest(raws: readonly RawCapture[], database: DbLike = db)
       const batch = raws.slice(index, index + CHUNK).map((raw) => prepare(raw, context));
       const results = ingestCaptures(
         batch,
-        { parserVersion: PARSER_VERSION, templatesRev: context.templatesRev },
+        { parserVersion: PARSER_VERSION, templatesRev: context.templatesRev, modelVersion: MODEL_VERSION },
         database,
       );
       outcomes.push(...results);
@@ -155,7 +169,8 @@ export async function ingestText(
 
 const isCurrent = (database: DbLike) =>
   getSetting('capture_parser_version', database) === String(PARSER_VERSION) &&
-  getSetting('capture_templates_done_rev', database) === String(templatesRev(database));
+  getSetting('capture_templates_done_rev', database) === String(templatesRev(database)) &&
+  getSetting('capture_model_version', database) === String(MODEL_VERSION);
 
 /**
  * One pass of re-reading. Bounded, so it can never spin; a backlog bigger than
@@ -169,16 +184,22 @@ async function reparseOnce(database: DbLike): Promise<void> {
   let isFinished = false;
   await withSuppressedInvalidation(async () => {
     for (let round = 0; round < 50; round += 1) {
-      const targets = listReparseTargets(PARSER_VERSION, context.templatesRev, CHUNK, database);
+      const readWith = { parserVersion: PARSER_VERSION, templatesRev: context.templatesRev, modelVersion: MODEL_VERSION };
+      const targets = listReparseTargets(readWith, CHUNK, database);
       if (targets.length === 0) {
         isFinished = true;
         break;
       }
       const updates = targets.map((target) => {
         const detection = safeDetect(target, context);
-        return { id: target.id, detection, suggestion: suggest(detection, context.suggest) };
+        return {
+          id: target.id,
+          detection,
+          suggestion: suggest(detection, context.suggest),
+          assessment: safeAssess(target, detection),
+        };
       });
-      applyReparse(updates, PARSER_VERSION, context.templatesRev, database);
+      applyReparse(updates, readWith, database);
       await yieldToUi();
     }
   });
@@ -186,6 +207,7 @@ async function reparseOnce(database: DbLike): Promise<void> {
   if (isFinished) {
     setSetting('capture_parser_version', String(PARSER_VERSION), database);
     setSetting('capture_templates_done_rev', String(context.templatesRev), database);
+    setSetting('capture_model_version', String(MODEL_VERSION), database);
   }
 }
 
@@ -193,8 +215,8 @@ let reparsing: Promise<void> | null = null;
 let isWanted = false;
 
 /**
- * Re-reads pending candidates when the parser has been upgraded or the taught
- * templates have changed. Candidates the user has touched are left as they
+ * Re-reads pending candidates when the parser has been upgraded, the taught
+ * templates have changed, or a new model shipped (D21). Candidates the user has touched are left as they
  * are. Saving a template calls this directly; a call that arrives while a pass
  * is running asks for one more pass rather than running alongside it.
  */

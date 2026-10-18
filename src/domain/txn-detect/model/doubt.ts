@@ -26,3 +26,12 @@ export function personalised(pModel: number, counts: LabelCounts | undefined, al
 /** Whether this user's adjusted score crosses the model's threshold. A model with none doubts nothing. */
 export const isDoubtful = (score: number, counts: LabelCounts | undefined, model: Pick<Model, 'alpha' | 'threshold'>): boolean =>
   model.threshold.doubt !== null && personalised(score, counts, model.alpha) >= model.threshold.doubt;
+
+/**
+ * The counts after one label is given or taken back: never below zero, and a
+ * sender the user asked Finly to forget (`current` null) starts from nothing.
+ */
+export function nextCounts(current: LabelCounts | null, field: keyof LabelCounts, delta: 1 | -1): LabelCounts {
+  const base = current ?? { confirmed: 0, notTransaction: 0 };
+  return { ...base, [field]: Math.max(0, base[field] + delta) };
+}

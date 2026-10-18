@@ -147,3 +147,34 @@ describe('expenses, after D17', () => {
     });
   });
 });
+
+describe('the detector model and its labels (D21)', () => {
+  it('marks candidates stored before any model as unscored, version 0, so the first model scores them', () => {
+    db.exec(message('m1'));
+    db.exec(candidate({ id: 'c1', messageId: 'm1' }));
+    expect(db.prepare("select model_score, model_key, model_version from detected_transactions where id='c1'").get()).toEqual({
+      model_score: null,
+      model_key: null,
+      model_version: 0,
+    });
+  });
+
+  it('counts per sender from nothing, one row each', () => {
+    db.exec(`insert into detector_labels (key,updated_at) values ('HDFCBK-T',${NOW})`);
+    expect(db.prepare("select confirmed, not_transaction, deleted_at from detector_labels where key='HDFCBK-T'").get()).toEqual({
+      confirmed: 0,
+      not_transaction: 0,
+      deleted_at: null,
+    });
+    expect(rejects(db, `insert into detector_labels (key,updated_at) values ('HDFCBK-T',${NOW})`)).toBe(true);
+  });
+
+  it('keeps what the user taught when retention clears the inbox', () => {
+    db.exec(message('m1'));
+    db.exec(candidate({ id: 'c1', messageId: 'm1' }));
+    db.exec(`insert into detector_labels (key,confirmed,updated_at) values ('HDFCBK-T',3,${NOW})`);
+    db.exec("delete from captured_messages where id='m1'");
+    expect(db.prepare('select count(*) as n from detected_transactions').get()).toEqual({ n: 0 });
+    expect(db.prepare("select confirmed from detector_labels where key='HDFCBK-T'").get()).toEqual({ confirmed: 3 });
+  });
+});

@@ -1,5 +1,5 @@
 import { isAssessable, labelKeyOf } from '@/domain/txn-detect/model/assess';
-import { isDoubtful, personalised } from '@/domain/txn-detect/model/doubt';
+import { isDoubtful, nextCounts, personalised } from '@/domain/txn-detect/model/doubt';
 import { bucketOf, featureNamesOf, featuresOf, type ModelInput } from '@/domain/txn-detect/model/features';
 import {
   chooseThreshold,
@@ -181,5 +181,17 @@ describe('what the model is asked, and whose labels count', () => {
     expect(labelKeyOf({ sender: 'AD-ATMSBI' })).toBe('ATMSBI');
     expect(labelKeyOf({ sender: null, packageName: 'com.phonepe.app' })).toBe('com.phonepe.app');
     expect(labelKeyOf({ sender: null, title: 'Mom', packageName: 'com.google.android.apps.messaging' })).toBeNull();
+  });
+});
+
+describe('nextCounts', () => {
+  it('counts a label and takes it back, never below zero', () => {
+    expect(nextCounts({ confirmed: 2, notTransaction: 1 }, 'confirmed', 1)).toEqual({ confirmed: 3, notTransaction: 1 });
+    expect(nextCounts({ confirmed: 0, notTransaction: 1 }, 'confirmed', -1)).toEqual({ confirmed: 0, notTransaction: 1 });
+  });
+
+  it('starts a forgotten sender from nothing', () => {
+    expect(nextCounts(null, 'notTransaction', 1)).toEqual({ confirmed: 0, notTransaction: 1 });
+    expect(nextCounts(null, 'confirmed', -1)).toEqual({ confirmed: 0, notTransaction: 0 });
   });
 });

@@ -33,7 +33,8 @@ export type TableName =
   | 'settings'
   | 'captured_messages'
   | 'detected_transactions'
-  | 'capture_templates';
+  | 'capture_templates'
+  | 'detector_labels';
 
 export type QueryResult<T> =
   | { data: T; error: null; refetch: () => void }
