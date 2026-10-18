@@ -614,7 +614,7 @@ Each is independently shippable and leaves the app usable.
 | **Migration failure bricks the app** | Migrations run before first render behind a recovery screen offering export |
 | **Scope creep from the future list (§3.1)** | Nothing from §3.1 enters the MVP; the schema already accommodates it |
 | **Dev-build friction** (D12) | Documented rebuild step whenever native dependencies change |
-| **Play policy on notification access** (D17) | Prominent disclosure before the system screen, an allowlist and a native gate so non-financial text is never stored, no SMS permissions, Data Safety and privacy policy updated |
+| **Play policy on notification access** (D17) | Prominent disclosure before the system screen, an allowlist and a native gate so non-financial text is never stored (money words matched whole, and held to the corpus by a test that reads the gate's own pattern), no SMS permissions, Data Safety and privacy policy updated |
 | **The listener is killed or never rebound** — OEM battery managers, force-stop on Android 14+, OTP redaction on 15+ (D17) | Rebind and backfill on every app open, diagnostics on the settings screen, the paste box as the fallback; the inbox is a convenience, never the only way to log |
 | **The model doubts real spending, or learns from too little** (D21) | It only ever moves a payment to Maybe, where it still counts; it is off until the user switches it on; it ships doubting nothing until a threshold is earned on senders it never saw; `pnpm check` caps its demotions; reports show how its scores split between payments users confirmed and ones they rejected |
 
