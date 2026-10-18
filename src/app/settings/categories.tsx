@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Input, Typography } from 'heroui-native';
-import { Archive, ArrowLeft, Plus, RotateCcw } from 'lucide-react-native';
+import { Archive, ArrowLeft, Plus, RotateCcw } from '@/components/icons';
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 

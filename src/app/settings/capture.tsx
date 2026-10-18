@@ -13,7 +13,7 @@ import {
   Plus,
   ShieldAlert,
   Trash2,
-} from 'lucide-react-native';
+} from '@/components/icons';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 

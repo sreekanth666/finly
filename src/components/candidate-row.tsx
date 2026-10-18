@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { ArrowDownLeft, Check, Circle, CircleCheck, CircleHelp } from 'lucide-react-native';
+import { ArrowDownLeft, Check, Circle, CircleCheck, CircleHelp } from '@/components/icons';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 

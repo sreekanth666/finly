@@ -1,5 +1,5 @@
 import { Input, Typography } from 'heroui-native';
-import { Mail, Share2 } from 'lucide-react-native';
+import { Mail, Share2 } from '@/components/icons';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 

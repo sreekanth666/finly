@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { CircleCheck, FileSpreadsheet, TriangleAlert, X } from 'lucide-react-native';
+import { CircleCheck, FileSpreadsheet, TriangleAlert, X } from '@/components/icons';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 

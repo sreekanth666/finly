@@ -4,8 +4,9 @@
  * The `categories` table stores an icon *name* (§5) — it cannot store a React
  * component — so something has to turn `'UtensilsCrossed'` back into a glyph.
  * That is this file. It is deliberately an explicit map rather than a dynamic
- * lookup into lucide-react-native: bundling every icon in the library to render
- * a dozen would be a large amount of dead weight in the app.
+ * lookup into lucide-react-native: a lookup by name would have to bundle every
+ * icon in the library to render a dozen. The glyphs themselves come from
+ * ./icons, which imports them one file at a time.
  *
  * A name with no entry falls back to the neutral glyph rather than throwing. A
  * restored backup from a future version could name an icon this build has never
@@ -34,7 +35,7 @@ import {
   Wallet,
   Wrench,
   type LucideIcon,
-} from 'lucide-react-native';
+} from '@/components/icons';
 
 export const FALLBACK_ICON_NAME = 'Ellipsis';
 

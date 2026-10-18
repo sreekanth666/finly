@@ -1,5 +1,5 @@
 import { Input, Typography } from 'heroui-native';
-import { CircleCheck, Info, X } from 'lucide-react-native';
+import { CircleCheck, Info, X } from '@/components/icons';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 

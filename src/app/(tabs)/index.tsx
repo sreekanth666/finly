@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { Plus, Receipt, Undo2, X } from 'lucide-react-native';
+import { Plus, Receipt, Undo2, X } from '@/components/icons';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 

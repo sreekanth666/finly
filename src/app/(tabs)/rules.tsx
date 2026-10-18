@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { CircleQuestionMark, LayoutTemplate, Plus } from 'lucide-react-native';
+import { CircleQuestionMark, LayoutTemplate, Plus } from '@/components/icons';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
 

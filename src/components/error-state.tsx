@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { RotateCw, TriangleAlert } from 'lucide-react-native';
+import { RotateCw, TriangleAlert } from '@/components/icons';
 import { View } from 'react-native';
 
 import { Button } from './button';

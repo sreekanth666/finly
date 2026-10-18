@@ -14,7 +14,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as SQLite from 'expo-sqlite';
 import { Typography } from 'heroui-native';
-import { DatabaseBackup, RotateCw, TriangleAlert } from 'lucide-react-native';
+import { DatabaseBackup, RotateCw, TriangleAlert } from '@/components/icons';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 

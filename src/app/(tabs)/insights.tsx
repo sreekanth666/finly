@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { ChartPie } from 'lucide-react-native';
+import { ChartPie } from '@/components/icons';
 import { useState } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 

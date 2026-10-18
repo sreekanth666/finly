@@ -7,7 +7,7 @@ import {
   FileSpreadsheet,
   TriangleAlert,
   Upload,
-} from 'lucide-react-native';
+} from '@/components/icons';
 import { useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
 

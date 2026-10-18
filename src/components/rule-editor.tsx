@@ -1,5 +1,5 @@
 import { Input, Switch, Typography } from 'heroui-native';
-import { Minus, Plus, Sparkles, Trash2, X } from 'lucide-react-native';
+import { Minus, Plus, Sparkles, Trash2, X } from '@/components/icons';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Keyboard, Pressable, View } from 'react-native';
 

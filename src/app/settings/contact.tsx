@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Input, Switch, Typography } from 'heroui-native';
-import { Mail, X } from 'lucide-react-native';
+import { Mail, X } from '@/components/icons';
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 

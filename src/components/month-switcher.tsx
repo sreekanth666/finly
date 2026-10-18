@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight } from '@/components/icons';
 import { Pressable, View } from 'react-native';
 
 import { Icon } from './icon';

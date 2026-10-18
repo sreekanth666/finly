@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import type { LucideIcon } from 'lucide-react-native';
+import type { LucideIcon } from '@/components/icons';
 import { forwardRef } from 'react';
 import { Pressable, View, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

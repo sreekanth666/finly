@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { User } from 'lucide-react-native';
+import { User } from '@/components/icons';
 import { View } from 'react-native';
 
 import { Icon } from './icon';

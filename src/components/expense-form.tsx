@@ -1,7 +1,7 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { useNavigation } from 'expo-router';
 import { Input, Switch, Typography } from 'heroui-native';
-import { Sparkles, X } from 'lucide-react-native';
+import { Sparkles, X } from '@/components/icons';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Keyboard, Pressable, View, type TextInput } from 'react-native';
 

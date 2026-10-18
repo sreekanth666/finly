@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { Plus, Receipt, Search, X } from 'lucide-react-native';
+import { Plus, Receipt, Search, X } from '@/components/icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { FlatList, Pressable, TextInput, View } from 'react-native';

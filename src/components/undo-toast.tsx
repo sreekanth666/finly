@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { Undo2 } from 'lucide-react-native';
+import { Undo2 } from '@/components/icons';
 import { useEffect } from 'react';
 import { Pressable, View } from 'react-native';
 

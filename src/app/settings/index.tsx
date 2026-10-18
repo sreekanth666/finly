@@ -14,7 +14,7 @@ import {
   Coins,
   ShieldCheck,
   Wallet,
-} from 'lucide-react-native';
+} from '@/components/icons';
 import { Alert, ScrollView, View } from 'react-native';
 
 import { IconButton } from '@/components/icon-button';

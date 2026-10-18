@@ -5,7 +5,7 @@ import {
   CircleCheck,
   TriangleAlert,
   type LucideIcon,
-} from 'lucide-react-native';
+} from '@/components/icons';
 import { Pressable, View } from 'react-native';
 
 import { Amount } from './amount';

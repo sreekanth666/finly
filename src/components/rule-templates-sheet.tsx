@@ -1,6 +1,6 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { BottomSheet, Typography } from 'heroui-native';
-import { Check, ChevronRight, CircleSlash2, Lightbulb } from 'lucide-react-native';
+import { Check, ChevronRight, CircleSlash2, Lightbulb } from '@/components/icons';
 import { Pressable, View } from 'react-native';
 
 import { Icon } from './icon';

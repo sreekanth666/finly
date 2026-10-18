@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { Inbox } from 'lucide-react-native';
+import { Inbox } from '@/components/icons';
 import { Pressable, View } from 'react-native';
 
 import { Icon } from './icon';
