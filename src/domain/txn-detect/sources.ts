@@ -172,6 +172,18 @@ export function senderHeader(sender: string | null | undefined): string | null {
   return match === null ? null : match[1].toUpperCase();
 }
 
+/**
+ * The TRAI suffix of `JD-HDFCBK-P`: what kind of message the sender registered
+ * it as — **P**romotional, **S**ervice, **T**ransactional or **G**overnment.
+ * Null when the id carries none. Read apart from `senderHeader`, which template
+ * binding depends on and which deliberately ignores it.
+ */
+export function senderSuffix(sender: string | null | undefined): 'P' | 'S' | 'T' | 'G' | null {
+  if (sender == null) return null;
+  const match = /^(?:[A-Z]{2}-)?[A-Z0-9]{6}-([PSTG])$/i.exec(sender.trim());
+  return match === null ? null : (match[1].toUpperCase() as 'P' | 'S' | 'T' | 'G');
+}
+
 export function senderHint(sender: string | null | undefined): SenderHint | null {
   const header = senderHeader(sender);
   return header === null ? null : (SENDER_HEADERS[header] ?? null);

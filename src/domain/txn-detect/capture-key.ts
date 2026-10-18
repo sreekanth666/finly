@@ -9,30 +9,14 @@
  * notification, the minute it was posted. The minute is what keeps two
  * genuinely identical alerts a few minutes apart from being merged.
  *
- * A small pure hash rather than SHA-256 through expo-crypto: this has to run
- * inside a synchronous write transaction and inside the Node tests, and it only
- * has to separate one person's messages from each other, not resist an attacker.
+ * The hash is `hash53`: 53 bits, so a collision among a lifetime of alerts is
+ * not a concern.
  */
 
+import { hash53 } from './hash';
 import { normaliseText } from './normalise';
 
 export type CaptureSource = 'notification' | 'paste' | 'share';
-
-/** cyrb53: 53 bits, so a collision among a lifetime of alerts is not a concern. */
-function hash53(value: string): string {
-  let h1 = 0xdeadbeef;
-  let h2 = 0x41c6ce57;
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index);
-    h1 = Math.imul(h1 ^ code, 2654435761);
-    h2 = Math.imul(h2 ^ code, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
-  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
-  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, '0');
-}
 
 /** The body as the duplicate check compares it: normalised, case folded. */
 export const bodyKeyOf = (body: string): string => normaliseText(body).toLowerCase();
