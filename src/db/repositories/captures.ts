@@ -19,6 +19,7 @@ import {
   bodyKeyOf,
   DUPLICATE_WINDOW_MS,
   EPHEMERAL_KINDS,
+  isDoubted,
   labelOf,
   looksLikeManual,
   redactCodes,
@@ -280,6 +281,8 @@ export type CandidateSummary = {
   account: CandidateAccount | null;
   /** Where else the same payment was announced — the UPI app, the bank's app. */
   alsoSeenIn: { source: CaptureSourceColumn; packageName: string | null }[];
+  /** The reader doubted it is a payment (D21), so it waits in Maybe. */
+  doubt: boolean;
 };
 
 const summarySelection = {
@@ -334,6 +337,7 @@ const toSummary = (
   category: row.category?.id == null ? null : row.category,
   account: row.account?.id == null ? null : row.account,
   alsoSeenIn,
+  doubt: isDoubted(parseStringList(row.candidate.reasons)),
 });
 
 const summaryQuery = (database: DbLike) =>

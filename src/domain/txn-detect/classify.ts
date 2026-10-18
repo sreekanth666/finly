@@ -37,6 +37,55 @@ const INVESTMENT =
 const WALLET_TOPUP =
   /\b(?:added to (?:your )?(?:\w+ )?wallet|wallet (?:top-?up|load(?:ed)?|recharge)|loaded (?:to|in) (?:your )?(?:\w+ )?wallet)\b/i;
 
+/*
+ * Two gates that only count when they come first. An offer opens with its
+ * pitch and mentions money moving only as bait — "Get flat Rs 100 off… Paid Rs
+ * 500 or more?", "A pre-approved loan of Rs 2,00,000 can be credited" — while
+ * a real alert opens with the payment and may carry a pitch after it. So these
+ * file a message only when they appear before its first past money verb.
+ */
+const LEADING_PROMO =
+  /\b(?:pre-?approved|apply now|shop now|download now|limited period|lucky draw|get flat|reward points? worth|convert (?:your |this |the )?(?:purchase|transaction|txn|spends?)\b.{0,80}?\b(?:into|to) (?:easy |no[- ]cost )?emis?)\b/i;
+const LEADING_FUTURE_CREDIT = /\b(?:will|would|can|could|shall) be credited\b/i;
+/** A card's limit changing is a notice, not money; only with no money verb at all. */
+const LIMIT_CHANGE =
+  /\blimit\b.{0,40}?\b(?:has been |is |was )?(?:increased|enhanced|revised|raised|upgraded|reduced|decreased)\b/i;
+
+/** Whether `pattern` matches before the text's first past money verb, or there is none. */
+function leads(pattern: RegExp, text: string): boolean {
+  const match = pattern.exec(text);
+  if (match === null) return false;
+  const verb = PAST_MONEY_VERB.exec(text);
+  return verb === null || match.index < verb.index;
+}
+
+/**
+ * Every gate the text trips, whether or not it decided the kind — a promotion
+ * word the past verb overruled is still a signal. For the detector's model
+ * (D21), which weighs them where the order above can only pick one.
+ */
+export function gateSignals(text: string): string[] {
+  const signals: [string, boolean][] = [
+    ['otp', OTP.test(text)],
+    ['failed', FAILED.test(text)],
+    ['upcoming', UPCOMING.test(text)],
+    ['future-credit', LEADING_FUTURE_CREDIT.test(text)],
+    ['card-bill', CARD_BILL.test(text)],
+    ['statement', STATEMENT.test(text)],
+    ['request', REQUEST.test(text)],
+    ['reminder', REMINDER.test(text)],
+    ['promo', PROMO.test(text)],
+    ['leading-promo', leads(LEADING_PROMO, text)],
+    ['balance', BALANCE.test(text)],
+    ['limit', LIMIT_CHANGE.test(text)],
+    ['refund', REFUND.test(text)],
+    ['investment', INVESTMENT.test(text)],
+    ['wallet', WALLET_TOPUP.test(text)],
+    ['past-verb', PAST_MONEY_VERB.test(text)],
+  ];
+  return signals.filter(([, hit]) => hit).map(([name]) => name);
+}
+
 /**
  * A bank's own charge: a kind of charge, then within two words "charges",
  * "fee" or "penalty". Narrow on purpose — "Fee payment to ABC SCHOOL" and
@@ -86,11 +135,14 @@ export function classify(input: ClassifyInput): Classification {
   if (OTP.test(text)) return { kind: 'otp', reason: 'kind:otp' };
   if (FAILED.test(text)) return { kind: 'failed', reason: 'kind:failed' };
   if (UPCOMING.test(text)) return { kind: 'upcoming', reason: 'kind:upcoming' };
+  if (leads(LEADING_FUTURE_CREDIT, text)) return { kind: 'upcoming', reason: 'kind:upcoming-credit' };
   if (CARD_BILL.test(text)) return { kind: 'transfer', reason: 'transfer:card-bill' };
   if (STATEMENT.test(text)) return { kind: 'statement', reason: 'kind:statement' };
   if (REQUEST.test(text)) return { kind: 'reminder', reason: 'kind:request' };
   if (REMINDER.test(text) && !hasPastVerb) return { kind: 'reminder', reason: 'kind:reminder' };
   if (PROMO.test(text) && !hasPastVerb) return { kind: 'promo', reason: 'kind:promo' };
+  if (leads(LEADING_PROMO, text)) return { kind: 'promo', reason: 'kind:promo-lead' };
+  if (LIMIT_CHANGE.test(text) && findVerbs(text).length === 0) return { kind: 'balance', reason: 'kind:limit' };
   /* Stricter than the gates above: "has a debit by transfer" and "added to your
      wallet" mention a balance too, and are not enquiries. */
   if (BALANCE.test(text) && findVerbs(text).length === 0) {

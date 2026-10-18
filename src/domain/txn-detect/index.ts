@@ -21,7 +21,7 @@ import { labelOf, readCounterparty } from './counterparty';
 import { readDate } from './date';
 import { readChannel, readDirection, readInstrument, readReference } from './fields';
 import { isRedacted, normaliseText } from './normalise';
-import { appHint, isSmsApp, resolveIssuer, senderHeader, senderHint } from './sources';
+import { appHint, isSmsApp, resolveIssuer, senderHeader, senderHint, senderSuffix } from './sources';
 import type { Channel, Confidence, DetectContext, Detection, DetectionKind, Direction, MessageInput } from './types';
 import { matchTemplates } from './user-templates';
 
@@ -36,8 +36,50 @@ export * from './contribution';
  * 2: Federal Bank's glued ".Ref", Bank of Baroda's "Dr./Cr.", month-first and
  * colon-separated dates, bank charges, interest credits, AU's payer in the
  * UPI narration, long printed account numbers, Amazon Pay balance.
+ *
+ * 3: offers and future credits that lead with their pitch, card limit
+ * notices, and doubt about payments from a promotional sender or from a
+ * person rather than a bank (D21).
  */
-export const PARSER_VERSION = 2;
+export const PARSER_VERSION = 3;
+
+/**
+ * Why a payment the rules read might not be one, short of a gate (D21). A
+ * doubt never changes the kind: it moves the candidate from Needs review to
+ * Maybe, where it still counts and can still be confirmed, and keeps it out of
+ * a batch add.
+ *
+ * - A **promotional sender** (`-P`): TRAI registers payment alerts as
+ *   transactional or service messages, so an alert from a `-P` id is an offer
+ *   that happens to name an amount.
+ * - **No sender at all**: a message from an SMS app with no sender id, no bank
+ *   named anywhere and no card or account digits is a person writing, not a
+ *   bank — "I sent Rs 500 to your account".
+ */
+function doubtsOf(input: {
+  kind: DetectionKind;
+  direction: Direction | null;
+  sender: string | null | undefined;
+  title: string | null | undefined;
+  packageName: string | null | undefined;
+  issuer: string | null;
+  instrumentTail: string | null;
+  taught: boolean;
+}): string[] {
+  if (input.kind !== 'transaction' || input.direction === 'credit' || input.taught) return [];
+  const doubts: string[] = [];
+  if ((senderSuffix(input.sender) ?? senderSuffix(input.title)) === 'P') doubts.push('doubt:promo-sender');
+  if (
+    isSmsApp(input.packageName) &&
+    senderHeader(input.sender) === null &&
+    senderHeader(input.title) === null &&
+    input.issuer === null &&
+    input.instrumentTail === null
+  ) {
+    doubts.push('doubt:no-sender');
+  }
+  return doubts;
+}
 
 /** Kinds whose date is about the future or about nothing, so the arrival time stands. */
 const UNDATED_KINDS: readonly DetectionKind[] = ['statement', 'reminder', 'upcoming', 'promo', 'otp', 'balance'];
@@ -190,6 +232,18 @@ export function detect(input: MessageInput, context: DetectContext = {}): Detect
   /* A taught template is bound to its sender, so a match is itself a known source. */
   const sourceKnown = instrumentTail !== null || issuer !== null || app !== null || taught !== null;
   if (!sourceKnown) reasons.push('source:unknown');
+  reasons.push(
+    ...doubtsOf({
+      kind,
+      direction,
+      sender: input.sender,
+      title: input.title,
+      packageName: input.packageName,
+      issuer,
+      instrumentTail,
+      taught: taught !== null,
+    }),
+  );
 
   const instrumentType = instrument.type ?? (hint?.isCard === true && instrumentTail !== null ? 'card' : null);
   const label = counterparty === null ? null : labelOf(counterparty);
@@ -237,8 +291,10 @@ export {
   canConfirmInOneTap,
   countsTowardBadge,
   DEFAULT_RETENTION_DAYS,
+  doubtSentence,
   EPHEMERAL_KINDS,
   INBOX_SECTIONS,
+  isDoubted,
   redactCodes,
   RETENTION_CHOICES,
   sectionOf,
