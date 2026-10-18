@@ -24,6 +24,7 @@ import { labelledShapeOf, type LabelledShape } from '@/domain/support/labelled';
 import type { AppInfo, DetectionStatus, DeviceInfo, MessageShape, TemplateFact } from '@/domain/support/report';
 import { skeletonOf } from '@/domain/support/skeleton';
 import { appHint, PARSER_VERSION, SMS_APP_PACKAGES } from '@/domain/txn-detect';
+import { MODEL_VERSION, shippedModel } from '@/domain/txn-detect/model/assess';
 import { useCaptureSettings, useInbox } from '@/features/capture/hooks';
 import { captureNative, useListenerState, useNativeStats } from '@/features/capture/native';
 
@@ -74,6 +75,14 @@ const readApp = (): AppInfo => ({
   version: Constants.expoConfig?.version ?? null,
   build: __DEV__ ? 'development' : 'release',
   parserVersion: PARSER_VERSION,
+  modelVersion: MODEL_VERSION,
+  modelDoubtAt: (() => {
+    try {
+      return shippedModel().threshold.doubt;
+    } catch {
+      return null;
+    }
+  })(),
 });
 
 export type Diagnostics = {
@@ -149,6 +158,7 @@ export function useDiagnostics(withShapes: boolean, withLabelled = false): Diagn
       storedParserVersion: parser.data?.stored ?? null,
       templatesRev: parser.data?.rev ?? 0,
       templatesDoneRev: parser.data?.done ?? null,
+      detectorEnabled: current.detectorEnabled,
       pendingBySection: {
         review: inbox.data?.review.length ?? 0,
         maybe: inbox.data?.maybe.length ?? 0,

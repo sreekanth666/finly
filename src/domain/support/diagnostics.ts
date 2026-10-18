@@ -40,6 +40,8 @@ export type DetectionFact = {
    * fact built without it reads as no payment.
    */
   cardPaymentId?: string | null;
+  /** D21: the model's probability this is not a payment; null or absent when it was not asked. */
+  modelScore?: number | null;
   expenseAmount: number | null;
   expenseAt: number | null;
   expenseItem: string | null;
@@ -82,6 +84,12 @@ export type DetectionSummary = {
   senders: SenderRow[];
   /** Pending rows still read by an older reader — a stuck re-read shows here. */
   readByOlderReader: number;
+  /**
+   * D21, in shadow: how the model scored payments the user then decided on,
+   * counted by tenth of the score — index 0 is 0.0–0.1. Confirmed ones are the
+   * cost of a threshold there, "not a payment" ones its gain. Counts only.
+   */
+  model: { assessed: number; confirmedByTenth: number[]; notPaymentByTenth: number[] };
 };
 
 const FILTERED = new Set(['transfer', 'failed', 'upcoming', 'statement', 'otp', 'balance', 'promo', 'reminder']);
@@ -154,6 +162,11 @@ export function summariseDetections(
   };
   let oldest: number | null = null;
   let readByOlderReader = 0;
+  const model: DetectionSummary['model'] = {
+    assessed: 0,
+    confirmedByTenth: Array.from({ length: 10 }, () => 0),
+    notPaymentByTenth: Array.from({ length: 10 }, () => 0),
+  };
 
   for (const fact of facts) {
     bump(byKind, fact.kind);
@@ -161,6 +174,13 @@ export function summariseDetections(
     bump(byConfidence, fact.confidence);
     oldest = oldest === null ? fact.createdAt : Math.min(oldest, fact.createdAt);
     if (fact.status === 'pending' && fact.parserVersion < options.parserVersion) readByOlderReader += 1;
+
+    if (fact.modelScore != null) {
+      model.assessed += 1;
+      const tenth = Math.min(9, Math.max(0, Math.floor(fact.modelScore * 10)));
+      if (fact.status === 'confirmed') model.confirmedByTenth[tenth] += 1;
+      if (fact.status === 'not_transaction') model.notPaymentByTenth[tenth] += 1;
+    }
 
     const reasons = parseReasons(fact.reasons).map(normaliseReason);
     for (const reason of new Set(reasons)) bump(reasonCounts, reason);
@@ -228,5 +248,6 @@ export function summariseDetections(
     corrections,
     senders: [...senders.values()].sort((a, b) => b.total - a.total || a.key.localeCompare(b.key)).slice(0, TOP_SENDERS),
     readByOlderReader,
+    model,
   };
 }

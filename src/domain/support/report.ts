@@ -30,7 +30,14 @@ export type ReportSections = {
   labelled: boolean;
 };
 
-export type AppInfo = { version: string | null; build: 'development' | 'release'; parserVersion: number };
+export type AppInfo = {
+  version: string | null;
+  build: 'development' | 'release';
+  parserVersion: number;
+  /** D21: the shipped model, and where it doubts — null when it doubts nothing. */
+  modelVersion: number;
+  modelDoubtAt: number | null;
+};
 
 export type DeviceInfo = {
   os: string;
@@ -73,6 +80,8 @@ export type DetectionStatus = {
   templatesRev: number;
   templatesDoneRev: string | null;
   pendingBySection: Record<string, number>;
+  /** D21: whether the model may move doubtful payments to Maybe, or only scores them. */
+  detectorEnabled: boolean;
 };
 
 export type TemplateFact = {
@@ -137,7 +146,7 @@ function appDeviceLines(app: AppInfo, device: DeviceInfo): string[] {
     .filter((part): part is string => part !== null && part.length > 0)
     .join(' ');
   return [
-    `App: Finly ${app.version ?? 'unknown'} (${app.build}), reader ${app.parserVersion}`,
+    `App: Finly ${app.version ?? 'unknown'} (${app.build}), reader ${app.parserVersion}, model ${app.modelVersion}`,
     `System: ${device.os} ${device.osVersion ?? ''}${device.apiLevel === null ? '' : ` (API ${device.apiLevel})`}`.trim(),
     `Phone: ${phone.length > 0 ? phone : 'unknown'}`,
     `Locale: ${device.locale ?? 'unknown'}, time zone ${device.timeZone ?? 'unknown'} (UTC${sign}${hours}:${minutes}), app currency ${device.currency}, font scale ${device.fontScale}`,
@@ -162,6 +171,7 @@ function statusLines(status: DetectionStatus, now: number): string[] {
   }
   lines.push(
     `Reader state: stored ${status.storedParserVersion ?? 'none'}, templates rev ${status.templatesRev} (re-read to ${status.templatesDoneRev ?? 'none'})`,
+    `Model: ${status.detectorEnabled ? 'moves doubtful payments to Maybe' : 'scores only (shadow)'}`,
     `Waiting in the inbox: ${counts(status.pendingBySection)}`,
   );
   return lines;
@@ -178,6 +188,10 @@ function summaryLines(summary: DetectionSummary): string[] {
     `Confirmed exactly as read: ${c.confirmedAsRead}. Changed at confirm — amount ${c.amountChanged}, day ${c.dayChanged}, description ${c.itemChanged}, category ${c.categoryChanged}, account ${c.accountChanged}`,
     `Linked to an expense typed by hand ${c.linkedToTyped}, rescued from Filtered ${c.rescuedFromFiltered}, marked not a payment ${c.markedNotPayment}, duplicates ${c.duplicates}`,
     `Reasons: ${summary.reasons.length === 0 ? 'none' : summary.reasons.map(([reason, count]) => `${reason} ${count}`).join(', ')}`,
+    '',
+    `Model scores, by tenth (0.0–0.1 … 0.9–1.0), of ${summary.model.assessed} payments it was asked about:`,
+    `  confirmed:     ${summary.model.confirmedByTenth.join(' ')}`,
+    `  not a payment: ${summary.model.notPaymentByTenth.join(' ')}`,
     '',
     'By sender (total, unknown, low, no payee, unclear amount, no date, not a payment, amount changed):',
   ];

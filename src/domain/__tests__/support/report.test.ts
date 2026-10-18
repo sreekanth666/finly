@@ -33,7 +33,7 @@ const fact = (overrides: Partial<DetectionFact> = {}): DetectionFact => ({
 });
 
 const FACTS: DetectionFact[] = [
-  fact(),
+  fact({ modelScore: 0.04 }),
   fact({
     status: 'confirmed',
     expenseSource: 'detected',
@@ -72,7 +72,7 @@ const input = (overrides: Partial<ReportInput> = {}): ReportInput => ({
   topic: 'detection',
   userText: 'My HDFC alerts stopped showing up.',
   sections: { appDevice: true, detection: true, shapes: true, labelled: true },
-  app: { version: '1.0.1', build: 'release', parserVersion: 2 },
+  app: { version: '1.0.1', build: 'release', parserVersion: 2, modelVersion: 1, modelDoubtAt: null },
   device: {
     os: 'Android',
     osVersion: '14',
@@ -102,6 +102,7 @@ const input = (overrides: Partial<ReportInput> = {}): ReportInput => ({
     templatesRev: 3,
     templatesDoneRev: '3',
     pendingBySection: { review: 2, maybe: 1, money_in: 0, filtered: 4 },
+    detectorEnabled: false,
   },
   summary: summariseDetections(FACTS, { parserVersion: 2, now: NOW }),
   templates: [
@@ -122,6 +123,24 @@ const input = (overrides: Partial<ReportInput> = {}): ReportInput => ({
 });
 
 describe('summariseDetections', () => {
+  it('counts how the model scored payments the user then decided on, by tenth, and nothing else (D21)', () => {
+    const summary = summariseDetections(
+      [
+        fact({ modelScore: 0.04, status: 'confirmed' }),
+        fact({ modelScore: 0.95, status: 'not_transaction' }),
+        fact({ modelScore: 1, status: 'not_transaction' }),
+        fact({ modelScore: 0.55, status: 'dismissed' }),
+        fact({ modelScore: null, status: 'confirmed' }),
+      ],
+      { parserVersion: 2, now: NOW },
+    );
+    expect(summary.model).toEqual({
+      assessed: 4,
+      confirmedByTenth: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      notPaymentByTenth: [0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+    });
+  });
+
   it('does not count a card bill recorded as a payment as rescued from Filtered (D20)', () => {
     const rescued = (facts: DetectionFact[]) =>
       summariseDetections(facts, { parserVersion: 2, now: NOW }).corrections.rescuedFromFiltered;
@@ -187,6 +206,9 @@ describe('buildSupportEmail', () => {
     expect(email.body).toContain('listener not running, last alert read 5 h ago, hidden by Android 2');
     expect(email.attachment?.name).toBe(REPORT_FILE);
     expect(email.attachment?.text).toContain('(NOT in the known SMS apps)');
+    expect(email.attachment?.text).toContain('Model: scores only (shadow)');
+    expect(email.attachment?.text).toContain('of 1 payments it was asked about');
+    expect(email.body).toContain('reader 2, model 1');
     expect(email.attachment?.text).toContain('HDFCBK: 6,');
     expect(email.attachment?.text).toContain('Sent Rs.9.99 To AA A A');
     const json = JSON.parse(email.attachment!.text.split('\n').at(-1)!);

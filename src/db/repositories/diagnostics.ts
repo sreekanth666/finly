@@ -42,6 +42,7 @@ export function listDetectionFacts(limit: number, database: DbLike = db): Detect
       suggestedAccountId: detectedTransactions.suggestedAccountId,
       expenseSource: expenses.source,
       cardPaymentId: detectedTransactions.cardPaymentId,
+      modelScore: detectedTransactions.modelScore,
       expenseAmount: expenses.amountMinor,
       expenseAt: expenses.occurredAt,
       expenseItem: expenses.item,

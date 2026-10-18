@@ -159,6 +159,8 @@ export type CaptureSettings = {
   notify: boolean;
   retentionDays: number;
   stats: { messages: number; pending: number };
+  /** D21: the model may move doubtful payments to Maybe. Off, it only scores them. */
+  detectorEnabled: boolean;
 };
 
 export function parsePackages(json: string | null): string[] {
@@ -180,6 +182,7 @@ const readSettings = (database: Db): CaptureSettings => {
     notify: getFlag('capture_notify_enabled', database),
     retentionDays: retentionDays(database),
     stats: captureStats(database),
+    detectorEnabled: getFlag('capture_detector_enabled', database),
   };
 };
 
