@@ -1,3 +1,6 @@
 {
+  "maxDemotedRate": 0.02,
+  "maxModelBytes": 160000,
+  "maxMeanAssessMs": 0.5,
   "knownMisses": []
 }

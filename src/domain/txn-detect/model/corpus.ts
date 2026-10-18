@@ -164,3 +164,12 @@ export const serialiseCorpus = (rows: readonly CorpusRow[]): string =>
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     .map((row) => JSON.stringify(row))
     .join('\n') + '\n';
+
+/** A fingerprint of what a model was trained on, so the evaluation can tell a stale model. */
+export const corpusHashOf = (rows: readonly CorpusRow[]): string =>
+  hash53(
+    [...rows]
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .map((row) => [row.id, row.body, row.sender, row.title, row.packageName, row.kind, groupOf(row)].join('\u0001'))
+      .join('\u0002'),
+  );

@@ -23,7 +23,11 @@ import {
   type CorpusRow,
   type Split,
 } from '@/domain/txn-detect/model/corpus';
+import { isAssessable } from '@/domain/txn-detect/model/scope';
+import { isDoubtful } from '@/domain/txn-detect/model/doubt';
+import { featuresOf } from '@/domain/txn-detect/model/features';
 import type { Placement, Scored } from '@/domain/txn-detect/model/metrics';
+import { scoreOf, type Model } from '@/domain/txn-detect/model/weights-format';
 import { senderHeader } from '@/domain/txn-detect/sources';
 
 import { AUTHORED_MESSAGES } from './authored-messages';
@@ -98,6 +102,54 @@ export function rulesPlacement(row: CorpusRow): Placement {
     receivedAt: READ_AT,
   });
   return { kind: detection.kind, section: sectionOf({ ...detection, doubt: isDoubted(detection.reasons) }) };
+}
+
+/** The model's view of a row: the same skeleton and sender the phone would hand it. */
+export const modelInputOfRow = (row: CorpusRow) => ({
+  skeleton: row.body,
+  sender: row.sender,
+  title: row.title,
+  packageName: row.packageName,
+});
+
+export type ModelReading = { placed: Placement; baseline: Placement; score: number | null; assessable: boolean };
+
+/** Where the rules put a row, and where a model's doubt would move it. */
+export function modelPlacement(row: CorpusRow, model: Model): ModelReading {
+  const detection = detect({
+    body: row.body,
+    title: row.title,
+    sender: row.sender,
+    packageName: row.packageName,
+    receivedAt: READ_AT,
+  });
+  const ruleDoubt = isDoubted(detection.reasons);
+  const baseline = { kind: detection.kind, section: sectionOf({ ...detection, doubt: ruleDoubt }) };
+  if (!isAssessable(detection)) return { placed: baseline, baseline, score: null, assessable: false };
+  const score = scoreOf(model, featuresOf(modelInputOfRow(row), model.buckets));
+  const doubt = ruleDoubt || isDoubtful(score, undefined, model);
+  return {
+    placed: { kind: detection.kind, section: sectionOf({ ...detection, doubt }) },
+    baseline,
+    score,
+    assessable: true,
+  };
+}
+
+export function scoreModel(rows: readonly CorpusRow[], model: Model, split?: Split): Scored[] {
+  return rows
+    .filter((row) => split === undefined || splitOf(row) === split)
+    .map((row) => {
+      const reading = modelPlacement(row, model);
+      return {
+        id: row.id,
+        senderKey: senderKeyOf(row),
+        truth: row.kind,
+        group: groupOf(row),
+        placed: reading.placed,
+        baseline: reading.baseline,
+      };
+    });
 }
 
 export function scoreRules(rows: readonly CorpusRow[], split?: Split): Scored[] {
