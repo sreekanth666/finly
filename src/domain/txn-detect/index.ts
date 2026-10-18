@@ -40,8 +40,35 @@ export * from './contribution';
  * 3: offers and future credits that lead with their pitch, card limit
  * notices, and doubt about payments from a promotional sender or from a
  * person rather than a bank (D21).
+ *
+ * 4: messages that show no sign of money are filed; SBI's "debited by 20.0"
+ * and "Rs .680", PNB's "debited with 1050 00"; securities moved through NSDL
+ * or CDSL; "EMI due today" and bonus-point offers.
  */
-export const PARSER_VERSION = 3;
+export const PARSER_VERSION = 4;
+
+/**
+ * A message that shows no sign of money moving (D21): read as nothing in
+ * particular, with no money verb and no card or account named, and either no
+ * amount or no bank behind it. Offers, delivery updates and chats that only
+ * share a figure and a word with a payment end up here — tens of thousands of
+ * them in the datasets reader 4 was measured on. Filed, so they leave the
+ * badge, and kept, so a wrong call can still be rescued (D17). A bank's own
+ * message with an amount stays in Maybe: the first part of a split SMS
+ * looks exactly like this.
+ */
+function showsNoMoney(input: {
+  kind: DetectionKind;
+  direction: Direction | null;
+  instrumentTail: string | null;
+  amountMinor: number | null;
+  sender: string | null | undefined;
+  title: string | null | undefined;
+  taught: boolean;
+}): boolean {
+  if (input.kind !== 'unknown' || input.direction !== null || input.instrumentTail !== null || input.taught) return false;
+  return input.amountMinor === null || (!isDltSenderId(input.sender) && !isDltSenderId(input.title));
+}
 
 /**
  * Why a payment the rules read might not be one, short of a gate (D21). A
@@ -245,6 +272,20 @@ export function detect(input: MessageInput, context: DetectContext = {}): Detect
     }),
   );
 
+  if (
+    showsNoMoney({
+      kind,
+      direction,
+      instrumentTail,
+      amountMinor: taughtAmount ?? amounts.best?.amountMinor ?? null,
+      sender: input.sender,
+      title: input.title,
+      taught: taught !== null,
+    })
+  ) {
+    reasons.push('file:no-money');
+  }
+
   const instrumentType = instrument.type ?? (hint?.isCard === true && instrumentTail !== null ? 'card' : null);
   const label = counterparty === null ? null : labelOf(counterparty);
 
@@ -295,6 +336,7 @@ export {
   EPHEMERAL_KINDS,
   INBOX_SECTIONS,
   isDoubted,
+  isFiled,
   redactCodes,
   RETENTION_CHOICES,
   sectionOf,

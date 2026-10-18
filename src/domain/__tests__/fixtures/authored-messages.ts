@@ -137,4 +137,10 @@ export const AUTHORED_MESSAGES: AuthoredMessage[] = [
     note: 'a real EMI debit that opens with "pre-approved" must stay a payment',
     body: 'Your pre-approved loan EMI of Rs 3,000.00 has been debited from A/c XX1234 on 05-10-26. -HDFC Bank',
   },
+  {
+    id: 'au:credit-limit-loan-pitch',
+    kind: 'promo',
+    note: 'known miss: "if not used for a long time" reads as a past verb, so the offer is not filed',
+    body: 'Dear user, your account still has credit limit Rs.400,000. If not used for a long time it may be reset. Hurry! Loan from us now! LFPL',
+  },
 ];

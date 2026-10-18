@@ -21,6 +21,7 @@ import {
   DUPLICATE_WINDOW_MS,
   EPHEMERAL_KINDS,
   isDoubted,
+  isFiled,
   labelOf,
   looksLikeManual,
   redactCodes,
@@ -290,6 +291,8 @@ export type CandidateSummary = {
   alsoSeenIn: { source: CaptureSourceColumn; packageName: string | null }[];
   /** The reader doubted it is a payment (D21), so it waits in Maybe. */
   doubt: boolean;
+  /** It shows no sign of money (D21), so it is filed. */
+  filed: boolean;
   /** D21: the model's stored score and label key; applied by the inbox, not here. */
   modelScore: number | null;
   modelKey: string | null;
@@ -348,6 +351,7 @@ const toSummary = (
   account: row.account?.id == null ? null : row.account,
   alsoSeenIn,
   doubt: isDoubted(parseStringList(row.candidate.reasons)),
+  filed: isFiled(parseStringList(row.candidate.reasons)),
   modelScore: row.candidate.modelScore,
   modelKey: row.candidate.modelKey,
 });
@@ -398,9 +402,13 @@ export function listPendingCandidates(limit: number, database: DbLike = db): Can
   return rows.map((row) => toSummary(row, seen.get(row.candidate.id)));
 }
 
+/** The reason `detect` gives a message that shows no sign of money (D21), as stored. */
+const FILED_REASON = '%"file:no-money"%';
+
 /**
  * The badge: pending candidates that might be spending. Mirrors `sectionOf`'s
- * Needs review and Maybe — not credits, not refunds, nothing filtered.
+ * Needs review and Maybe — not credits, not refunds, nothing filtered, and
+ * nothing filed for showing no sign of money.
  */
 export const countCandidatesToReview = (database: DbLike = db): number =>
   database
@@ -412,6 +420,7 @@ export const countCandidatesToReview = (database: DbLike = db): number =>
         eq(detectedTransactions.status, 'pending'),
         inArray(detectedTransactions.kind, ['transaction', 'unknown']),
         or(isNull(detectedTransactions.direction), eq(detectedTransactions.direction, 'debit')),
+        sql`${detectedTransactions.reasons} not like ${FILED_REASON}`,
       ),
     )
     .get()?.n ?? 0;
@@ -943,7 +952,8 @@ const messageIdsWhere = (where: ReturnType<typeof and>, database: DbLike): strin
  * - anything decided more than `cutoffMs` ago — a confirmed expense has its
  *   own copy in `source_text`;
  * - offers, OTPs, reminders, statements, failures and balance alerts older than
- *   that, decided or not: nothing in them is money that moved;
+ *   that, decided or not, and messages filed for showing no sign of money
+ *   (D21): nothing in them is money that moved;
  * - duplicates whose alert has gone.
  *
  * Pending payments, transfers and credits are never removed by age. Returns how
@@ -960,6 +970,14 @@ export function purgeCaptures(cutoffMs: number, database: DbLike = db): number {
         and(
           eq(detectedTransactions.status, 'pending'),
           inArray(detectedTransactions.kind, [...EPHEMERAL_KINDS]),
+          lt(detectedTransactions.createdAt, cutoffMs),
+        ),
+        tx,
+      ),
+      ...messageIdsWhere(
+        and(
+          eq(detectedTransactions.status, 'pending'),
+          sql`${detectedTransactions.reasons} like ${FILED_REASON}`,
           lt(detectedTransactions.createdAt, cutoffMs),
         ),
         tx,

@@ -7,8 +7,9 @@
  * - **Money in**: credits. Finly has no income ledger (D4), so a credit's only
  *   destinations are "money back against an expense" (D1) or dismissal.
  * - **Filtered**: everything that is not spending — OTPs, offers, statements,
- *   reminders, failed payments, and transfers such as a card bill. Collapsed,
- *   never dropped, so a wrong call can be rescued.
+ *   reminders, failed payments, transfers such as a card bill, and messages
+ *   that show no sign of money (D21). Collapsed, never dropped, so a wrong
+ *   call can be rescued.
  *
  * Only the first two count toward the badge. Salary and refunds in the count
  * would train the user to ignore it.
@@ -45,6 +46,9 @@ export const EPHEMERAL_KINDS: readonly DetectionKind[] = [
   'reminder',
 ];
 
+/** Whether the reader filed a message that shows no sign of money (D21). */
+export const isFiled = (reasons: readonly string[]): boolean => reasons.includes('file:no-money');
+
 /** Whether the reader doubted a payment it read (D21): a `doubt:` reason. */
 export const isDoubted = (reasons: readonly string[]): boolean => reasons.some((reason) => reason.startsWith('doubt:'));
 
@@ -75,8 +79,10 @@ export function sectionOf(candidate: {
   confidence: Confidence;
   /** Doubted by the reader (D21): Maybe rather than Needs review. Absent reads as not doubted. */
   doubt?: boolean;
+  /** Shows no sign of money (D21): Filtered. Absent reads as not filed. */
+  filed?: boolean;
 }): InboxSection {
-  if (FILTERED_KINDS.includes(candidate.kind)) return 'filtered';
+  if (FILTERED_KINDS.includes(candidate.kind) || candidate.filed === true) return 'filtered';
   if (candidate.kind === 'refund' || candidate.direction === 'credit') return 'money_in';
   if (candidate.kind === 'unknown' || candidate.confidence === 'low' || candidate.doubt === true) return 'maybe';
   return 'review';

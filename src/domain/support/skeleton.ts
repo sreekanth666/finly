@@ -43,7 +43,7 @@ const KEEP = new Set(
     'loan', 'emi', 'cust', 'x', 'xx',
     // References and rails.
     'ref', 'refno', 'rrn', 'utr', 'upi', 'vpa', 'neft', 'imps', 'rtgs', 'atm', 'pos', 'autopay', 'mandate', 'nach',
-    'ecs', 'p2m', 'p2a', 'mob', 'bk', 'netbanking',
+    'ecs', 'p2m', 'p2a', 'mob', 'bk', 'netbanking', 'aeps', 'cw', 'nsdl', 'cdsl', 'iccl', 'nsccl', 'dated',
     // Currencies.
     'rs', 'inr', 'usd', 'eur', 'gbp', 'aed', 'sgd', 'aud', 'cad', 'rupees',
     // What the classifier gates on.

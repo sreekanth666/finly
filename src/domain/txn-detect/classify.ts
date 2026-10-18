@@ -27,9 +27,9 @@ const CARD_BILL =
 const STATEMENT = /\bstatement\b|\btotal amount due\b|\btad\b|\bmin(?:imum)? amount due\b|\bmad\b/i;
 const REQUEST = /\b(?:has requested|requested (?:inr|money|payment)|collect request|payment request)\b/i;
 const REMINDER =
-  /\b(?:pay by|due (?:on|by|date)|is due|overdue|payment due|last date|pay now|bill (?:is )?generated|to avoid late)\b/i;
+  /\b(?:pay by|due (?:on|by|date|today|tomorrow)|is due|overdue|payment due|last date|pay now|bill (?:is )?generated|to avoid late|ensure (?:auto-?)?debit)\b/i;
 const PROMO =
-  /\b(?:cashback|offer|upto|up to|win|won|voucher|coupon|pre-?approved|eligible|apply now|discount|limited period|hurry|congratulations|shop now|get flat|download now)\b/i;
+  /\b(?:cashback|offer|upto|up to|win|won|voucher|coupon|pre-?approved|eligible|apply now|discount|limited period|hurry|congratulations|shop now|get flat|download now|bonus points?)\b/i;
 const BALANCE = /\b(?:avl|available|avail|avlbl|closing|current|ledger)\.?\s*bal(?:ance)?\b|\bbalance\b/i;
 const REFUND = /\b(?:refund(?:ed)?|reversal|reversed|chargeback|cashback)\b/i;
 const INVESTMENT =
@@ -49,6 +49,8 @@ const WALLET_TOPUP =
 const LEADING_PROMO =
   /\b(?:apply now|shop now|download now|limited period|lucky draw|get flat|convert (?:your |this |the )?(?:purchase|transaction|txn|spends?)\b.{0,80}?\b(?:into|to) (?:easy |no[- ]cost )?emis?)\b/i;
 const LEADING_FUTURE_CREDIT = /\b(?:will|would|can|could|shall) be credited\b/i;
+/** "EMI due today: maintain a balance … to ensure auto-debit of your EMI" names "debit of" as bait too. */
+const LEADING_REMINDER = /\b(?:due (?:today|tomorrow)|ensure (?:auto-?)?debit)\b/i;
 /** A card's limit changing is a notice, not money; only with no money verb at all. */
 const LIMIT_CHANGE =
   /\blimit\b.{0,40}?\b(?:has been |is |was )?(?:increased|enhanced|revised|raised|upgraded|reduced|decreased)\b/i;
@@ -76,6 +78,7 @@ export function gateSignals(text: string): string[] {
     ['statement', STATEMENT.test(text)],
     ['request', REQUEST.test(text)],
     ['reminder', REMINDER.test(text)],
+    ['leading-reminder', leads(LEADING_REMINDER, text)],
     ['promo', PROMO.test(text)],
     ['leading-promo', leads(LEADING_PROMO, text)],
     ['balance', BALANCE.test(text)],
@@ -142,6 +145,7 @@ export function classify(input: ClassifyInput): Classification {
   if (STATEMENT.test(text)) return { kind: 'statement', reason: 'kind:statement' };
   if (REQUEST.test(text)) return { kind: 'reminder', reason: 'kind:request' };
   if (REMINDER.test(text) && !hasPastVerb) return { kind: 'reminder', reason: 'kind:reminder' };
+  if (leads(LEADING_REMINDER, text)) return { kind: 'reminder', reason: 'kind:reminder-lead' };
   if (PROMO.test(text) && !hasPastVerb) return { kind: 'promo', reason: 'kind:promo' };
   if (leads(LEADING_PROMO, text)) return { kind: 'promo', reason: 'kind:promo-lead' };
   if (LIMIT_CHANGE.test(text) && findVerbs(text).length === 0) return { kind: 'balance', reason: 'kind:limit' };
@@ -151,6 +155,11 @@ export function classify(input: ClassifyInput): Classification {
     return { kind: 'balance', reason: 'kind:balance' };
   }
 
+  /* Shares moved through a depository name no rupee amount: "20 HINDALCO
+     DEBITED FROM YOUR A/C ..NSDL". Not money, so a transfer, not a payment. */
+  if (!hasAmount && direction !== null && INVESTMENT.test(text)) {
+    return { kind: 'transfer', reason: 'transfer:securities' };
+  }
   if (!hasAmount || direction === null) return { kind: 'unknown', reason: 'kind:unknown' };
 
   if (direction === 'credit' && REFUND.test(text)) return { kind: 'refund', reason: 'kind:refund' };

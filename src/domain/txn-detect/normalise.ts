@@ -19,6 +19,8 @@ export function normaliseText(raw: string): string {
     .replace(ZERO_WIDTH, '')
     .replace(/\r\n?/g, '\n')
     .replace(/₹\s*/g, ' INR ')
+    /* SBI writes a dot before its values: "for Rs .68340", "on .2024-08-11". */
+    .replace(/\bRs\s+\.(?=\d)/gi, ' INR ')
     .replace(/\bRs\.?\s*:?\s*(?=\d)/gi, ' INR ')
     .replace(/\bRupees\s*(?=\d)/gi, ' INR ')
     .replace(/\bINR\.?\s*:?\s*(?=\d)/gi, 'INR ')

@@ -178,3 +178,24 @@ describe('the detector model and its labels (D21)', () => {
     expect(db.prepare("select confirmed from detector_labels where key='HDFCBK-T'").get()).toEqual({ confirmed: 3 });
   });
 });
+
+describe('filing what shows no sign of money (D21)', () => {
+  /* The badge query excludes a stored reason with this pattern (captures.ts, FILED_REASON). */
+  const FILED = `reasons not like '%"file:no-money"%'`;
+
+  it('matches the reason as detect stores it, and nothing that merely starts like it', () => {
+    db.exec(message('m1'));
+    db.exec(message('m2'));
+    db.exec(message('m3'));
+    db.exec(candidate({ id: 'c1', messageId: 'm1', kind: 'unknown' }));
+    db.exec(candidate({ id: 'c2', messageId: 'm2', kind: 'unknown' }));
+    db.exec(candidate({ id: 'c3', messageId: 'm3', kind: 'unknown' }));
+    const set = (id: string, reasons: string[]) =>
+      db.prepare('update detected_transactions set reasons = ? where id = ?').run(JSON.stringify(reasons), id);
+    set('c1', ['kind:unknown', 'file:no-money']);
+    set('c2', ['kind:unknown', 'file:no-money-later']);
+    set('c3', ['kind:unknown']);
+    const counted = db.prepare(`select id from detected_transactions where status = 'pending' and ${FILED} order by id`).all();
+    expect(counted).toEqual([{ id: 'c2' }, { id: 'c3' }]);
+  });
+});

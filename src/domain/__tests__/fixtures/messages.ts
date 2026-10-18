@@ -251,6 +251,41 @@ export const OWNER_MESSAGES: MessageFixture[] = [
 /* -------------------------------------------------------------------------- */
 
 export const OTHER_SENDERS: MessageFixture[] = [
+  /* Reader 4: formats found by running public SMS datasets through the reader. */
+  {
+    name: 'SBI UPI debit with one decimal and no currency mark',
+    input: {
+      body: 'Dear UPI user A/C X4541 debited by 20.0 on date 26Aug26 trf to RAVI KUMAR Refno 623903739551. If not u? call 1800111109. -SBI',
+      sender: 'JD-SBIUPI-S',
+      receivedAt: at(2026, 8, 26, 14, 0),
+    },
+    expected: {
+      kind: 'transaction',
+      direction: 'debit',
+      amountMinor: 2000,
+      instrumentTail: '4541',
+      counterparty: 'RAVI KUMAR',
+      issuer: 'SBI',
+    },
+  },
+  {
+    name: 'SBI income-tax refund, its amount behind a dot',
+    input: {
+      body: 'Dear Customer, A ITR REGISTERED ON YOUR PAN .XXXXXX940K FOR Rs .68340 FOR AY-.2026-27 CREDITED TO YOUR ACCOUNT .XXXXXXXXXXXX2809 ON .2026-08-11. -SBI',
+      sender: 'AD-SBIINB-S',
+      receivedAt: at(2026, 8, 11, 10, 0),
+    },
+    expected: { kind: 'transaction', direction: 'credit', amountMinor: 6834000, instrumentTail: '2809' },
+  },
+  {
+    name: 'An EMI debit with the next due date after it stays a payment',
+    input: {
+      body: 'Rs 3,585.00 debited from A/c XX1234 towards EMI. Your next EMI is due tomorrow. -HDFC Bank',
+      sender: 'JD-HDFCBK-S',
+      receivedAt: at(2026, 10, 5, 9, 0),
+    },
+    expected: { kind: 'transaction', direction: 'debit', amountMinor: 358500, channel: 'emi' },
+  },
   {
     name: 'HDFC card spend with an ISO timestamp',
     input: {
@@ -860,6 +895,24 @@ export const OTHER_SENDERS: MessageFixture[] = [
 
 export const TRANSFERS: MessageFixture[] = [
   {
+    name: 'PNB AEPS cash withdrawal, its paise after a space',
+    input: {
+      body: 'Your AEPS CW txn for a c XX1969 with PNB is successful and debited with 1050 00 dated 13 09 2026 RRN 625715730084',
+      sender: 'AD-PNBSMS-S',
+      receivedAt: at(2026, 9, 13, 11, 0),
+    },
+    expected: { kind: 'transfer', direction: 'debit', amountMinor: 105000, channel: 'atm', counterparty: null, item: 'Cash withdrawal' },
+  },
+  {
+    name: 'Shares moved through NSDL are not rupees',
+    input: {
+      body: 'ON 20/01/26, 20 HINDALCO DEBITED FROM YOUR A/C XXXX8691..NSDL',
+      sender: 'AD-NSDLDP-S',
+      receivedAt: at(2026, 1, 20, 18, 0),
+    },
+    expected: { kind: 'transfer', amountMinor: null, reasons: ['transfer:securities'] },
+  },
+  {
     name: 'ATM withdrawal',
     input: {
       body: 'Rs.2000.00 withdrawn at ATM S1ANBG03 from A/c X8783 on 12Sep26 Txn# 1234 Avl Bal Rs.10,000.00 -SBI',
@@ -937,6 +990,42 @@ export const TRANSFERS: MessageFixture[] = [
 /* -------------------------------------------------------------------------- */
 
 export const NOT_TRANSACTIONS: MessageFixture[] = [
+  {
+    name: 'An EMI due today, asking for a balance to be kept',
+    input: {
+      body: 'EMI due today: Maintain a balance of Rs. 3585 in your bank account to ensure auto-debit of your Navi Cash Loan EMI.',
+      sender: 'VM-NAVIFN-S',
+      receivedAt: at(2026, 10, 5, 8, 0),
+    },
+    expected: { kind: 'reminder', reasons: ['kind:reminder-lead'] },
+  },
+  {
+    name: 'Bonus points on a purchase is an offer',
+    input: {
+      body: 'GET 200 BONUS POINTS ON A PURCHASE OF RS 2500. CALL FABINDIA AT 18001001212 TO PLACE YOUR ORDER',
+      packageName: 'com.google.android.apps.messaging',
+      receivedAt: at(2026, 10, 5, 12, 0),
+    },
+    expected: { kind: 'promo' },
+  },
+  {
+    name: 'A shop naming a price, from nobody Finly knows, shows no sign of money',
+    input: {
+      body: 'Exclusive deal: electronics now at Rs 628.',
+      packageName: 'com.google.android.apps.messaging',
+      receivedAt: at(2026, 10, 5, 12, 0),
+    },
+    expected: { kind: 'unknown', reasons: ['file:no-money'] },
+  },
+  {
+    name: 'A delivery update shows no sign of money',
+    input: {
+      body: 'Delivery update: AWB 698157564 is out for delivery. Expected today. Track https://tinyurl.com/5258.',
+      packageName: 'com.google.android.apps.messaging',
+      receivedAt: at(2026, 10, 5, 12, 0),
+    },
+    expected: { kind: 'unknown', amountMinor: null, reasons: ['file:no-money'] },
+  },
   {
     name: 'OTP for a card payment',
     input: {

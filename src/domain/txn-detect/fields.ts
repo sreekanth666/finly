@@ -93,7 +93,8 @@ export function readReference(text: string): string | null {
 /* -------------------------------------------------------------------------- */
 
 const CHANNEL_PATTERNS: readonly [RegExp, Channel][] = [
-  [/\batm\b|\bcash withdrawal\b|\bwithdrawn\b/i, 'atm'],
+  /* AEPS "CW" is cash drawn at a banking agent with a thumbprint: cash, like an ATM. */
+  [/\batm\b|\bcash withdrawal\b|\bwithdrawn\b|\baeps\s+cw\b/i, 'atm'],
   [/\bemi\b/i, 'emi'],
   [/\bauto-?pay\b|\bmandate\b|\bstanding instruction\b|\be-?nach\b/i, 'autopay'],
   [/\bupi\b|\bvpa\b|[\w.-]+@[a-z]{2,}\b/i, 'upi'],
