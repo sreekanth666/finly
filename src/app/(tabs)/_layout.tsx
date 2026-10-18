@@ -1,4 +1,11 @@
-import { Tabs, TabList, TabSlot, TabTrigger } from 'expo-router/ui';
+import {
+  Tabs,
+  TabList,
+  TabSlot,
+  TabTrigger,
+  type ExpoTabsScreenOptions,
+  type UseTabsOptions,
+} from 'expo-router/ui';
 import { House, Repeat, SlidersHorizontal, Sparkle, type LucideIcon } from '@/components/icons';
 import type { Href } from 'expo-router';
 import { View } from 'react-native';
@@ -29,6 +36,20 @@ const TABS: TabDefinition[] = [
 ];
 
 /**
+ * A tab stays mounted once visited — TabSlot is lazy, not unmount-on-blur — so
+ * its live queries keep answering every write. Freezing a hidden tab holds
+ * those renders until it is shown again, instead of re-rendering three screens
+ * nobody can see.
+ *
+ * The cast is for expo-router's types, which require `title` and `action` on
+ * screen options; nothing reads those from here, and the merge into each tab's
+ * options only needs the one field.
+ */
+const TAB_OPTIONS: UseTabsOptions = {
+  screenOptions: { freezeOnBlur: true } as ExpoTabsScreenOptions,
+};
+
+/**
  * Headless tabs — the bar is fully custom, so this skips the default bottom-tab
  * chrome. The triggers live here rather than inside a bar component because
  * expo-router discovers routes by walking this element tree.
@@ -36,7 +57,7 @@ const TABS: TabDefinition[] = [
 export default function TabsLayout() {
   return (
     <View className="flex-1 bg-background">
-      <Tabs style={{ flex: 1 }}>
+      <Tabs style={{ flex: 1 }} options={TAB_OPTIONS}>
         <TabSlot />
         <TabList asChild>
           <TabBarSurface>
