@@ -1,29 +1,16 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { AUTHORED_MESSAGES } from '../fixtures/authored-messages';
+import { gateKeepsSms, readGatePattern } from '../fixtures/capture-gate';
 import { ALL_MESSAGES } from '../fixtures/messages';
 
 /*
  * The native gate decides what an SMS app's notification must contain before
  * anything is stored (D17): a digit and a money word. It runs in Kotlin, so
- * this reads the pattern out of CaptureGate.kt itself and holds it to the
- * corpus here — the two cannot drift apart.
+ * its pattern is read out of CaptureGate.kt itself and held to the corpus
+ * here — the two cannot drift apart.
  */
 
-const GATE = join(process.cwd(), 'modules', 'finly-capture', 'android', 'src', 'main', 'java', 'com', 'thecstudio', 'finly', 'capture', 'CaptureGate.kt');
-
-/** `private val MONEY = Regex("(?i)…")`, as a JavaScript RegExp. */
-export function readGatePattern(source: string = readFileSync(GATE, 'utf8')): RegExp {
-  const match = /private val MONEY = Regex\(\s*"((?:[^"\\]|\\.)*)"\s*\)/.exec(source);
-  if (match === null) throw new Error('MONEY not found in CaptureGate.kt');
-  const pattern = match[1].replace(/\\\\/g, '\\');
-  const insensitive = pattern.startsWith('(?i)');
-  return new RegExp(insensitive ? pattern.slice('(?i)'.length) : pattern, insensitive ? 'i' : '');
-}
-
 const MONEY = readGatePattern();
-const kept = (text: string): boolean => /\d/.test(text) && MONEY.test(text);
+const kept = (text: string): boolean => gateKeepsSms(MONEY, text);
 
 const MOVED = ['transaction', 'transfer', 'refund'];
 

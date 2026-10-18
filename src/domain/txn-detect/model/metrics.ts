@@ -129,6 +129,10 @@ export function evaluate(items: readonly Scored[]): Metrics {
 
 const percent = (value: number): string => `${Math.round(value * 1000) / 10}%`;
 
+/** At most ten ids, so a dataset of thousands still prints a readable line. */
+const someOf = (ids: readonly string[]): string =>
+  ids.length <= 10 ? ids.join(', ') : `${ids.slice(0, 10).join(', ')} and ${ids.length - 10} more`;
+
 /** The numbers a PR records, as plain lines. */
 export function describeMetrics(label: string, metrics: Metrics): string {
   const worst = Object.entries(metrics.bySender)
@@ -138,10 +142,10 @@ export function describeMetrics(label: string, metrics: Metrics): string {
     .map(([key, sender]) => `    ${key}: ${sender.lost} lost, ${sender.falsePositives} false positive(s) of ${sender.rows}`);
   return [
     `${label}: ${metrics.rows} rows (${metrics.ambiguous} ambiguous, set aside)`,
-    `  lost: ${metrics.lost.length} of ${metrics.mustCapture} that moved money${metrics.lost.length > 0 ? ` — ${metrics.lost.join(', ')}` : ''}`,
+    `  lost: ${metrics.lost.length} of ${metrics.mustCapture} that moved money${metrics.lost.length > 0 ? ` — ${someOf(metrics.lost)}` : ''}`,
     `  review precision: ${percent(metrics.reviewPrecision)} (${metrics.reviewSpending} of ${metrics.inReview} in Needs review are spending)`,
     `  spending kept: ${metrics.spendingKept} of ${metrics.spending}`,
-    `  false positives: ${metrics.falsePositives.length} of ${metrics.mustNotCount} (${percent(metrics.falsePositiveRate)})${metrics.falsePositives.length > 0 ? ` — ${metrics.falsePositives.join(', ')}` : ''}`,
+    `  false positives: ${metrics.falsePositives.length} of ${metrics.mustNotCount} (${percent(metrics.falsePositiveRate)})${metrics.falsePositives.length > 0 ? ` — ${someOf(metrics.falsePositives)}` : ''}`,
     `  demoted: ${metrics.demoted.length}`,
     ...(worst.length > 0 ? ['  by sender:', ...worst] : []),
   ].join('\n');
