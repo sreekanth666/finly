@@ -52,7 +52,8 @@ export const PARSER_VERSION = 4;
  * particular, with no money verb and no card or account named, and either no
  * amount or no bank behind it. Offers, delivery updates and chats that only
  * share a figure and a word with a payment end up here — tens of thousands of
- * them in the datasets reader 4 was measured on. Filed, so they leave the
+ * them in the datasets reader 4 was measured on — and so do chats whose only
+ * sign is a verb, with no amount, no bank and no sender id. Filed, so they leave the
  * badge, and kept, so a wrong call can still be rescued (D17). A bank's own
  * message with an amount stays in Maybe: the first part of a split SMS
  * looks exactly like this.
@@ -62,12 +63,17 @@ function showsNoMoney(input: {
   direction: Direction | null;
   instrumentTail: string | null;
   amountMinor: number | null;
+  issuer: string | null;
   sender: string | null | undefined;
   title: string | null | undefined;
   taught: boolean;
 }): boolean {
-  if (input.kind !== 'unknown' || input.direction !== null || input.instrumentTail !== null || input.taught) return false;
-  return input.amountMinor === null || (!isDltSenderId(input.sender) && !isDltSenderId(input.title));
+  if (input.kind !== 'unknown' || input.instrumentTail !== null || input.taught) return false;
+  const fromBank = isDltSenderId(input.sender) || isDltSenderId(input.title);
+  if (input.direction === null) return input.amountMinor === null || !fromBank;
+  /* A verb, but nothing else a payment has — "Sorry, sent a blank msg", "I
+     spent the afternoon in casualty": a person writing. */
+  return input.amountMinor === null && !fromBank && input.issuer === null;
 }
 
 /**
@@ -278,6 +284,7 @@ export function detect(input: MessageInput, context: DetectContext = {}): Detect
       direction,
       instrumentTail,
       amountMinor: taughtAmount ?? amounts.best?.amountMinor ?? null,
+      issuer,
       sender: input.sender,
       title: input.title,
       taught: taught !== null,

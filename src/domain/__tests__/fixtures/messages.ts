@@ -991,6 +991,16 @@ export const TRANSFERS: MessageFixture[] = [
 
 export const NOT_TRANSACTIONS: MessageFixture[] = [
   {
+    name: 'A chat whose only sign of money is a verb',
+    input: {
+      body: 'Sorry sent blank msg again. Yup but trying 2 do some serious studying now.',
+      packageName: 'com.google.android.apps.messaging',
+      title: 'Aa',
+      receivedAt: at(2026, 10, 5, 21, 0),
+    },
+    expected: { kind: 'unknown', amountMinor: null, reasons: ['file:no-money'] },
+  },
+  {
     name: 'An EMI due today, asking for a balance to be kept',
     input: {
       body: 'EMI due today: Maintain a balance of Rs. 3585 in your bank account to ensure auto-debit of your Navi Cash Loan EMI.',
