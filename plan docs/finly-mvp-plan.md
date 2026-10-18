@@ -518,6 +518,13 @@ the first time a card or account tail is seen it asks which account it is and
 remembers it on that account's `last4`. Choosing a category can save a rule, so
 what the app learns is visible on the Rules tab rather than hidden.
 
+Batch actions: **Add all** and **Discard all** cover the three visible
+sections, Filtered has its own **Discard all**, and marking rows offers **Add
+marked** and **Discard marked**. Every batch asks for confirmation first, is all
+or nothing, and can be undone from the toast. A batch add takes only what one
+tap could confirm (a sure amount in the app's currency, from Needs review);
+everything else stays for a look, and the confirmation says how many.
+
 ### 7.9 Message formats (D18)
 
 "Read this wrong? Teach Finly this format" on any candidate opens a two-step

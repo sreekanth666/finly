@@ -232,6 +232,8 @@ export {
 export { categoryNameFor } from './merchants';
 export { suggest, type CategoryLike, type SuggestContext, type Suggestion } from './suggest';
 export {
+  batchPrompt,
+  canAddInBatch,
   canConfirmInOneTap,
   countsTowardBadge,
   DEFAULT_RETENTION_DAYS,
@@ -242,5 +244,8 @@ export {
   sectionOf,
   sourceAppName,
   sourceTextOf,
+  splitForAdd,
+  type BatchAction,
+  type BatchPrompt,
   type InboxSection,
 } from './inbox';

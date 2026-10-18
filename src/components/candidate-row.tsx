@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { ArrowDownLeft, Check, CircleHelp } from 'lucide-react-native';
+import { ArrowDownLeft, Check, Circle, CircleCheck, CircleHelp } from 'lucide-react-native';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -18,10 +18,13 @@ export type CandidateRowProps = {
   onPress: () => void;
   /** Present only when the candidate can be confirmed as read. */
   onConfirm?: () => void;
+  /** Marking for a batch action: the row's press toggles the mark instead. */
+  selecting?: boolean;
+  marked?: boolean;
 };
 
 /** One detected payment: what it looks like, where it came from, and a quick confirm. */
-function CandidateRowBase({ candidate, onPress, onConfirm }: CandidateRowProps) {
+function CandidateRowBase({ candidate, onPress, onConfirm, selecting = false, marked = false }: CandidateRowProps) {
   const isCredit = candidate.direction === 'credit';
   const isUnsure = candidate.confidence === 'low' || candidate.kind === 'unknown';
   const tag = kindLabel(candidate.kind);
@@ -50,8 +53,9 @@ function CandidateRowBase({ candidate, onPress, onConfirm }: CandidateRowProps) 
   return (
     <View className="flex-row items-center gap-2 rounded-2xl bg-background py-2 pl-3 pr-1">
       <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={spoken}
+        accessibilityRole={selecting ? 'checkbox' : 'button'}
+        accessibilityLabel={selecting ? `Mark ${spoken}` : spoken}
+        accessibilityState={selecting ? { checked: marked } : undefined}
         onPress={onPress}
         className="flex-1 flex-row items-center gap-3 active:opacity-60">
         <View className="size-10 items-center justify-center rounded-xl bg-surface-secondary">
@@ -95,7 +99,11 @@ function CandidateRowBase({ candidate, onPress, onConfirm }: CandidateRowProps) 
         </View>
       </Pressable>
 
-      {onConfirm !== undefined ? (
+      {selecting ? (
+        <View className="size-10 items-center justify-center" importantForAccessibility="no-hide-descendants">
+          <Icon icon={marked ? CircleCheck : Circle} color={marked ? 'accent' : 'muted'} size={20} />
+        </View>
+      ) : onConfirm !== undefined ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Confirm ${candidate.item}`}
