@@ -1,5 +1,5 @@
 import { Input, Typography } from 'heroui-native';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft } from '@/components/icons';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 

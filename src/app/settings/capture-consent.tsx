@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { Ban, Eye, HardDrive, Trash2, X } from 'lucide-react-native';
-import type { LucideIcon } from 'lucide-react-native';
+import { Ban, Eye, HardDrive, Trash2, X } from '@/components/icons';
+import type { LucideIcon } from '@/components/icons';
 import { View } from 'react-native';
 
 import { Button } from '@/components/button';

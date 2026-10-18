@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Input, Typography } from 'heroui-native';
-import { X } from 'lucide-react-native';
+import { X } from '@/components/icons';
 import { useState } from 'react';
 import { View } from 'react-native';
 

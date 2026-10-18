@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { Trash2, type LucideIcon } from 'lucide-react-native';
+import { Trash2, type LucideIcon } from '@/components/icons';
 import { useRef, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';

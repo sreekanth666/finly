@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { Lightbulb, TriangleAlert } from 'lucide-react-native';
+import { Lightbulb, TriangleAlert } from '@/components/icons';
 import { View } from 'react-native';
 
 import { Icon } from '@/components/icon';

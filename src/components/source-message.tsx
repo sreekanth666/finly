@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { MessageSquareText } from 'lucide-react-native';
+import { MessageSquareText } from '@/components/icons';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 

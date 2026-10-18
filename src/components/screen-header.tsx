@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { EllipsisVertical } from 'lucide-react-native';
+import { EllipsisVertical } from '@/components/icons';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 

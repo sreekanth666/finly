@@ -1,5 +1,5 @@
 import { Switch, Typography } from 'heroui-native';
-import { CircleSlash2, Wallet, type LucideIcon } from 'lucide-react-native';
+import { CircleSlash2, Wallet, type LucideIcon } from '@/components/icons';
 import { Pressable, View } from 'react-native';
 
 import { Icon } from './icon';

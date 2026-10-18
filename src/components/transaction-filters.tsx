@@ -1,6 +1,6 @@
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { BottomSheet, Typography } from "heroui-native";
-import { SlidersHorizontal } from "lucide-react-native";
+import { SlidersHorizontal } from '@/components/icons';
 import { useMemo, useState } from "react";
 import { Keyboard, Pressable, View } from "react-native";
 

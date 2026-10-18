@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { ArrowLeft, ClipboardPaste, Inbox, ListChecks, Settings2, X } from 'lucide-react-native';
+import { ArrowLeft, ClipboardPaste, Inbox, ListChecks, Settings2, X } from '@/components/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, BackHandler, Pressable, SectionList, View } from 'react-native';
 

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { ArrowLeft, TriangleAlert } from 'lucide-react-native';
+import { ArrowLeft, TriangleAlert } from '@/components/icons';
 import { Alert, ScrollView, View } from 'react-native';
 
 import { CurrencyPicker } from '@/components/currency-picker';

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { ArrowLeft, CreditCard, Plus, Receipt, Wallet } from 'lucide-react-native';
+import { ArrowLeft, CreditCard, Plus, Receipt, Wallet } from '@/components/icons';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 

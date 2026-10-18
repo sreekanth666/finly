@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { LayoutTemplate, X } from 'lucide-react-native';
+import { LayoutTemplate, X } from '@/components/icons';
 import { Pressable, View } from 'react-native';
 
 import { Icon } from './icon';

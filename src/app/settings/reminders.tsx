@@ -1,7 +1,7 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { router } from 'expo-router';
 import { Switch, Typography } from 'heroui-native';
-import { ArrowLeft, BellRing, BellOff, Clock } from 'lucide-react-native';
+import { ArrowLeft, BellRing, BellOff, Clock } from '@/components/icons';
 import { useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, View } from 'react-native';
 

@@ -1,6 +1,6 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { BottomSheet, Input, Typography, useBottomSheetAwareHandlers } from 'heroui-native';
-import { Plus } from 'lucide-react-native';
+import { Plus } from '@/components/icons';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 

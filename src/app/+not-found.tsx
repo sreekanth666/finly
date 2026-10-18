@@ -1,6 +1,6 @@
 import { router, Stack } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { Compass } from 'lucide-react-native';
+import { Compass } from '@/components/icons';
 import { View } from 'react-native';
 
 import { Button } from '@/components/button';

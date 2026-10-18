@@ -1,5 +1,5 @@
 import { Typography } from 'heroui-native';
-import { Plus } from 'lucide-react-native';
+import { Plus } from '@/components/icons';
 import { useCallback, useEffect, useRef } from 'react';
 import { Pressable, ScrollView, type LayoutRectangle } from 'react-native';
 

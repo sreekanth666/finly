@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Switch, Typography } from 'heroui-native';
-import { ArrowLeft, Fingerprint, KeyRound, TriangleAlert } from 'lucide-react-native';
+import { ArrowLeft, Fingerprint, KeyRound, TriangleAlert } from '@/components/icons';
 import { useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
 

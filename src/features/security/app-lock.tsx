@@ -13,7 +13,7 @@
 
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Typography } from 'heroui-native';
-import { Lock } from 'lucide-react-native';
+import { Lock } from '@/components/icons';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState, View } from 'react-native';
 

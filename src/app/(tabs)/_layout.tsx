@@ -1,5 +1,5 @@
 import { Tabs, TabList, TabSlot, TabTrigger } from 'expo-router/ui';
-import { House, Repeat, SlidersHorizontal, Sparkle, type LucideIcon } from 'lucide-react-native';
+import { House, Repeat, SlidersHorizontal, Sparkle, type LucideIcon } from '@/components/icons';
 import type { Href } from 'expo-router';
 import { View } from 'react-native';
 

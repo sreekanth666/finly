@@ -6,7 +6,7 @@
  * glyph the app chooses for each of them.
  */
 
-import { Banknote, CreditCard, Landmark, Wallet, type LucideIcon } from 'lucide-react-native';
+import { Banknote, CreditCard, Landmark, Wallet, type LucideIcon } from '@/components/icons';
 
 import { ACCOUNT_TYPES, type AccountType } from '@/db/schema';
 import type { StoredColorToken } from '@/theme';

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Switch, Typography } from 'heroui-native';
-import { ArrowLeft, BookOpenText, Plus } from 'lucide-react-native';
+import { ArrowLeft, BookOpenText, Plus } from '@/components/icons';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 

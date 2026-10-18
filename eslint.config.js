@@ -66,6 +66,25 @@ module.exports = defineConfig([
        * gets them wrong, so it stays off.
        */
       'no-unused-vars': 'off',
+
+      /*
+       * lucide-react-native's barrel is not tree-shaken by Metro, so a value
+       * import from it bundles all ~1,800 icons. Icons come from
+       * src/components/icons.ts, which imports them one file at a time; types
+       * are erased at build time and stay allowed.
+       */
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'lucide-react-native',
+              message: "Import icons from '@/components/icons' so only the ones in use are bundled.",
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
     },
   },
 ]);
