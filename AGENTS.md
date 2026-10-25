@@ -26,6 +26,12 @@ these. Run `pnpm check` before claiming anything works.
 - Changing a native dependency or an `app.json` plugin needs
   `pnpm expo prebuild --clean`. Changing babel or metro config needs
   `pnpm expo start -c`.
+- **The dev build is a second app.** `APP_VARIANT=development` (set by
+  `pnpm start`, the `development` EAS profile and `pnpm native:dev`) makes
+  `com.thecstudio.finly.dev`, "Finly Dev", scheme `finly-dev`; unset is the store
+  app. `android/` is generated for one variant: switch with `pnpm native:dev` or
+  `pnpm native:prod` (the build script refuses a mismatch). Never write
+  `finly://` in code that builds a link — use `appScheme()`.
 - **Never run a native build on this machine.** No `pnpm build:dev`, no
   `pnpm build:aab`, no `pnpm android`/`ios`, no `gradlew`. Builds are run
   elsewhere; a local one ties the machine up for a long time and proves nothing
