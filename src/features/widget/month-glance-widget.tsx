@@ -16,14 +16,18 @@ import type { WidgetPalette } from './palette';
 import type { WidgetState } from './read';
 
 import type { GlanceTone } from '@/domain/glance';
+import { deepLink } from '@/domain/deep-link';
 import { formatMinor, speakMinor } from '@/domain/money';
 import { formatPeriodMonth } from '@/domain/period';
+import { appScheme } from '@/features/navigation/app-scheme';
 
 /** Must match the `name` in the react-native-android-widget entry in app.json. */
 export const WIDGET_NAME = 'MonthGlance';
 
-const HOME_URI = 'finly:///';
-const ADD_EXPENSE_URI = 'finly://expense/new';
+/* Built from the running build's scheme: the development app has its own, and
+   a hard-coded `finly://` would open the production app from its widget. */
+const homeUri = () => deepLink(appScheme(), '/');
+const addExpenseUri = () => deepLink(appScheme(), 'expense/new');
 
 /* Font families the config plugin copies into the Android assets, by file name.
    The same faces as the Balance screen: Inter Bold for money, Medium for labels. */
@@ -62,7 +66,7 @@ export function MonthGlanceWidget({ state, palette }: Props) {
   return (
     <FlexWidget
       clickAction="OPEN_URI"
-      clickActionData={{ uri: HOME_URI }}
+      clickActionData={{ uri: homeUri() }}
       accessibilityLabel={describe(state)}
       style={{
         width: 'match_parent',
@@ -145,7 +149,7 @@ function AddButton({ palette }: { palette: WidgetPalette }) {
   return (
     <FlexWidget
       clickAction="OPEN_URI"
-      clickActionData={{ uri: ADD_EXPENSE_URI }}
+      clickActionData={{ uri: addExpenseUri() }}
       accessibilityLabel="Add expense"
       style={{
         width: BUTTON_SIZE,
