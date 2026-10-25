@@ -15,10 +15,13 @@
 import { and, asc, between, count, desc, eq, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
 
 import { asMinor, type Minor } from '@/domain/money';
+import type { Assessment } from '@/domain/txn-detect/model/assess';
 import {
   bodyKeyOf,
   DUPLICATE_WINDOW_MS,
   EPHEMERAL_KINDS,
+  isDoubted,
+  isFiled,
   labelOf,
   looksLikeManual,
   redactCodes,
@@ -51,6 +54,7 @@ import {
   type ExpenseInput,
 } from './expenses';
 import { createRule, recordRuleApplied } from './rules';
+import { bumpLabel } from './detector-labels';
 import { addSettlement } from './settlements';
 
 const alive = isNull(detectedTransactions.deletedAt);
@@ -76,6 +80,8 @@ export type PreparedCapture = RawCapture & {
   contentHash: string;
   detection: Detection;
   suggestion: Suggestion;
+  /** The model's second opinion (D21); null when it was not asked or could not answer. */
+  assessment: Assessment | null;
 };
 
 export type IngestOutcome = {
@@ -144,7 +150,7 @@ function findPrimary(item: PreparedCapture, tx: DbLike): string | null {
   return match?.id ?? null;
 }
 
-type ReadWith = { parserVersion: number; templatesRev: number };
+export type ReadWith = { parserVersion: number; templatesRev: number; modelVersion: number };
 
 function ingestOne(item: PreparedCapture, readWith: ReadWith, tx: DbLike): IngestOutcome {
   const seen = tx
@@ -155,7 +161,7 @@ function ingestOne(item: PreparedCapture, readWith: ReadWith, tx: DbLike): Inges
     .get();
   if (seen !== undefined) return { candidateId: seen.id, status: 'seen' };
 
-  const { detection, suggestion } = item;
+  const { detection, suggestion, assessment } = item;
   const now = Date.now();
   const messageId = newId();
 
@@ -204,6 +210,9 @@ function ingestOne(item: PreparedCapture, readWith: ReadWith, tx: DbLike): Inges
       duplicateOf: primary,
       parserVersion: readWith.parserVersion,
       templatesRev: readWith.templatesRev,
+      modelScore: assessment?.score ?? null,
+      modelKey: assessment?.key ?? null,
+      modelVersion: readWith.modelVersion,
       createdAt: now,
       updatedAt: now,
     })
@@ -280,6 +289,13 @@ export type CandidateSummary = {
   account: CandidateAccount | null;
   /** Where else the same payment was announced — the UPI app, the bank's app. */
   alsoSeenIn: { source: CaptureSourceColumn; packageName: string | null }[];
+  /** The reader doubted it is a payment (D21), so it waits in Maybe. */
+  doubt: boolean;
+  /** It shows no sign of money (D21), so it is filed. */
+  filed: boolean;
+  /** D21: the model's stored score and label key; applied by the inbox, not here. */
+  modelScore: number | null;
+  modelKey: string | null;
 };
 
 const summarySelection = {
@@ -334,6 +350,10 @@ const toSummary = (
   category: row.category?.id == null ? null : row.category,
   account: row.account?.id == null ? null : row.account,
   alsoSeenIn,
+  doubt: isDoubted(parseStringList(row.candidate.reasons)),
+  filed: isFiled(parseStringList(row.candidate.reasons)),
+  modelScore: row.candidate.modelScore,
+  modelKey: row.candidate.modelKey,
 });
 
 const summaryQuery = (database: DbLike) =>
@@ -382,9 +402,13 @@ export function listPendingCandidates(limit: number, database: DbLike = db): Can
   return rows.map((row) => toSummary(row, seen.get(row.candidate.id)));
 }
 
+/** The reason `detect` gives a message that shows no sign of money (D21), as stored. */
+const FILED_REASON = '%"file:no-money"%';
+
 /**
  * The badge: pending candidates that might be spending. Mirrors `sectionOf`'s
- * Needs review and Maybe — not credits, not refunds, nothing filtered.
+ * Needs review and Maybe — not credits, not refunds, nothing filtered, and
+ * nothing filed for showing no sign of money.
  */
 export const countCandidatesToReview = (database: DbLike = db): number =>
   database
@@ -396,6 +420,7 @@ export const countCandidatesToReview = (database: DbLike = db): number =>
         eq(detectedTransactions.status, 'pending'),
         inArray(detectedTransactions.kind, ['transaction', 'unknown']),
         or(isNull(detectedTransactions.direction), eq(detectedTransactions.direction, 'debit')),
+        sql`${detectedTransactions.reasons} not like ${FILED_REASON}`,
       ),
     )
     .get()?.n ?? 0;
@@ -592,6 +617,7 @@ export function confirmCandidate(id: string, input: ConfirmInput, database: DbLi
       .set({ status: 'confirmed', expenseId, resolvedAt: now, updatedAt: now })
       .where(eq(detectedTransactions.id, id))
       .run();
+    bumpLabel(row.modelKey, 'confirmed', 1, tx);
 
     if (input.rememberAccount && input.expense.accountId != null && row.instrumentTail !== null) {
       rememberAccountTail(input.expense.accountId, row.instrumentTail, row.issuer, tx);
@@ -634,6 +660,7 @@ export function linkCandidateToExpense(id: string, expenseId: string, database: 
       .set({ status: 'confirmed', expenseId, resolvedAt: now, updatedAt: now })
       .where(eq(detectedTransactions.id, id))
       .run();
+    bumpLabel(row.modelKey, 'confirmed', 1, tx);
   }, database);
 }
 
@@ -711,6 +738,8 @@ export function recordCandidateAsCardPayment(
       .set({ status: 'confirmed', cardPaymentId: paymentId, resolvedAt: now, updatedAt: now })
       .where(eq(detectedTransactions.id, id))
       .run();
+    /* Money moved, though not spending: for the model, a payment. */
+    bumpLabel(row.modelKey, 'confirmed', 1, tx);
 
     /* Only the issuer's own alert names the card's digits; the bank's names the
        account the money left. */
@@ -729,12 +758,14 @@ export function resolveCandidate(
   database: DbLike = db,
 ): void {
   writeTransaction((tx) => {
-    requireCandidate(id, tx);
+    const row = requireCandidate(id, tx);
     const now = Date.now();
     tx.update(detectedTransactions)
       .set({ status, resolvedAt: now, updatedAt: now })
       .where(eq(detectedTransactions.id, id))
       .run();
+    /* A discard says nothing about whether it was a payment (D21). */
+    if (status === 'not_transaction') bumpLabel(row.modelKey, 'notTransaction', 1, tx);
   }, database);
 }
 
@@ -750,17 +781,19 @@ export function undoConfirm(id: string, database: DbLike = db): void {
       .set({ status: 'pending', expenseId: null, resolvedAt: null, updatedAt: Date.now() })
       .where(eq(detectedTransactions.id, id))
       .run();
+    bumpLabel(row.modelKey, 'confirmed', -1, tx);
   }, database);
 }
 
 /** The undo behind the swipe. */
 export function restoreCandidate(id: string, database: DbLike = db): void {
   writeTransaction((tx) => {
-    requireCandidate(id, tx, ['dismissed', 'not_transaction']);
+    const row = requireCandidate(id, tx, ['dismissed', 'not_transaction']);
     tx.update(detectedTransactions)
       .set({ status: 'pending', resolvedAt: null, isEdited: true, updatedAt: Date.now() })
       .where(eq(detectedTransactions.id, id))
       .run();
+    if (row.status === 'not_transaction') bumpLabel(row.modelKey, 'notTransaction', -1, tx);
   }, database);
 }
 
@@ -821,12 +854,12 @@ export function undoConfirms(ids: readonly string[], database: DbLike = db): num
 export type ReparseTarget = RawCapture & { id: string };
 
 /**
- * Pending candidates nobody has touched that were read by an older parser, or
- * under an older set of taught templates (D18).
+ * Pending candidates nobody has touched that were read by an older parser,
+ * under an older set of taught templates (D18), or scored by an older model
+ * (D21).
  */
 export function listReparseTargets(
-  belowVersion: number,
-  belowTemplatesRev: number,
+  below: { parserVersion: number; templatesRev: number; modelVersion: number },
   limit: number,
   database: DbLike = db,
 ): ReparseTarget[] {
@@ -849,8 +882,9 @@ export function listReparseTargets(
         eq(detectedTransactions.status, 'pending'),
         eq(detectedTransactions.isEdited, false),
         or(
-          lt(detectedTransactions.parserVersion, belowVersion),
-          lt(detectedTransactions.templatesRev, belowTemplatesRev),
+          lt(detectedTransactions.parserVersion, below.parserVersion),
+          lt(detectedTransactions.templatesRev, below.templatesRev),
+          lt(detectedTransactions.modelVersion, below.modelVersion),
         ),
       ),
     )
@@ -859,14 +893,13 @@ export function listReparseTargets(
 }
 
 export function applyReparse(
-  updates: readonly { id: string; detection: Detection; suggestion: Suggestion }[],
-  parserVersion: number,
-  templatesRev: number,
+  updates: readonly { id: string; detection: Detection; suggestion: Suggestion; assessment: Assessment | null }[],
+  readWith: ReadWith,
   database: DbLike = db,
 ): void {
   writeTransaction((tx) => {
     const now = Date.now();
-    for (const { id, detection, suggestion } of updates) {
+    for (const { id, detection, suggestion, assessment } of updates) {
       tx.update(detectedTransactions)
         .set({
           kind: detection.kind,
@@ -888,8 +921,11 @@ export function applyReparse(
           suggestedCategoryId: suggestion.categoryId,
           suggestedAccountId: suggestion.accountId,
           suggestedRuleId: suggestion.ruleId,
-          parserVersion,
-          templatesRev,
+          parserVersion: readWith.parserVersion,
+          templatesRev: readWith.templatesRev,
+          modelScore: assessment?.score ?? null,
+          modelKey: assessment?.key ?? null,
+          modelVersion: readWith.modelVersion,
           updatedAt: now,
         })
         .where(and(eq(detectedTransactions.id, id), eq(detectedTransactions.status, 'pending')))
@@ -916,7 +952,8 @@ const messageIdsWhere = (where: ReturnType<typeof and>, database: DbLike): strin
  * - anything decided more than `cutoffMs` ago — a confirmed expense has its
  *   own copy in `source_text`;
  * - offers, OTPs, reminders, statements, failures and balance alerts older than
- *   that, decided or not: nothing in them is money that moved;
+ *   that, decided or not, and messages filed for showing no sign of money
+ *   (D21): nothing in them is money that moved;
  * - duplicates whose alert has gone.
  *
  * Pending payments, transfers and credits are never removed by age. Returns how
@@ -933,6 +970,14 @@ export function purgeCaptures(cutoffMs: number, database: DbLike = db): number {
         and(
           eq(detectedTransactions.status, 'pending'),
           inArray(detectedTransactions.kind, [...EPHEMERAL_KINDS]),
+          lt(detectedTransactions.createdAt, cutoffMs),
+        ),
+        tx,
+      ),
+      ...messageIdsWhere(
+        and(
+          eq(detectedTransactions.status, 'pending'),
+          sql`${detectedTransactions.reasons} like ${FILED_REASON}`,
           lt(detectedTransactions.createdAt, cutoffMs),
         ),
         tx,

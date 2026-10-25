@@ -16,6 +16,7 @@ import {
   captureTemplates,
   categories,
   detectedTransactions,
+  detectorLabels,
   expenses,
   ruleActions,
   ruleConditions,
@@ -28,6 +29,7 @@ import {
   type CaptureTemplateRow,
   type CategoryRow,
   type DetectedTransactionRow,
+  type DetectorLabelRow,
   type ExpenseRow,
   type RuleActionRow,
   type RuleConditionRow,
@@ -64,6 +66,8 @@ export type BackupData = {
   detectedTransactions?: DetectedTransactionRow[];
   captureTemplates?: CaptureTemplateRow[];
   cardPayments?: CardPaymentRow[];
+  /** D21: what the user taught the detector, per sender. Absent in older backups. */
+  detectorLabels?: DetectorLabelRow[];
 };
 
 export type Backup = {
@@ -92,6 +96,7 @@ export function buildBackup(database: DbLike = db): Backup {
       detectedTransactions: database.select().from(detectedTransactions).all(),
       captureTemplates: database.select().from(captureTemplates).all(),
       cardPayments: database.select().from(cardPayments).all(),
+      detectorLabels: database.select().from(detectorLabels).all(),
     },
   };
 }
@@ -162,6 +167,9 @@ export async function restoreBackup(
       tx.delete(accounts).run();
       tx.delete(categories).run();
       tx.delete(settings).run();
+      /* Restored with the candidates they were counted from; an older backup
+         has none, so nothing is left counting candidates that are gone. */
+      tx.delete(detectorLabels).run();
 
       const insertAll = <T extends Record<string, unknown>>(
         table: Parameters<typeof tx.insert>[0],
@@ -189,6 +197,7 @@ export async function restoreBackup(
       insertAll(capturedMessages, data.capturedMessages);
       insertAll(detectedTransactions, data.detectedTransactions);
       insertAll(captureTemplates, data.captureTemplates);
+      insertAll(detectorLabels, data.detectorLabels);
 
       return {
         expenses: expenseCount,

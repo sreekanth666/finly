@@ -40,6 +40,7 @@ describe('the generated migration', () => {
       'card_payments',
       'categories',
       'detected_transactions',
+      'detector_labels',
       'expenses',
       'rule_actions',
       'rule_conditions',

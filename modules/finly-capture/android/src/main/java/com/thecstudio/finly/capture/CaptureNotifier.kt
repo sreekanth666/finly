@@ -32,7 +32,7 @@ object CaptureNotifier {
       manager.createNotificationChannel(channel)
     }
 
-    val open = Intent(Intent.ACTION_VIEW, Uri.parse("finly://inbox")).apply {
+    val open = Intent(Intent.ACTION_VIEW, Uri.parse("${CapturePrefs(context).linkScheme}://inbox")).apply {
       setPackage(context.packageName)
       addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
     }

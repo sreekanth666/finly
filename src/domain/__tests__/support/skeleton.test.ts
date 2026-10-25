@@ -48,6 +48,13 @@ describe('skeletonOf', () => {
     expect(skeletonOf('Details: https://2s.ms/UTKSPR/qft7VD -Utkarsh SFBL')).toBe('Details: https://… -Utkarsh SFBL');
   });
 
+  it('is its own skeleton, which is how the detector corpus proves it holds nothing else', () => {
+    for (const fixture of ALL_MESSAGES) {
+      const skeleton = skeletonOf(fixture.input.body);
+      expect([fixture.name, skeletonOf(skeleton)]).toEqual([fixture.name, skeleton]);
+    }
+  });
+
   it('reads as the same kind of message, in the same direction, as the message itself', () => {
     for (const fixture of ALL_MESSAGES) {
       if (fixture.ownerName !== undefined) continue; // the owner's name is exactly what a skeleton removes

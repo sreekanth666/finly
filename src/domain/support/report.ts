@@ -8,13 +8,14 @@
  * user sees all of it before their mail app opens.
  *
  * Deliberately absent, whatever is switched on: any message text, raw or
- * masked; amounts, balances, references and card digits; payees, expense
+ * masked (a skeleton is not message text: see `skeleton.ts`); amounts, balances, references and card digits; payees, expense
  * items, notes, categories, accounts, rules and budget; the profile name;
  * template names and samples; any timestamp of a single payment; any device
  * or install identifier.
  */
 
 import type { DetectionSummary } from './diagnostics';
+import type { LabelledShape } from './labelled';
 
 export type ReportTopic = 'detection' | 'other';
 
@@ -25,9 +26,18 @@ export type ReportSections = {
   detection: boolean;
   /** Skeletons of messages Finly had trouble with. Off unless chosen. */
   shapes: boolean;
+  /** Skeletons of reviewed messages with what the user did with each (D21). Off unless chosen. */
+  labelled: boolean;
 };
 
-export type AppInfo = { version: string | null; build: 'development' | 'release'; parserVersion: number };
+export type AppInfo = {
+  version: string | null;
+  build: 'development' | 'release';
+  parserVersion: number;
+  /** D21: the shipped model, and where it doubts — null when it doubts nothing. */
+  modelVersion: number;
+  modelDoubtAt: number | null;
+};
 
 export type DeviceInfo = {
   os: string;
@@ -70,6 +80,8 @@ export type DetectionStatus = {
   templatesRev: number;
   templatesDoneRev: string | null;
   pendingBySection: Record<string, number>;
+  /** D21: whether the model may move doubtful payments to Maybe, or only scores them. */
+  detectorEnabled: boolean;
 };
 
 export type TemplateFact = {
@@ -95,6 +107,7 @@ export type ReportInput = {
   summary: DetectionSummary | null;
   templates: readonly TemplateFact[];
   shapes: readonly MessageShape[];
+  labelled: readonly LabelledShape[];
 };
 
 export type SupportEmail = {
@@ -133,7 +146,7 @@ function appDeviceLines(app: AppInfo, device: DeviceInfo): string[] {
     .filter((part): part is string => part !== null && part.length > 0)
     .join(' ');
   return [
-    `App: Finly ${app.version ?? 'unknown'} (${app.build}), reader ${app.parserVersion}`,
+    `App: Finly ${app.version ?? 'unknown'} (${app.build}), reader ${app.parserVersion}, model ${app.modelVersion}`,
     `System: ${device.os} ${device.osVersion ?? ''}${device.apiLevel === null ? '' : ` (API ${device.apiLevel})`}`.trim(),
     `Phone: ${phone.length > 0 ? phone : 'unknown'}`,
     `Locale: ${device.locale ?? 'unknown'}, time zone ${device.timeZone ?? 'unknown'} (UTC${sign}${hours}:${minutes}), app currency ${device.currency}, font scale ${device.fontScale}`,
@@ -158,6 +171,7 @@ function statusLines(status: DetectionStatus, now: number): string[] {
   }
   lines.push(
     `Reader state: stored ${status.storedParserVersion ?? 'none'}, templates rev ${status.templatesRev} (re-read to ${status.templatesDoneRev ?? 'none'})`,
+    `Model: ${status.detectorEnabled ? 'moves doubtful payments to Maybe' : 'scores only (shadow)'}`,
     `Waiting in the inbox: ${counts(status.pendingBySection)}`,
   );
   return lines;
@@ -174,6 +188,10 @@ function summaryLines(summary: DetectionSummary): string[] {
     `Confirmed exactly as read: ${c.confirmedAsRead}. Changed at confirm — amount ${c.amountChanged}, day ${c.dayChanged}, description ${c.itemChanged}, category ${c.categoryChanged}, account ${c.accountChanged}`,
     `Linked to an expense typed by hand ${c.linkedToTyped}, rescued from Filtered ${c.rescuedFromFiltered}, marked not a payment ${c.markedNotPayment}, duplicates ${c.duplicates}`,
     `Reasons: ${summary.reasons.length === 0 ? 'none' : summary.reasons.map(([reason, count]) => `${reason} ${count}`).join(', ')}`,
+    '',
+    `Model scores, by tenth (0.0–0.1 … 0.9–1.0), of ${summary.model.assessed} payments it was asked about:`,
+    `  confirmed:     ${summary.model.confirmedByTenth.join(' ')}`,
+    `  not a payment: ${summary.model.notPaymentByTenth.join(' ')}`,
     '',
     'By sender (total, unknown, low, no payee, unclear amount, no date, not a payment, amount changed):',
   ];
@@ -206,6 +224,25 @@ function shapeLines(shapes: readonly MessageShape[]): string[] {
       `${index + 1}. ${shape.sender} — read as ${shape.kind}, ${shape.confidence} confidence (${shape.reasons.join(', ') || 'no reasons'})`,
       shape.skeleton,
     );
+  });
+  return lines;
+}
+
+const VERDICT_WORDS: Record<LabelledShape['verdict'], string> = {
+  spent: 'confirmed as spending',
+  settled: 'settled an expense with it',
+  card_payment: 'recorded as a card payment',
+  not_payment: 'said it is not a payment',
+  dismissed: 'discarded it',
+  pending: 'not reviewed yet',
+};
+
+function labelledLines(labelled: readonly LabelledShape[]): string[] {
+  if (labelled.length === 0) return ['Reviewed messages: none to show'];
+  const lines = ['Reviewed messages, to help improve detection (every name, amount and number replaced; dates and times kept):'];
+  labelled.forEach((shape, index) => {
+    const from = shape.sender ?? shape.packageName ?? 'SMS, no sender id';
+    lines.push('', `${index + 1}. ${from} — read as ${shape.read}, you ${VERDICT_WORDS[shape.verdict]}`, shape.skeleton);
   });
   return lines;
 }
@@ -243,6 +280,10 @@ export function buildSupportEmail(input: ReportInput, now: number = Date.now()):
     file.push(...shapeLines(input.shapes), '');
   }
 
+  if (sections.labelled) {
+    file.push(...labelledLines(input.labelled), '');
+  }
+
   if (file.length === 0) {
     return { subject, body: bodyLines.join('\n').trim(), attachment: null };
   }
@@ -256,6 +297,7 @@ export function buildSupportEmail(input: ReportInput, now: number = Date.now()):
     summary: includeDetection ? input.summary : undefined,
     templates: includeDetection ? input.templates : undefined,
     shapes: sections.shapes ? input.shapes : undefined,
+    labelled: sections.labelled ? input.labelled : undefined,
   };
   file.push('MACHINE-READABLE', JSON.stringify(payload));
 

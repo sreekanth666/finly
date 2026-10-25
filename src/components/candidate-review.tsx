@@ -16,7 +16,7 @@ import { useSubmitOnce } from '@/db/use-action';
 import { formatMinor, getActiveCurrency, minorToEntry } from '@/domain/money';
 import { formatDayLabel } from '@/domain/period';
 import type { Rule } from '@/domain/rules';
-import { labelOf, sourceAppName } from '@/domain/txn-detect';
+import { doubtSentence, labelOf, sourceAppName } from '@/domain/txn-detect';
 import {
   useConfirmCandidate,
   useLinkCandidate,
@@ -26,7 +26,8 @@ import {
 import { candidateNotes } from '@/features/capture/presentation';
 
 export type CandidateReviewProps = {
-  candidate: CandidateDetail;
+  /** `modelDoubt`: the model, not a rule, put it in Maybe (D21). */
+  candidate: CandidateDetail & { modelDoubt?: boolean };
   categories: readonly CategoryRow[];
   accounts: readonly AccountRow[];
   rules: readonly Rule[];
@@ -55,6 +56,7 @@ export function CandidateReview({ candidate, categories, accounts, rules }: Cand
   const payee = candidate.counterparty === null ? null : labelOf(candidate.counterparty);
   /* The tail is worth remembering only when no saved account already claims it. */
   const canRememberAccount = candidate.instrumentTail !== null && candidate.account === null;
+  const doubt = doubtSentence(candidate.reasons, candidate.modelDoubt === true);
 
   const saveOnce = useSubmitOnce(async (draft: ExpenseDraft, appliedRuleId: string | null) => {
     const outcome = await confirm.run(candidate.id, {
@@ -192,6 +194,14 @@ export function CandidateReview({ candidate, categories, accounts, rules }: Cand
               />
             </View>
           ))}
+
+          {doubt !== null && (
+            <View className="rounded-2xl bg-surface px-4 py-3">
+              <Typography type="body-xs" color="muted">
+                {doubt}
+              </Typography>
+            </View>
+          )}
 
           <SourceMessage text={candidate.sourceText} initiallyOpen />
           <MisreadActions candidate={candidate} />

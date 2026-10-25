@@ -1,0 +1,25 @@
+/**
+ * A small pure string hash, shared by everything in the detector that needs a
+ * stable key: a captured message's identity, and which side of the evaluation
+ * split a sender falls on.
+ *
+ * Not SHA-256 through expo-crypto: this runs inside synchronous write
+ * transactions and inside the Node tests, and only has to separate one person's
+ * messages from each other, not resist an attacker.
+ */
+
+/** cyrb53: 53 bits, as fourteen hex digits. */
+export function hash53(value: string): string {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    h1 = Math.imul(h1 ^ code, 2654435761);
+    h2 = Math.imul(h2 ^ code, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, '0');
+}

@@ -23,6 +23,7 @@ import {
   check,
   index,
   integer,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -355,6 +356,17 @@ export const detectedTransactions = sqliteTable(
      * older one are read again — the same mechanism as `parser_version`.
      */
     templatesRev: integer('templates_rev').notNull().default(0),
+    /**
+     * D21: the shipped model's probability that this is not a payment. Null
+     * when it was not asked — anything but a debit the rules read as a
+     * transaction, or a taught format's reading. The user's labels and the
+     * threshold are applied where the inbox is read, never stored here.
+     */
+    modelScore: real('model_score'),
+    /** The key the user's labels for this sender are counted under (`labelKeyOf`). */
+    modelKey: text('model_key'),
+    /** The MODEL_VERSION that scored it; behind the shipped one means it is read again. */
+    modelVersion: integer('model_version').notNull().default(0),
     /** Set once the user changes anything, so a parser upgrade never undoes their edit. */
     isEdited: integer('is_edited', { mode: 'boolean' }).notNull().default(false),
     resolvedAt: integer('resolved_at'),
@@ -440,6 +452,21 @@ export const captureTemplates = sqliteTable(
     index('idx_capture_templates_live').on(table.deletedAt, table.isEnabled),
   ],
 );
+
+/**
+ * D21: what the user has said about each sender, as counts — payments they
+ * confirmed and messages they marked not a payment. Kept apart from the
+ * candidates because retention deletes those, and a label should outlive the
+ * message it was given on. Discarding never counts. Holds sender ids and app
+ * names only, never a person.
+ */
+export const detectorLabels = sqliteTable('detector_labels', {
+  key: text('key').primaryKey(),
+  confirmed: integer('confirmed').notNull().default(0),
+  notTransaction: integer('not_transaction').notNull().default(0),
+  updatedAt: integer('updated_at').notNull(),
+  deletedAt: integer('deleted_at'),
+});
 
 /** Key/value app settings. See SettingKey for the ones that exist. */
 export const settings = sqliteTable('settings', {
@@ -534,7 +561,11 @@ export type SettingKey =
   /** D18: bumped by every template write; pending candidates read under less are re-read. */
   | 'capture_templates_rev'
   /** The rev a re-read last finished at. Behind `capture_templates_rev` means work is left. */
-  | 'capture_templates_done_rev';
+  | 'capture_templates_done_rev'
+  /** D21: the MODEL_VERSION pending candidates were last scored with. */
+  | 'capture_model_version'
+  /** D21: a flag — let the model move doubtful payments to Maybe. Absent means shadow only. */
+  | 'capture_detector_enabled';
 
 /* -------------------------------------------------------------------------- */
 /* Row types — these replace the hand-written types the fixtures used to carry  */
@@ -562,6 +593,7 @@ export type SettingRow = typeof settings.$inferSelect;
 export type CapturedMessageRow = typeof capturedMessages.$inferSelect;
 export type NewCapturedMessageRow = typeof capturedMessages.$inferInsert;
 export type DetectedTransactionRow = typeof detectedTransactions.$inferSelect;
+export type DetectorLabelRow = typeof detectorLabels.$inferSelect;
 export type CaptureTemplateRow = typeof captureTemplates.$inferSelect;
 export type NewCaptureTemplateRow = typeof captureTemplates.$inferInsert;
 export type NewDetectedTransactionRow = typeof detectedTransactions.$inferInsert;

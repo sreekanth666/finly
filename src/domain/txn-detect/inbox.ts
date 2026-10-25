@@ -2,12 +2,14 @@
  * How the review inbox sorts what the detector found (D17).
  *
  * - **Needs review**: money that left, read well enough to confirm in a tap.
- * - **Maybe**: money that probably left, but something important is missing.
+ * - **Maybe**: money that probably left, but something important is missing,
+ *   or the reader doubts it is a payment at all (D21).
  * - **Money in**: credits. Finly has no income ledger (D4), so a credit's only
  *   destinations are "money back against an expense" (D1) or dismissal.
  * - **Filtered**: everything that is not spending — OTPs, offers, statements,
- *   reminders, failed payments, and transfers such as a card bill. Collapsed,
- *   never dropped, so a wrong call can be rescued.
+ *   reminders, failed payments, transfers such as a card bill, and messages
+ *   that show no sign of money (D21). Collapsed, never dropped, so a wrong
+ *   call can be rescued.
  *
  * Only the first two count toward the badge. Salary and refunds in the count
  * would train the user to ignore it.
@@ -44,14 +46,45 @@ export const EPHEMERAL_KINDS: readonly DetectionKind[] = [
   'reminder',
 ];
 
+/** Whether the reader filed a message that shows no sign of money (D21). */
+export const isFiled = (reasons: readonly string[]): boolean => reasons.includes('file:no-money');
+
+/** Whether the reader doubted a payment it read (D21): a `doubt:` reason. */
+export const isDoubted = (reasons: readonly string[]): boolean => reasons.some((reason) => reason.startsWith('doubt:'));
+
+const DOUBT_WORDS: Record<string, string> = {
+  'doubt:promo-sender': 'It came from a promotional sender id, which banks do not send payment alerts from.',
+  'doubt:no-sender': 'It names no bank and no card or account, and has no sender id, so it may be a person writing.',
+};
+
+/**
+ * Why a doubted payment is in Maybe, in a sentence; null when it is not
+ * doubted. A rule's reason comes first, because it can be named; the model's
+ * (D21) can only be described.
+ */
+export function doubtSentence(reasons: readonly string[], modelDoubted = false): string | null {
+  for (const reason of reasons) {
+    const words = DOUBT_WORDS[reason];
+    if (words !== undefined) return `In Maybe, not Needs review. ${words}`;
+  }
+  if (isDoubted(reasons)) return 'In Maybe, not Needs review: Finly is not sure this is a payment.';
+  return modelDoubted
+    ? 'In Maybe, not Needs review. It reads more like an offer or a notice than a payment. What you choose for this sender teaches Finly.'
+    : null;
+}
+
 export function sectionOf(candidate: {
   kind: DetectionKind;
   direction: Direction | null;
   confidence: Confidence;
+  /** Doubted by the reader (D21): Maybe rather than Needs review. Absent reads as not doubted. */
+  doubt?: boolean;
+  /** Shows no sign of money (D21): Filtered. Absent reads as not filed. */
+  filed?: boolean;
 }): InboxSection {
-  if (FILTERED_KINDS.includes(candidate.kind)) return 'filtered';
+  if (FILTERED_KINDS.includes(candidate.kind) || candidate.filed === true) return 'filtered';
   if (candidate.kind === 'refund' || candidate.direction === 'credit') return 'money_in';
-  if (candidate.kind === 'unknown' || candidate.confidence === 'low') return 'maybe';
+  if (candidate.kind === 'unknown' || candidate.confidence === 'low' || candidate.doubt === true) return 'maybe';
   return 'review';
 }
 

@@ -43,7 +43,7 @@ const KEEP = new Set(
     'loan', 'emi', 'cust', 'x', 'xx',
     // References and rails.
     'ref', 'refno', 'rrn', 'utr', 'upi', 'vpa', 'neft', 'imps', 'rtgs', 'atm', 'pos', 'autopay', 'mandate', 'nach',
-    'ecs', 'p2m', 'p2a', 'mob', 'bk', 'netbanking',
+    'ecs', 'p2m', 'p2a', 'mob', 'bk', 'netbanking', 'aeps', 'cw', 'nsdl', 'cdsl', 'iccl', 'nsccl', 'dated',
     // Currencies.
     'rs', 'inr', 'usd', 'eur', 'gbp', 'aed', 'sgd', 'aud', 'cad', 'rupees',
     // What the classifier gates on.
@@ -54,6 +54,16 @@ const KEEP = new Set(
     'congratulations', 'interest', 'earned', 'charges', 'charge', 'chgs', 'fee', 'fees', 'penalty', 'maintenance',
     'non', 'amb', 'annual', 'processing', 'wdl', 'sip', 'mutual', 'fund', 'clearing', 'corp', 'cred',
     'billdesk', 'top', 'topup', 'recharge', 'self', 'sensitive', 'notification', 'content', 'hidden',
+    // What separates a notice or an offer from a payment, for the detector's
+    // model (D21). Ordinary words, never names.
+    'approved', 'pre', 'preapproved', 'instant', 'instantly', 'claim', 'free', 'gift', 'scratch', 'reward',
+    'rewards', 'points', 'redeem', 'bonus', 'exclusive', 'sale', 'buy', 'shop', 'get', 'flat', 'off', 'lakh',
+    'lakhs', 'convert', 'conversion', 'easy', 'increased', 'enhanced', 'limited', 'period', 'only',
+    'today', 'expire', 'expires', 'expiring', 'expiry', 'valid', 'validity', 'plan', 'pack', 'subscription',
+    'renew', 'renewal', 'premium', 'policy', 'insurance', 'order', 'ordered', 'placed', 'delivered', 'shipped',
+    'dispatched', 'delivery', 'booking', 'booked', 'cancelled', 'pending', 'processed', 'reminder', 'kyc',
+    'draw', 'after', 'within', 'can', 'reply', 'spends', 'enjoy', 'higher', 'use', 'before', 'worth',
+    'next', 'last', 'month', 'into', 'emis', 'lapse', 'hours', 'yesterday', 'check', 'once', 'approve', 'know', 'sender',
     // Time words. Month and weekday names are kept only inside a date (see
     // PROTECTED): on their own, "May" and "August" are also people.
     'am', 'pm', 'ist', 'st', 'nd', 'rd', 'th',

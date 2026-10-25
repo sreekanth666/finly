@@ -10,10 +10,14 @@
 declare module 'node:fs' {
   export function readFileSync(path: string, encoding: 'utf8'): string;
   export function readdirSync(path: string): string[];
+  export function writeFileSync(path: string, data: string): void;
+  export function existsSync(path: string): boolean;
+  export function mkdirSync(path: string, options: { recursive: true }): void;
 }
 
 declare module 'node:path' {
   export function join(...segments: string[]): string;
+  export function basename(path: string, suffix?: string): string;
 }
 
 declare module 'node:sqlite' {
@@ -33,4 +37,4 @@ declare module 'node:sqlite' {
   }
 }
 
-declare const process: { cwd(): string };
+declare const process: { cwd(): string; env: Record<string, string | undefined> };

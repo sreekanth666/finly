@@ -14,8 +14,11 @@
  * letter it is given, so handed "720.00 on 02-Sep-26" it would happily return
  * 720.000226 — it must only ever see the number itself.
  *
- * SBI's UPI alerts carry no currency mark at all ("debited by 1000.00"), so a
- * bare figure with paise directly after a debit or credit verb also counts.
+ * SBI's UPI alerts carry no currency mark at all ("debited by 1000.00", and
+ * as often "debited by 20.0"), so a bare figure with one or two decimals
+ * directly after a debit or credit verb also counts. PNB's AEPS alerts write
+ * the decimal point as a space — "debited with 1050 00 dated" — which is read
+ * only in exactly that place.
  */
 
 import { parseMinor, type Minor } from '@/domain/money';
@@ -40,7 +43,8 @@ export type AmountReading = {
 
 const MARKED = /\b(INR|USD|EUR|GBP|AED|SGD|AUD|CAD) ([0-9][0-9,]*(?:\.[0-9]+)?)/g;
 const BARE_AFTER_VERB =
-  /\b(?:debited|credited|debit|credit|paid|spent|withdrawn|sent|received)\s+(?:by|for|with|of)?\s*([0-9][0-9,]*\.[0-9]{2})\b/gi;
+  /\b(?:debited|credited|debit|credit|paid|spent|withdrawn|sent|received)\s+(?:by|for|with|of)?\s*([0-9][0-9,]*\.[0-9]{1,2})\b/gi;
+const SPACED_PAISE = /\bdebited with\s+([0-9]+) ([0-9]{2})(?=\s+dated\b)/gi;
 
 /** The words that, just before a figure, mean it is not the payment. */
 const NOT_THE_PAYMENT =
@@ -97,6 +101,15 @@ export function readAmounts(text: string): AmountReading {
       score: scoreFinding(text, index, end, verbs),
       marked: false,
     });
+  }
+
+  for (const match of text.matchAll(SPACED_PAISE)) {
+    const index = match.index + match[0].length - match[1].length - match[2].length - 1;
+    const end = match.index + match[0].length;
+    if (findings.some((finding) => index < finding.end && end > finding.index)) continue;
+    const amountMinor = parseMinor(`${match[1]}.${match[2]}`);
+    if (amountMinor === null || amountMinor <= 0) continue;
+    findings.push({ amountMinor, currency: 'INR', index, end, score: scoreFinding(text, index, end, verbs), marked: false });
   }
 
   if (findings.length === 0) return { best: null, candidates: [], ambiguous: false };

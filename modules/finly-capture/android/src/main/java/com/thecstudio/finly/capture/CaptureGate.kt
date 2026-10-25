@@ -28,8 +28,13 @@ object CaptureGate {
     "com.truecaller"
   )
 
+  // Whole words only: without the boundaries "rs" matched "hours" and
+  // "Callers", "card" matched "postcard" and "sent" matched "present", and a
+  // friend's chat with any digit in it was stored. A currency word counts only
+  // before a figure, as banks write it ("Rs.500", "INR500", "Rs: 1,200").
+  // Read by capture-gate.test.ts, which holds it to every alert in the corpus.
   private val MONEY = Regex(
-    "(?i)(rs\\.?|inr|₹|debited|credited|spent|paid|sent|received|txn|transaction|a/c|acct|card|upi|withdrawn|refund|reversal)"
+    "(?i)(₹|\\b(?:rs|inr)\\.?\\s*:?\\s*\\d|\\b(?:debited|credited|spent|paid|sent|received|txn|transaction|a/c|acct|card|upi|withdrawn|refund|reversal)\\b)"
   )
   private val DIGIT = Regex("\\d")
   private val REDACTED = Regex("(?i)(sensitive|content hidden)")

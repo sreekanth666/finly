@@ -10,6 +10,7 @@
 import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
 import type { DetectionFact } from '@/domain/support/diagnostics';
+import type { ReviewedMessage } from '@/domain/support/labelled';
 import type { TemplateFact } from '@/domain/support/report';
 
 import { db, type DbLike } from '../client';
@@ -41,6 +42,7 @@ export function listDetectionFacts(limit: number, database: DbLike = db): Detect
       suggestedAccountId: detectedTransactions.suggestedAccountId,
       expenseSource: expenses.source,
       cardPaymentId: detectedTransactions.cardPaymentId,
+      modelScore: detectedTransactions.modelScore,
       expenseAmount: expenses.amountMinor,
       expenseAt: expenses.occurredAt,
       expenseItem: expenses.item,
@@ -129,6 +131,30 @@ export function listProblemMessages(limit: number, database: DbLike = db): Probl
         ),
       ),
     )
+    .orderBy(desc(detectedTransactions.createdAt))
+    .limit(limit)
+    .all();
+}
+
+/**
+ * The newest reviewed and waiting messages, with what the user did with each
+ * (D21). Only read when the user asks to help improve detection, and then only
+ * turned into skeletons. Duplicates are left out: they are second copies.
+ */
+export function listReviewedMessages(limit: number, database: DbLike = db): ReviewedMessage[] {
+  return database
+    .select({
+      body: capturedMessages.body,
+      sender: capturedMessages.sender,
+      title: capturedMessages.title,
+      packageName: capturedMessages.packageName,
+      kind: detectedTransactions.kind,
+      status: detectedTransactions.status,
+      cardPaymentId: detectedTransactions.cardPaymentId,
+    })
+    .from(detectedTransactions)
+    .innerJoin(capturedMessages, eq(capturedMessages.id, detectedTransactions.messageId))
+    .where(and(alive, isNull(capturedMessages.deletedAt), ne(detectedTransactions.status, 'duplicate')))
     .orderBy(desc(detectedTransactions.createdAt))
     .limit(limit)
     .all();

@@ -74,12 +74,13 @@ export default function ContactScreen() {
     appDevice: true,
     detection: params.topic === 'detection',
     shapes: false,
+    labelled: false,
   });
   const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [outcome, setOutcome] = useState<string | null>(null);
 
-  const diagnostics = useDiagnostics(sections.shapes);
+  const diagnostics = useDiagnostics(sections.shapes, sections.labelled);
 
   const email = useMemo(
     () =>
@@ -93,13 +94,19 @@ export default function ContactScreen() {
         summary: diagnostics.summary,
         templates: diagnostics.templates,
         shapes: diagnostics.shapes,
+        labelled: diagnostics.labelled,
       }),
     [topic, text, sections, diagnostics],
   );
 
   const chooseTopic = (next: ReportTopic) => {
     setTopic(next);
-    setSections((current) => ({ ...current, detection: next === 'detection', shapes: next === 'detection' && current.shapes }));
+    setSections((current) => ({
+      ...current,
+      detection: next === 'detection',
+      shapes: next === 'detection' && current.shapes,
+      labelled: next === 'detection' && current.labelled,
+    }));
   };
 
   const send = async () => {
@@ -178,6 +185,13 @@ export default function ContactScreen() {
             description="Up to 10 messages Finly had trouble with, with every name, amount and number replaced. Dates and times are kept."
             isSelected={sections.shapes}
             onChange={(next) => setSections((current) => ({ ...current, shapes: next }))}
+          />
+          <SectionToggle
+            isFirst={false}
+            label="Help improve detection"
+            description="Up to 300 messages you have reviewed, as shapes with every name, amount and number replaced, and what you did with each. Dates and times are kept."
+            isSelected={sections.labelled}
+            onChange={(next) => setSections((current) => ({ ...current, labelled: next }))}
           />
         </View>
         <Pressable

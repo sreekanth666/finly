@@ -15,23 +15,27 @@ other native modules need a development build.
 
 ```bash
 pnpm install
-pnpm android          # expo run:android
-pnpm ios              # expo run:ios
+pnpm android          # expo run:android, as the development variant
+pnpm ios              # expo run:ios, as the development variant
 ```
+
+The development build is a separate app — `Finly Dev`, `com.thecstudio.finly.dev`,
+scheme `finly-dev` — so it installs beside the store app. The scripts set
+`APP_VARIANT=development` for you; if you run `expo` directly, set it yourself.
 
 The first run generates `android/` and `ios/` via prebuild. Both are gitignored,
 so **any change to a native dependency or to the plugin list in `app.json` needs
 a rebuild**:
 
 ```bash
-pnpm expo prebuild --clean
+pnpm native:dev      # pnpm native:prod before a release build
 pnpm android
 ```
 
 After changing `babel.config.js` or `metro.config.js`, clear the bundler cache:
 
 ```bash
-pnpm expo start -c
+pnpm start -c
 ```
 
 ## The database

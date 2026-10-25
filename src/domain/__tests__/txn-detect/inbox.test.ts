@@ -30,6 +30,15 @@ describe('sectionOf', () => {
   });
 });
 
+describe('a message that shows no sign of money (D21)', () => {
+  it('is filed, whatever else is unsure about it, and leaves the badge', () => {
+    const filed = { kind: 'unknown' as const, direction: null, confidence: 'low' as const, filed: true };
+    expect(sectionOf(filed)).toBe('filtered');
+    expect(countsTowardBadge(filed)).toBe(false);
+    expect(sectionOf({ ...filed, filed: false })).toBe('maybe');
+  });
+});
+
 describe('countsTowardBadge', () => {
   it('counts only what might be spending', () => {
     expect(countsTowardBadge({ kind: 'transaction', direction: 'debit', confidence: 'high' })).toBe(true);

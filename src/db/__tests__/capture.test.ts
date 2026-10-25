@@ -147,3 +147,55 @@ describe('expenses, after D17', () => {
     });
   });
 });
+
+describe('the detector model and its labels (D21)', () => {
+  it('marks candidates stored before any model as unscored, version 0, so the first model scores them', () => {
+    db.exec(message('m1'));
+    db.exec(candidate({ id: 'c1', messageId: 'm1' }));
+    expect(db.prepare("select model_score, model_key, model_version from detected_transactions where id='c1'").get()).toEqual({
+      model_score: null,
+      model_key: null,
+      model_version: 0,
+    });
+  });
+
+  it('counts per sender from nothing, one row each', () => {
+    db.exec(`insert into detector_labels (key,updated_at) values ('HDFCBK-T',${NOW})`);
+    expect(db.prepare("select confirmed, not_transaction, deleted_at from detector_labels where key='HDFCBK-T'").get()).toEqual({
+      confirmed: 0,
+      not_transaction: 0,
+      deleted_at: null,
+    });
+    expect(rejects(db, `insert into detector_labels (key,updated_at) values ('HDFCBK-T',${NOW})`)).toBe(true);
+  });
+
+  it('keeps what the user taught when retention clears the inbox', () => {
+    db.exec(message('m1'));
+    db.exec(candidate({ id: 'c1', messageId: 'm1' }));
+    db.exec(`insert into detector_labels (key,confirmed,updated_at) values ('HDFCBK-T',3,${NOW})`);
+    db.exec("delete from captured_messages where id='m1'");
+    expect(db.prepare('select count(*) as n from detected_transactions').get()).toEqual({ n: 0 });
+    expect(db.prepare("select confirmed from detector_labels where key='HDFCBK-T'").get()).toEqual({ confirmed: 3 });
+  });
+});
+
+describe('filing what shows no sign of money (D21)', () => {
+  /* The badge query excludes a stored reason with this pattern (captures.ts, FILED_REASON). */
+  const FILED = `reasons not like '%"file:no-money"%'`;
+
+  it('matches the reason as detect stores it, and nothing that merely starts like it', () => {
+    db.exec(message('m1'));
+    db.exec(message('m2'));
+    db.exec(message('m3'));
+    db.exec(candidate({ id: 'c1', messageId: 'm1', kind: 'unknown' }));
+    db.exec(candidate({ id: 'c2', messageId: 'm2', kind: 'unknown' }));
+    db.exec(candidate({ id: 'c3', messageId: 'm3', kind: 'unknown' }));
+    const set = (id: string, reasons: string[]) =>
+      db.prepare('update detected_transactions set reasons = ? where id = ?').run(JSON.stringify(reasons), id);
+    set('c1', ['kind:unknown', 'file:no-money']);
+    set('c2', ['kind:unknown', 'file:no-money-later']);
+    set('c3', ['kind:unknown']);
+    const counted = db.prepare(`select id from detected_transactions where status = 'pending' and ${FILED} order by id`).all();
+    expect(counted).toEqual([{ id: 'c2' }, { id: 'c3' }]);
+  });
+});

@@ -57,9 +57,11 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "start": "APP_VARIANT=development expo start",
+    "native:dev": "APP_VARIANT=development expo prebuild --clean",
+    "native:prod": "APP_VARIANT=production expo prebuild --clean",
+    "android": "APP_VARIANT=development expo run:android",
+    "ios": "APP_VARIANT=development expo run:ios",
     "build:dev": "node scripts/android-build.mjs dev",
     "build:aab": "node scripts/android-build.mjs aab",
     "install:dev": "node scripts/android-install.mjs",
@@ -68,6 +70,10 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:tz": "TZ=Asia/Kolkata jest && TZ=UTC jest && TZ=America/Los_Angeles jest",
+    "detector:eval": "DETECTOR_REPORT=1 jest src/domain/__tests__/txn-detect/detector-eval.test.ts",
+    "detector:import": "node scripts/detector-import.mjs",
+    "detector:bench": "node scripts/detector-bench.mjs",
+    "train:detector": "jest --config scripts/detector/jest.config.js --runInBand",
     "db:generate": "drizzle-kit generate",
     "check:money": "node scripts/check-money.mjs",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm check:colors && pnpm check:money"

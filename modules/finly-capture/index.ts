@@ -40,6 +40,8 @@ declare class FinlyCaptureNativeModule extends NativeModule<FinlyCaptureEvents> 
   setEnabled(enabled: boolean): void;
   setMonitoredPackages(packages: string[]): void;
   setNotifyEnabled(enabled: boolean): void;
+  /** The running build's link scheme, so a notification opens this app and not its sibling. */
+  setLinkScheme(scheme: string): void;
   openListenerSettings(): void;
   requestRebind(): void;
   replayActive(): Promise<boolean>;
