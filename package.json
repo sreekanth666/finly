@@ -57,7 +57,9 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "start": "expo start",
+    "start": "APP_VARIANT=development expo start",
+    "native:dev": "APP_VARIANT=development expo prebuild --clean",
+    "native:prod": "expo prebuild --clean",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "build:dev": "node scripts/android-build.mjs dev",

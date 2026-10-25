@@ -15,12 +15,16 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'nod
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { expectedVariantId, generatedApplicationId } from './android-variant.mjs';
+
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const ANDROID_DIR = join(ROOT, 'android');
 
 const MODES = {
   dev: {
     describe: 'debug APK with expo-dev-client',
+    variant: 'development',
+    native: 'pnpm native:dev',
     task: 'assembleDebug',
     artifact: 'app/build/outputs/apk/debug/app-debug.apk',
     outputDir: 'builds/dev',
@@ -29,6 +33,8 @@ const MODES = {
   },
   aab: {
     describe: 'release AAB',
+    variant: 'production',
+    native: 'pnpm native:prod',
     task: 'bundleRelease',
     artifact: 'app/build/outputs/bundle/release/app-release.aab',
     outputDir: 'builds/release',
@@ -43,8 +49,8 @@ function fail(message, hint) {
   process.exit(1);
 }
 
-function run(command, args, cwd) {
-  const result = spawnSync(command, args, { cwd, stdio: 'inherit' });
+function run(command, args, cwd, env = process.env) {
+  const result = spawnSync(command, args, { cwd, stdio: 'inherit', env });
   if (result.error) fail(`Could not run ${command}: ${result.error.message}`);
   if (result.status !== 0) fail(`${command} ${args.join(' ')} failed.`);
 }
@@ -73,7 +79,21 @@ if (spawnSync('java', ['-version'], { stdio: 'ignore' }).error) {
  */
 if (!existsSync(ANDROID_DIR)) {
   console.log('No android/ yet — running prebuild.\n');
-  run('pnpm', ['expo', 'prebuild', '--platform', 'android'], ROOT);
+  run('pnpm', ['expo', 'prebuild', '--platform', 'android'], ROOT, { ...process.env, APP_VARIANT: mode.variant });
+}
+
+/**
+ * android/ carries the app ID of the variant it was generated for, and the dev
+ * and release builds ask for different ones. Building over the wrong project
+ * would produce an app that collides with the one it was meant to sit beside.
+ */
+const wanted = expectedVariantId(mode.variant);
+const generated = generatedApplicationId(ANDROID_DIR);
+if (generated !== wanted) {
+  fail(
+    `android/ was generated for ${generated}, but this build is ${wanted}.`,
+    `regenerate it first: ${mode.native}`,
+  );
 }
 
 const app = JSON.parse(readFileSync(join(ROOT, 'app.json'), 'utf8')).expo;
