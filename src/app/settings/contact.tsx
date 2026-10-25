@@ -8,6 +8,7 @@ import { Button } from '@/components/button';
 import { FilterChipBar, type FilterOption } from '@/components/filter-chip-bar';
 import { FormScreen } from '@/components/form-screen';
 import { SectionHeader } from '@/components/section-header';
+import { freshDraft, withTopic, type ContactDraft } from '@/domain/support/draft';
 import { buildSupportEmail, type ReportSections, type ReportTopic } from '@/domain/support/report';
 import { DEVELOPER_EMAIL } from '@/domain/txn-detect';
 import { useNavigateOnce } from '@/features/navigation/hooks';
@@ -63,22 +64,24 @@ function SectionToggle({
  * Every section of the report can be switched off, and the preview below is
  * exactly what the email will contain — built from counts and bank names,
  * never from amounts, payees or message text.
+ *
+ * Once the mail app has the message, the form starts over so the same report
+ * is not sent twice by accident. Finly cannot tell a sent email from a
+ * cancelled one (see `mail.ts`), so the old draft is kept aside and offered
+ * back until the user starts editing the new one.
  */
 export default function ContactScreen() {
   const params = useLocalSearchParams<{ topic?: string }>();
   const navigate = useNavigateOnce();
 
-  const [topic, setTopic] = useState<ReportTopic>(params.topic === 'detection' ? 'detection' : 'other');
-  const [text, setText] = useState('');
-  const [sections, setSections] = useState<ReportSections>({
-    appDevice: true,
-    detection: params.topic === 'detection',
-    shapes: false,
-    labelled: false,
-  });
+  const startTopic: ReportTopic = params.topic === 'detection' ? 'detection' : 'other';
+  const [draft, setDraft] = useState<ContactDraft>(() => freshDraft(startTopic));
+  const { topic, text, sections } = draft;
   const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [outcome, setOutcome] = useState<string | null>(null);
+  /* What happened on the last send, and the draft it took, while that can
+     still be brought back. Both go on the next edit. */
+  const [outcome, setOutcome] = useState<{ message: string; previous: ContactDraft | null } | null>(null);
 
   const diagnostics = useDiagnostics(sections.shapes, sections.labelled);
 
@@ -99,23 +102,35 @@ export default function ContactScreen() {
     [topic, text, sections, diagnostics],
   );
 
-  const chooseTopic = (next: ReportTopic) => {
-    setTopic(next);
-    setSections((current) => ({
-      ...current,
-      detection: next === 'detection',
-      shapes: next === 'detection' && current.shapes,
-      labelled: next === 'detection' && current.labelled,
-    }));
+  const edit = (change: (current: ContactDraft) => ContactDraft) => {
+    setDraft(change);
+    setOutcome(null);
   };
+  const chooseTopic = (next: ReportTopic) => edit((current) => withTopic(current, next));
+  const setText = (next: string) => edit((current) => ({ ...current, text: next }));
+  const toggle = (key: keyof ReportSections) => (next: boolean) =>
+    edit((current) => ({ ...current, sections: { ...current.sections, [key]: next } }));
 
   const send = async () => {
     setIsSending(true);
     try {
-      setOutcome(sentMessage(await sendToDeveloper(email)));
+      const route = await sendToDeveloper(email);
+      /* Nothing opened, so nothing was handed over: the draft stays put. */
+      const isHandedOff = route !== 'failed';
+      setOutcome({ message: sentMessage(route), previous: isHandedOff ? draft : null });
+      if (isHandedOff) {
+        setDraft(freshDraft(startTopic));
+        setIsAttachmentOpen(false);
+      }
     } finally {
       setIsSending(false);
     }
+  };
+
+  const previous = outcome?.previous ?? null;
+  const bringBack = (draftToRestore: ContactDraft) => {
+    setDraft(draftToRestore);
+    setOutcome(null);
   };
 
   return (
@@ -129,8 +144,18 @@ export default function ContactScreen() {
         <>
           {outcome !== null && (
             <Typography type="body-xs" color="muted">
-              {outcome}
+              {outcome.message}
             </Typography>
+          )}
+          {previous !== null && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => bringBack(previous)}
+              className="self-start active:opacity-60">
+              <Typography type="body-xs" className="text-link">
+                Didn’t send it? Bring your message back.
+              </Typography>
+            </Pressable>
           )}
           <Button
             icon={Mail}
@@ -170,28 +195,28 @@ export default function ContactScreen() {
             label="App and phone"
             description="App version, Android version, phone make and model, language and time zone"
             isSelected={sections.appDevice}
-            onChange={(next) => setSections((current) => ({ ...current, appDevice: next }))}
+            onChange={toggle('appDevice')}
           />
           <SectionToggle
             isFirst={false}
             label="How detection is doing"
             description="Settings, whether the listener is running, and counts by bank. No amounts, payees or messages."
             isSelected={sections.detection}
-            onChange={(next) => setSections((current) => ({ ...current, detection: next }))}
+            onChange={toggle('detection')}
           />
           <SectionToggle
             isFirst={false}
             label="Shapes of misread messages"
             description="Up to 10 messages Finly had trouble with, with every name, amount and number replaced. Dates and times are kept."
             isSelected={sections.shapes}
-            onChange={(next) => setSections((current) => ({ ...current, shapes: next }))}
+            onChange={toggle('shapes')}
           />
           <SectionToggle
             isFirst={false}
             label="Help improve detection"
             description="Up to 300 messages you have reviewed, as shapes with every name, amount and number replaced, and what you did with each. Dates and times are kept."
             isSelected={sections.labelled}
-            onChange={(next) => setSections((current) => ({ ...current, labelled: next }))}
+            onChange={toggle('labelled')}
           />
         </View>
         <Pressable
