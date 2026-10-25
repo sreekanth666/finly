@@ -53,3 +53,6 @@ builds/
 # Local SMS datasets for `pnpm detector:bench` (D21), and its output. Real or
 # licensed messages never enter the repo; the committed corpus holds skeletons.
 dataset/
+
+# Local test reports and the issue drafts written from them.
+reports/
