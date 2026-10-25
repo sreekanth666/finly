@@ -24,8 +24,13 @@ const resolve = (variant: string | undefined) => {
   }
 };
 
-const devClientEntries = (plugins: readonly PluginEntry[] | undefined) =>
-  (plugins ?? []).filter((entry) => (Array.isArray(entry) ? entry[0] : entry) === 'expo-dev-client');
+const entriesNamed = (name: string) => (plugins: readonly PluginEntry[] | undefined) =>
+  (plugins ?? []).filter((entry) => (Array.isArray(entry) ? entry[0] : entry) === name);
+
+const devClientEntries = entriesNamed('expo-dev-client');
+const buildPropertiesEntries = entriesNamed('expo-build-properties');
+
+const basePlugins = base.plugins as PluginEntry[];
 
 describe('resolveVariant', () => {
   it('reads an unset variant as production', () => {
@@ -56,6 +61,13 @@ describe('production variant', () => {
   it('leaves the generated dev-client scheme out of the release build, once', () => {
     expect(devClientEntries(config.plugins as PluginEntry[])).toEqual([['expo-dev-client', { addGeneratedScheme: false }]]);
   });
+
+  it('builds every ABI, as app.json declares, so the Play listing covers every device', () => {
+    const entries = buildPropertiesEntries(config.plugins as PluginEntry[]);
+    expect(entries).toEqual(buildPropertiesEntries(basePlugins));
+    expect(entries).toHaveLength(1);
+    expect((entries[0] as [string, { android: Record<string, unknown> }])[1].android.buildArchs).toBeUndefined();
+  });
 });
 
 describe('development variant', () => {
@@ -76,12 +88,30 @@ describe('development variant', () => {
     expect(devClientEntries(config.plugins as PluginEntry[])).toEqual([['expo-dev-client', { addGeneratedScheme: true }]]);
   });
 
+  it('builds arm64 only, once, keeping the release shrinking options', () => {
+    const [entry, ...rest] = buildPropertiesEntries(config.plugins as PluginEntry[]);
+    expect(rest).toEqual([]);
+    expect(entry).toEqual([
+      'expo-build-properties',
+      {
+        android: {
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+          buildArchs: ['arm64-v8a'],
+        },
+      },
+    ]);
+  });
+
   it('changes nothing else the production app declares', () => {
     expect(config.android?.permissions).toEqual(base.android.permissions);
     expect(config.android?.adaptiveIcon).toEqual(base.android.adaptiveIcon);
     const others = (plugins: readonly PluginEntry[] | undefined) =>
-      (plugins ?? []).filter((entry) => (Array.isArray(entry) ? entry[0] : entry) !== 'expo-dev-client');
-    expect(others(config.plugins as PluginEntry[])).toEqual(others(base.plugins as PluginEntry[]));
+      (plugins ?? []).filter((entry) => {
+        const name = Array.isArray(entry) ? entry[0] : entry;
+        return name !== 'expo-dev-client' && name !== 'expo-build-properties';
+      });
+    expect(others(config.plugins as PluginEntry[])).toEqual(others(basePlugins));
   });
 });
 

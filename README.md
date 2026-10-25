@@ -22,6 +22,9 @@ pnpm ios              # expo run:ios, as the development variant
 The development build is a separate app — `Finly Dev`, `com.thecstudio.finly.dev`,
 scheme `finly-dev` — so it installs beside the store app. The scripts set
 `APP_VARIANT=development` for you; if you run `expo` directly, set it yourself.
+It is built for `arm64-v8a` only, which every current phone runs; for an x86_64
+emulator, build with `./gradlew assembleDebug -PreactNativeArchitectures=x86_64`.
+The release build keeps every ABI.
 
 The first run generates `android/` and `ios/` via prebuild. Both are gitignored,
 so **any change to a native dependency or to the plugin list in `app.json` needs
