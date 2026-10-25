@@ -8,6 +8,10 @@
  * icon in the library to render a dozen. The glyphs themselves come from
  * ./icons, which imports them one file at a time.
  *
+ * The names, labels and search keywords live in domain/category-icons.ts. The
+ * map is keyed by that list's names, so an icon added there without a glyph
+ * here — or the other way round — fails the typecheck.
+ *
  * A name with no entry falls back to the neutral glyph rather than throwing. A
  * restored backup from a future version could name an icon this build has never
  * heard of, and that must not blank the screen.
@@ -36,10 +40,11 @@ import {
   Wrench,
   type LucideIcon,
 } from '@/components/icons';
+import { CATEGORY_ICONS, type CategoryIconName } from '@/domain/category-icons';
 
-export const FALLBACK_ICON_NAME = 'Ellipsis';
+export { FALLBACK_ICON_NAME } from '@/domain/category-icons';
 
-const ICONS: Record<string, LucideIcon> = {
+const ICONS: Record<CategoryIconName, LucideIcon> = {
   Banknote,
   Car,
   CreditCard,
@@ -62,8 +67,10 @@ const ICONS: Record<string, LucideIcon> = {
   Wrench,
 };
 
-/** Every name a category may be given, for the icon picker in Settings. */
-export const ICON_NAMES = Object.keys(ICONS).sort();
+/** Every name a category may be given, in the order the picker shows them. */
+export const ICON_NAMES: readonly CategoryIconName[] = CATEGORY_ICONS.map((icon) => icon.name);
 
 export const iconFor = (name: string | null | undefined): LucideIcon =>
-  (name === null || name === undefined ? undefined : ICONS[name]) ?? Ellipsis;
+  (name === null || name === undefined
+    ? undefined
+    : (ICONS as Partial<Record<string, LucideIcon>>)[name]) ?? Ellipsis;
