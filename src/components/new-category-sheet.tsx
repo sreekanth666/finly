@@ -1,14 +1,16 @@
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { BottomSheet, Input, Typography, useBottomSheetAwareHandlers } from 'heroui-native';
 import { Plus } from '@/components/icons';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Button } from './button';
 import { Icon } from './icon';
-import { ICON_NAMES, iconFor } from './icon-registry';
+import { IconPicker, type IconPickerProps } from './icon-picker';
+import { FALLBACK_ICON_NAME, iconFor } from './icon-registry';
 import { VERTICAL_ONLY_PAN } from './sheet-pan';
 
+import { iconLabel, suggestIcon, type CategoryIconName } from '@/domain/category-icons';
 import { useCreateCategory } from '@/features/catalog/hooks';
 
 export type NewCategorySheetProps = {
@@ -49,6 +51,19 @@ function NameField({
   );
 }
 
+/** Spelled out per state so the CSS compiler sees both. */
+const ICON_BUTTON = {
+  closed: 'size-11 items-center justify-center rounded-xl bg-surface-secondary active:opacity-60',
+  open: 'size-11 items-center justify-center rounded-xl border border-accent bg-surface-secondary active:opacity-60',
+} as const;
+
+/** The icon grid, split out for the same reason: its search field is a sheet input. */
+function SheetIconPicker(props: Omit<IconPickerProps, 'onSearchFocus' | 'onSearchBlur'>) {
+  const { onFocus, onBlur } = useBottomSheetAwareHandlers();
+
+  return <IconPicker {...props} onSearchFocus={onFocus} onSearchBlur={onBlur} />;
+}
+
 /**
  * A category, made without leaving the form that needed it.
  *
@@ -64,7 +79,16 @@ function NameField({
 export function NewCategorySheet({ isOpen, onOpenChange, onCreated }: NewCategorySheetProps) {
   const create = useCreateCategory();
   const [name, setName] = useState('');
-  const [iconIndex, setIconIndex] = useState(0);
+  /* Null until the user taps an icon: until then the name suggests one, and
+     keeps suggesting as it is typed. */
+  const [pickedIcon, setPickedIcon] = useState<CategoryIconName | null>(null);
+  /* The grid stays out of the way until the icon beside the name is tapped. */
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+
+  const suggestedIcon = suggestIcon(name);
+  const icon = pickedIcon ?? suggestedIcon ?? FALLBACK_ICON_NAME;
+
+  const snapPoints = useMemo(() => [isPickerOpen ? '78%' : '45%'], [isPickerOpen]);
 
   const canAdd = name.trim().length > 0 && !create.isPending;
 
@@ -72,14 +96,15 @@ export function NewCategorySheet({ isOpen, onOpenChange, onCreated }: NewCategor
     onOpenChange(open);
     if (!open) {
       setName('');
-      setIconIndex(0);
+      setPickedIcon(null);
+      setIsPickerOpen(false);
       create.reset();
     }
   };
 
   const submit = async () => {
     if (!canAdd) return;
-    const outcome = await create.run(name.trim(), ICON_NAMES[iconIndex] ?? 'Ellipsis');
+    const outcome = await create.run(name.trim(), icon);
     if (!outcome.ok) return;
 
     onCreated(outcome.value.id);
@@ -91,11 +116,12 @@ export function NewCategorySheet({ isOpen, onOpenChange, onCreated }: NewCategor
       <BottomSheet.Portal>
         <BottomSheet.Overlay />
         {/* Pinned rather than dynamic, as every sheet here is: a dynamically
-            sized sheet mounts part-way up before it has measured. Short,
-            because there are two fields; `interactive` lifts it clear of the
-            keyboard rather than growing it to fill the screen. */}
+            sized sheet mounts part-way up before it has measured. Short until
+            the icon grid is opened, then tall enough for it; `interactive`
+            lifts it clear of the keyboard rather than growing it to fill the
+            screen. */}
         <BottomSheet.Content
-          snapPoints={['45%']}
+          snapPoints={snapPoints}
           enableOverDrag={false}
           {...VERTICAL_ONLY_PAN}
           enableDynamicSizing={false}
@@ -112,18 +138,30 @@ export function NewCategorySheet({ isOpen, onOpenChange, onCreated }: NewCategor
               </View>
 
               <View className="flex-row items-center gap-2">
+                {/* Shows what will be saved, and opens the grid to change it. */}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Change the icon"
+                  accessibilityLabel={`Icon: ${iconLabel(icon)}. Change`}
+                  accessibilityState={{ expanded: isPickerOpen }}
                   hitSlop={10}
-                  onPress={() => setIconIndex((current) => (current + 1) % ICON_NAMES.length)}
-                  className="size-11 items-center justify-center rounded-xl bg-surface-secondary active:opacity-60">
-                  <Icon icon={iconFor(ICON_NAMES[iconIndex])} color="muted" size={18} />
+                  onPress={() => setIsPickerOpen((open) => !open)}
+                  className={isPickerOpen ? ICON_BUTTON.open : ICON_BUTTON.closed}>
+                  <Icon icon={iconFor(icon)} color="muted" size={18} />
                 </Pressable>
                 <View className="flex-1">
                   <NameField value={name} onChangeText={setName} onSubmit={() => void submit()} />
                 </View>
               </View>
+
+              {isPickerOpen && (
+                <SheetIconPicker
+                  value={icon}
+                  onChange={(next) => {
+                    setPickedIcon(next);
+                    setIsPickerOpen(false);
+                  }}
+                />
+              )}
 
               {create.errorMessage !== null && (
                 <Typography type="body-xs" className="text-danger">

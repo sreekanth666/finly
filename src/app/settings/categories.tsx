@@ -8,7 +8,8 @@ import { ErrorState } from '@/components/error-state';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/button';
 import { FormScreen } from '@/components/form-screen';
-import { ICON_NAMES, iconFor } from '@/components/icon-registry';
+import { IconPicker } from '@/components/icon-picker';
+import { FALLBACK_ICON_NAME, iconFor } from '@/components/icon-registry';
 import { ReorderButtons } from '@/components/reorder-buttons';
 import { SectionHeader } from '@/components/section-header';
 import {
@@ -17,10 +18,17 @@ import {
   setCategoryArchived,
 } from '@/db/repositories/categories';
 import type { CategoryRow } from '@/db/schema';
+import { iconLabel, suggestIcon, type CategoryIconName } from '@/domain/category-icons';
 import { isAtEdge, moveItem } from '@/domain/reorder';
 import { useAction } from '@/db/use-action';
 import { useCategories, useCreateCategory } from '@/features/catalog/hooks';
 import { toAppColor } from '@/theme';
+
+/** Spelled out per state so the CSS compiler sees both. */
+const ICON_BUTTON = {
+  closed: 'size-10 items-center justify-center rounded-xl bg-surface-secondary active:opacity-60',
+  open: 'size-10 items-center justify-center rounded-xl border border-accent bg-surface-secondary active:opacity-60',
+} as const;
 
 const ROW = {
   first: 'flex-row items-center gap-2 px-3 py-2',
@@ -47,7 +55,12 @@ export default function CategoriesSettingsScreen() {
      one was through a CSV import that happened to name an unknown category. */
   const create = useCreateCategory();
   const [newName, setNewName] = useState('');
-  const [iconIndex, setIconIndex] = useState(0);
+  /* Null until the user taps an icon: until then the name suggests one. */
+  const [pickedIcon, setPickedIcon] = useState<CategoryIconName | null>(null);
+  /* The grid stays out of the way until the icon beside the name is tapped. */
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const suggestedIcon = suggestIcon(newName);
+  const newIcon = pickedIcon ?? suggestedIcon ?? FALLBACK_ICON_NAME;
   /* A name that is already taken adds nothing, which would look like a press
      that did nothing — so say what happened instead. */
   const [createNotice, setCreateNotice] = useState<string | null>(null);
@@ -154,13 +167,15 @@ export default function CategoriesSettingsScreen() {
             Add a category
           </Typography>
           <View className="flex-row items-center gap-2">
+            {/* Shows what will be saved, and opens the grid to change it. */}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Change the icon"
+              accessibilityLabel={`Icon: ${iconLabel(newIcon)}. Change`}
+              accessibilityState={{ expanded: isPickerOpen }}
               hitSlop={10}
-              onPress={() => setIconIndex((current) => (current + 1) % ICON_NAMES.length)}
-              className="size-10 items-center justify-center rounded-xl bg-surface-secondary active:opacity-60">
-              <Icon icon={iconFor(ICON_NAMES[iconIndex])} color="muted" size={16} />
+              onPress={() => setIsPickerOpen((open) => !open)}
+              className={isPickerOpen ? ICON_BUTTON.open : ICON_BUTTON.closed}>
+              <Icon icon={iconFor(newIcon)} color="muted" size={16} />
             </Pressable>
             <View className="flex-1">
               <Input
@@ -172,6 +187,17 @@ export default function CategoriesSettingsScreen() {
               />
             </View>
           </View>
+          {isPickerOpen && (
+            <View className="pt-2">
+              <IconPicker
+                value={newIcon}
+                onChange={(next) => {
+                  setPickedIcon(next);
+                  setIsPickerOpen(false);
+                }}
+              />
+            </View>
+          )}
           <Button
             label="Add"
             icon={Plus}
@@ -179,10 +205,12 @@ export default function CategoriesSettingsScreen() {
             isDisabled={newName.trim().length === 0 || create.isPending}
             onPress={async () => {
               const name = newName.trim();
-              const outcome = await create.run(name, ICON_NAMES[iconIndex] ?? 'Ellipsis');
+              const outcome = await create.run(name, newIcon);
               if (!outcome.ok) return;
 
               setNewName('');
+              setPickedIcon(null);
+              setIsPickerOpen(false);
               setCreateNotice(
                 outcome.value.outcome === 'existing'
                   ? `“${name}” is already in your list.`
