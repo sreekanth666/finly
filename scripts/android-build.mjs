@@ -99,7 +99,10 @@ if (generated !== wanted) {
 const app = JSON.parse(readFileSync(join(ROOT, 'app.json'), 'utf8')).expo;
 
 console.log(`Building ${mode.describe} for ${app.slug} ${app.version}.\n`);
-run('./gradlew', [mode.task], ANDROID_DIR);
+/* Gradle re-evaluates app.config.ts on every build (expo-constants' createExpoConfig)
+   and embeds the result, which the app reads for its own scheme at runtime. It
+   needs the same variant as the project it builds, whatever the shell exports. */
+run('./gradlew', [mode.task], ANDROID_DIR, { ...process.env, APP_VARIANT: mode.variant });
 
 const built = join(ANDROID_DIR, mode.artifact);
 if (!existsSync(built)) {

@@ -59,9 +59,9 @@
   "scripts": {
     "start": "APP_VARIANT=development expo start",
     "native:dev": "APP_VARIANT=development expo prebuild --clean",
-    "native:prod": "expo prebuild --clean",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "native:prod": "APP_VARIANT=production expo prebuild --clean",
+    "android": "APP_VARIANT=development expo run:android",
+    "ios": "APP_VARIANT=development expo run:ios",
     "build:dev": "node scripts/android-build.mjs dev",
     "build:aab": "node scripts/android-build.mjs aab",
     "install:dev": "node scripts/android-install.mjs",

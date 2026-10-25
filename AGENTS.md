@@ -25,7 +25,7 @@ these. Run `pnpm check` before claiming anything works.
 - **Soft delete everywhere.** Every read filters `deleted_at`.
 - Changing a native dependency or an `app.json` plugin needs
   `pnpm expo prebuild --clean`. Changing babel or metro config needs
-  `pnpm expo start -c`.
+  `pnpm start -c` (not `pnpm expo start -c`, which skips the variant).
 - **The dev build is a second app.** `APP_VARIANT=development` (set by
   `pnpm start`, the `development` EAS profile and `pnpm native:dev`) makes
   `com.thecstudio.finly.dev`, "Finly Dev", scheme `finly-dev`; unset is the store

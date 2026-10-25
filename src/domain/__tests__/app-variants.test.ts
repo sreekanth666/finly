@@ -7,6 +7,7 @@
  */
 
 import { expo as base } from '../../../app.json';
+import pkg from '../../../package.json';
 import appConfig, { resolveVariant } from '../../../app.config';
 
 type PluginEntry = string | [string, Record<string, unknown>];
@@ -81,5 +82,22 @@ describe('development variant', () => {
     const others = (plugins: readonly PluginEntry[] | undefined) =>
       (plugins ?? []).filter((entry) => (Array.isArray(entry) ? entry[0] : entry) !== 'expo-dev-client');
     expect(others(config.plugins as PluginEntry[])).toEqual(others(base.plugins as PluginEntry[]));
+  });
+});
+
+/**
+ * Every command that starts or generates the app names its variant. One that
+ * does not builds the production ID as a debug app — the collision the variants
+ * exist to prevent — or serves a manifest whose scheme the binary does not own.
+ */
+describe('package scripts', () => {
+  const { scripts } = pkg as { scripts: Record<string, string> };
+
+  it.each(['start', 'android', 'ios', 'native:dev'])('%s runs as the development variant', (name) => {
+    expect(scripts[name]).toMatch(/^APP_VARIANT=development /);
+  });
+
+  it('native:prod pins production, so an exported dev variant cannot leak into it', () => {
+    expect(scripts['native:prod']).toMatch(/^APP_VARIANT=production /);
   });
 });
