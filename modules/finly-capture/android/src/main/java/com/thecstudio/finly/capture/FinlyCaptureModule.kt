@@ -115,6 +115,10 @@ class FinlyCaptureModule : Module() {
       CapturePrefs(context).notify = enabled
     }
 
+    Function("setLinkScheme") { scheme: String ->
+      CapturePrefs(context).linkScheme = scheme
+    }
+
     Function("openListenerSettings") {
       openListenerSettings()
     }

@@ -24,6 +24,11 @@ class CapturePrefs(context: Context) {
     get() = prefs.getBoolean(KEY_NOTIFY, false)
     set(value) = prefs.edit().putBoolean(KEY_NOTIFY, value).apply()
 
+  /** The link scheme of the running build, pushed from JavaScript: the development app's differs from the store app's. */
+  var linkScheme: String
+    get() = prefs.getString(KEY_LINK_SCHEME, null) ?: DEFAULT_LINK_SCHEME
+    set(value) = prefs.edit().putString(KEY_LINK_SCHEME, value).apply()
+
   var lastCaptureAt: Long
     get() = prefs.getLong(KEY_LAST_CAPTURE, 0L)
     set(value) = prefs.edit().putLong(KEY_LAST_CAPTURE, value).apply()
@@ -36,6 +41,8 @@ class CapturePrefs(context: Context) {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_PACKAGES = "packages"
     private const val KEY_NOTIFY = "notify"
+    private const val KEY_LINK_SCHEME = "link_scheme"
+    private const val DEFAULT_LINK_SCHEME = "finly"
     private const val KEY_LAST_CAPTURE = "last_capture_at"
     private const val KEY_LAST_CONNECTED = "last_connected_at"
   }

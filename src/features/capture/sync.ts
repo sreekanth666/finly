@@ -17,6 +17,7 @@ import { AppState } from 'react-native';
 import type { Db } from '@/db/client';
 import { useDbQuery } from '@/db/live';
 import { getFlag, getSetting } from '@/db/repositories/settings';
+import { appScheme } from '@/features/navigation/app-scheme';
 
 import { parsePackages } from './hooks';
 import { ingestText, purgeExpired, reparseIfStale } from './ingest';
@@ -78,6 +79,7 @@ export function useCaptureSync() {
     try {
       native.setMonitoredPackages(packagesKey.length === 0 ? [] : packagesKey.split('|'));
       native.setNotifyEnabled(notify);
+      native.setLinkScheme(appScheme());
       native.setEnabled(enabled);
     } catch {
       // A native failure here leaves the previous settings in place.
