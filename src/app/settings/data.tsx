@@ -33,6 +33,7 @@ import {
 import { buildExpensesCsv } from '@/features/data-transfer/csv-export';
 import { pickBackupFile, shareText, stampedName } from '@/features/data-transfer/files';
 import { useNavigateOnce } from '@/features/navigation/hooks';
+import { decideExport } from '@/domain/export-status';
 
 const COUNT_TABLES: readonly TableName[] = ['expenses'];
 
@@ -94,8 +95,9 @@ export default function DataTransferScreen() {
       JSON.stringify(buildBackup(), null, 2),
       'application/json',
     );
-    markExported();
-    setNotice(result.shared ? 'Backup saved.' : `Sharing is unavailable. Saved to ${result.uri}`);
+    const decision = decideExport('json', result);
+    if (decision.recordTimestamp) markExported();
+    setNotice(decision.notice);
   });
 
   const exportCsv = useAction(async () => {
@@ -104,8 +106,9 @@ export default function DataTransferScreen() {
       buildExpensesCsv(),
       'text/csv',
     );
-    markExported();
-    setNotice(result.shared ? 'Expenses exported.' : `Sharing is unavailable. Saved to ${result.uri}`);
+    const decision = decideExport('csv', result);
+    if (decision.recordTimestamp) markExported();
+    setNotice(decision.notice);
   });
 
   const restore = useAction(async () => {
