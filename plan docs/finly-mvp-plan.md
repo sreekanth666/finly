@@ -404,7 +404,9 @@ JavaScript in the background.
 ## 6. Architecture
 
 Built on what already exists: Expo SDK 57, expo-router, HeroUI Native + uniwind,
-the Zenith token layer (`src/theme/`), and the four-tab shell.
+the Zenith token layer (`src/theme/`), and the shell: three tabs (Home,
+Transactions, Insights) and a floating icon bar that also carries **+** and
+Settings, neither of which is a tab.
 
 ```
 src/
@@ -427,7 +429,7 @@ src/
     rules/               list and editor
     insights/            the four views
     data-transfer/       CSV import, JSON/CSV export
-  components/            shared UI (existing: amount, progress-ring, stat-card, …)
+  components/            shared UI (existing: amount, spend-overview-card, stat-card, …)
   theme/                 existing token layer
 ```
 
@@ -454,12 +456,22 @@ load in Expo Go.
 
 ### 7.1 Balance (home)
 
-Month header with switcher · the Safe-to-Spend ring, now driven by real data
-(`remaining(P)` against `available(P)`) · a carry-over line when non-zero
-("₹800 carried from January") · total spent for the month, split into its
-budget and off-budget parts, each opening Transactions filtered to that part
-and month · card row showing cycle spend, utilisation and days to statement ·
-the last few expenses · FAB to add.
+A header with the month as a dropdown (it opens a list of every month with what
+each cost, and the way back to this one), with the review inbox on the right whether or not detection is
+on · a **hero card** tinted by how much of the limit is spent (`spent(P)` against
+`available(P)`): green while comfortably inside it, blending continuously through
+amber to red at the limit, and red whenever overspent. It holds what is left
+(`remaining(P)` against `available(P)`; "₹X over" when overspent) with the per-day
+figure it implies, a percentage against the same day last month, a soft area
+chart of this month's running spend over last month's behind the figure (drawn
+only once something is spent), and a carry-over line when non-zero ("₹800 carried
+from January"). Drawn as a deep diagonal gradient of that hue toward the app's ink, with light
+text throughout, and the chart line in the bright hue · tucked under it, a
+**total lip** as wide as the card: total spent for the month
+· then two cards side by side, **Budget** and **Off budget**, each opening
+Transactions filtered to that part and month · the last three expenses, dated rather than timed · card row showing
+cycle spend, utilisation and days to statement. Adding an expense is the **+** in
+the floating bar, one tap from every tab.
 
 ### 7.2 Add / Edit expense — the flow that has to be excellent
 
@@ -502,7 +514,7 @@ Transactions filtered to the card.
 
 ### 7.5 Rules
 
-List by priority with an on/off switch and a "used 34 times" stat. Editor:
+Reached from **Settings → Rules**, not a tab. List by priority with an on/off switch and a "used 34 times" stat. Editor:
 conditions, actions, and a live preview of how many existing expenses would match
 — so a rule can be judged before it's saved.
 
@@ -515,7 +527,7 @@ the donut adds the two into a total.
 
 ### 7.7 Settings
 
-Monthly budget · accounts and cards · categories · daily reminder (D16) ·
+Monthly budget · accounts and cards · categories · rules (§7.5) · profile · daily reminder (D16) ·
 transaction detection (D17), with **Move doubtful payments to Maybe** and
 **Forget what Finly learned from your choices** (D21) · import and export ·
 about, with Contact the developer (D19), whose report can include **Help improve
@@ -523,7 +535,7 @@ detection**: skeletons of reviewed messages and what the user did with each.
 
 ### 7.8 Review inbox (D17)
 
-A pushed route, not a fifth tab, reached from a count on the Balance header and
+A pushed route, not a tab, reached from a count on the Home header and
 a home banner. Sections: **Needs review** (debits), **Maybe** (low confidence,
 or a payment the reader doubts — D21 — with a line on the review screen saying
 why),
@@ -535,7 +547,7 @@ it), collapsed but always rescuable.
 Confirm opens the ordinary expense form prefilled, so rules (D7) still apply;
 the first time a card or account tail is seen it asks which account it is and
 remembers it on that account's `last4`. Choosing a category can save a rule, so
-what the app learns is visible on the Rules tab rather than hidden.
+what the app learns is visible in Settings → Rules rather than hidden.
 
 Batch actions: **Add all** and **Discard all** cover the three visible
 sections, Filtered has its own **Discard all**, and marking rows offers **Add
