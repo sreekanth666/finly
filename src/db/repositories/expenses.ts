@@ -303,6 +303,42 @@ export function spentByPeriod(
 }
 
 /**
+ * Every budget-counting expense in the given months, one row each, with what it
+ * still cost after settlements — the raw material for the home chart.
+ *
+ * Deliberately not grouped by day here. Grouping would mean SQLite's
+ * 'localtime', which is not reliably the zone JavaScript sees (see
+ * domain/feed.ts), so the rows come back and `cumulativeDailySpend` buckets them.
+ * A month of expenses is a few hundred small rows.
+ */
+export function budgetSpendEntries(
+  periods: readonly PeriodKey[],
+  database: DbLike = db,
+): { occurredAt: number; budgetPeriod: PeriodKey; effectiveMinor: Minor }[] {
+  if (periods.length === 0) return [];
+
+  const settled = settledTotals(database);
+
+  return database
+    .select({
+      occurredAt: expenses.occurredAt,
+      budgetPeriod: expenses.budgetPeriod,
+      effective: sql<number>`max(0, ${expenses.amountMinor} - coalesce(${settled.total}, 0))`,
+    })
+    .from(expenses)
+    .leftJoin(settled, eq(settled.expenseId, expenses.id))
+    .where(
+      and(alive, eq(expenses.countsToBudget, true), inArray(expenses.budgetPeriod, [...periods])),
+    )
+    .all()
+    .map((row) => ({
+      occurredAt: row.occurredAt,
+      budgetPeriod: row.budgetPeriod,
+      effectiveMinor: asMinor(row.effective),
+    }));
+}
+
+/**
  * What a month spent that deliberately does not count toward the budget (D3) —
  * the laptop, not the groceries. Real spending, and worth seeing, but it is not
  * what the ring is measuring.

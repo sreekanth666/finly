@@ -8,6 +8,7 @@ import {
   daysInMonth,
   formatDateLong,
   formatDayLabel,
+  formatDayShort,
   formatPeriodLong,
   formatPeriodMonth,
   formatPeriodShort,
@@ -238,5 +239,29 @@ describe('shouldReplaceDirtyPeriod', () => {
      */
     expect(shouldReplaceDirtyPeriod('', '2026-08')).toBe(true);
     expect(shouldReplaceDirtyPeriod('', '1970-01')).toBe(true);
+  });
+});
+
+describe('formatDayShort', () => {
+  const now = at(2026, 11, 9, 10, 0);
+
+  it('says Today and Yesterday by calendar day', () => {
+    expect(formatDayShort(at(2026, 11, 9, 0, 5), now)).toBe('Today');
+    expect(formatDayShort(at(2026, 11, 8, 23, 55), now)).toBe('Yesterday');
+  });
+
+  it('gives day and month, with no weekday, for anything older this year', () => {
+    expect(formatDayShort(at(2026, 11, 7), now)).toBe('7 Nov');
+    expect(formatDayShort(at(2026, 1, 31), now)).toBe('31 Jan');
+  });
+
+  it('adds the year once it is not the current one', () => {
+    expect(formatDayShort(at(2025, 11, 8), now)).toBe('8 Nov 2025');
+  });
+
+  it('rolls over the new year: yesterday is still Yesterday, a day before is last year', () => {
+    const newYear = at(2027, 1, 1, 9, 0);
+    expect(formatDayShort(at(2026, 12, 31, 22, 0), newYear)).toBe('Yesterday');
+    expect(formatDayShort(at(2026, 12, 30), newYear)).toBe('30 Dec 2026');
   });
 });

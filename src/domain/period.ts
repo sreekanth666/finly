@@ -196,6 +196,21 @@ export function formatDayLabel(ms: number, now: number = Date.now()): string {
   return date.getFullYear() === new Date(now).getFullYear() ? base : `${base} ${date.getFullYear()}`;
 }
 
+/**
+ * 'Today' | 'Yesterday' | '8 Nov' | '8 Nov 2025' — the compact form for a row
+ * that has no day header above it. No weekday, unlike `formatDayLabel`, which is
+ * the one for a header.
+ */
+export function formatDayShort(ms: number, now: number = Date.now()): string {
+  const distance = daysBetween(ms, now);
+  if (distance === 0) return 'Today';
+  if (distance === 1) return 'Yesterday';
+
+  const date = new Date(ms);
+  const base = `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`;
+  return date.getFullYear() === new Date(now).getFullYear() ? base : `${base} ${date.getFullYear()}`;
+}
+
 /** 'Mon, 25 Aug 2026' — the unabbreviated form, for a detail screen. */
 export function formatDateLong(ms: number): string {
   const date = new Date(ms);
