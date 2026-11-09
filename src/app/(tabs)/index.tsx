@@ -1,46 +1,50 @@
 import { Typography } from 'heroui-native';
-import { Plus, Receipt, Undo2, X } from '@/components/icons';
+import { Receipt, Undo2, X } from '@/components/icons';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
-import { Amount } from '@/components/amount';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
-import { Fab } from '@/components/fab';
+import { useFloatingBarClearance } from '@/components/floating-bar';
+import { HomeHeader } from '@/components/home-header';
 import { InlineError } from '@/components/inline-error';
 import { Icon } from '@/components/icon';
-import { MonthSwitcher } from '@/components/month-switcher';
-import { ProgressRing } from '@/components/progress-ring';
 import { SafeAreaView } from '@/components/safe-area-view';
-import { InboxButton } from '@/components/inbox-button';
 import { ReviewBanner } from '@/components/review-banner';
-import { ScreenHeader } from '@/components/screen-header';
 import { CardUtilisationList } from '@/components/card-utilisation-list';
-import { SpendSummary } from '@/components/spend-summary';
+import { SpendOverviewCard } from '@/components/spend-overview-card';
 import { TransactionRow } from '@/components/transaction-row';
-import { absMinor, asMinor, formatMinor, speakMinor, ZERO_MINOR } from '@/domain/money';
-import { currentPeriod, daysRemainingIn, formatPeriodLong } from '@/domain/period';
+import {
+  currentPeriod,
+  daysRemainingIn,
+  formatPeriodLong,
+  parsePeriod,
+  type PeriodKey,
+} from '@/domain/period';
 import type { BudgetScope } from '@/domain/spend';
 import {
   dismissCarryOverNotice,
   useBudgetHistory,
   useCarryOverNotice,
   useOffBudgetSpend,
+  useSpendCurve,
 } from '@/features/budget/hooks';
 import { useCardStandings } from '@/features/accounts/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
 import { useNavigateOnce } from '@/features/navigation/hooks';
 
-const RING_MAX_SIZE = 320;
-const SCREEN_PADDING = 40;
-const RECENT_COUNT = 4;
+const RECENT_COUNT = 3;
+
+/** Spelled out per position so the compiler sees both. */
+const RECENT_ROWS = {
+  first: '',
+  rest: 'border-t border-border',
+} as const;
 
 export default function BalanceScreen() {
   /* One push per press: the row stays tappable for the whole transition. */
   const navigate = useNavigateOnce();
-
-  const { width } = useWindowDimensions();
-  const ringSize = Math.min(width - SCREEN_PADDING, RING_MAX_SIZE);
+  const clearance = useFloatingBarClearance();
 
   const history = useBudgetHistory();
   const notice = useCarryOverNotice();
@@ -55,6 +59,7 @@ export default function BalanceScreen() {
   const periodKey = period?.period ?? currentPeriod();
 
   const offBudget = useOffBudgetSpend(periodKey);
+  const curve = useSpendCurve(periodKey);
 
   const cards = useCardStandings();
   const recent = useExpenseFeed({ period: periodKey }, RECENT_COUNT);
@@ -65,7 +70,7 @@ export default function BalanceScreen() {
 
   if (history.error !== null) {
     return (
-      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-background" edges={['top']} style={{ paddingBottom: clearance }}>
         <ErrorState error={history.error} onRetry={history.refetch} />
       </SafeAreaView>
     );
@@ -73,25 +78,16 @@ export default function BalanceScreen() {
 
   if (period === undefined) return null;
 
-  const progress =
-    period.available > 0 ? Math.min(1, Math.max(0, period.remaining) / period.available) : 0;
-
   const daysLeft = daysRemainingIn(period.period);
   const isCurrent = period.period === currentPeriod();
-
-  /*
-   * P1: the design pass showed a total balance, upcoming bills and auto savings.
-   * None of them had anything behind them — D4 excludes an income ledger and
-   * account balances, and there is no bills or savings table. The daily figure
-   * and the spend summary are derived from what the app actually knows, and
-   * answer the question the plan says the home screen exists to answer.
-   */
-  const perDay =
-    isCurrent && daysLeft > 0 && period.remaining > 0
-      ? asMinor(Math.floor(period.remaining / daysLeft))
-      : ZERO_MINOR;
+  const { year } = parsePeriod(period.period);
 
   const changedPeriods = notice.data?.periods ?? [];
+
+  const selectPeriod = (key: PeriodKey) => {
+    const position = periods.findIndex((candidate) => candidate.period === key);
+    if (position >= 0) setMonthsBack(periods.length - 1 - position);
+  };
 
   /* The feed opens on the same month and the same side as the figure that was
      tapped, so the list adds up to the number that led there. The tab is already
@@ -105,18 +101,15 @@ export default function BalanceScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      {/* pb-28 is the FAB's 56pt plus its 20pt inset and some air, so the last
-          recent row can scroll clear of it instead of ending underneath. */}
-      <ScrollView contentContainerClassName="gap-6 px-5 pb-28 pt-2" showsVerticalScrollIndicator={false}>
-        <ScreenHeader greeting trailing={<InboxButton />} />
-
-        <MonthSwitcher
-          label={formatPeriodLong(period.period)}
-          canGoBack={index > 0}
-          canGoForward={monthsBack > 0}
-          onBack={() => setMonthsBack((current) => current + 1)}
-          onForward={() => setMonthsBack((current) => Math.max(0, current - 1))}
-          onReturnToCurrent={monthsBack === 0 ? undefined : () => setMonthsBack(0)}
+      <ScrollView
+        contentContainerClassName="gap-5 px-4 pt-2"
+        contentContainerStyle={{ paddingBottom: clearance }}
+        showsVerticalScrollIndicator={false}>
+        <HomeHeader
+          period={period.period}
+          periods={periods}
+          isThisYear={year === parsePeriod(currentPeriod()).year}
+          onSelectPeriod={selectPeriod}
         />
 
         <ReviewBanner />
@@ -142,90 +135,19 @@ export default function BalanceScreen() {
           </View>
         )}
 
-        <View className="items-center">
-          <View
-            className="items-center justify-center rounded-full bg-surface"
-            style={{ width: ringSize, height: ringSize }}>
-            <ProgressRing
-              size={ringSize - 16}
-              progress={progress}
-              accessibilityLabel={
-                period.isOverspent
-                  ? `Overspent by ${speakMinor(absMinor(period.remaining))} of ${speakMinor(period.available)} available`
-                  : `${speakMinor(absMinor(period.remaining))} safe to spend of ${speakMinor(period.available)} available`
-              }>
-              <View className="items-center gap-1 px-8">
-                <Typography type="body" weight="medium">
-                  {period.isOverspent ? 'Overspent' : 'Safe to Spend'}
-                </Typography>
-                <Amount
-                  value={absMinor(period.remaining)}
-                  className={
-                    period.isOverspent ? 'type-metric text-danger' : 'type-metric text-foreground'
-                  }
-                  showFraction={false}
-                />
-                <Typography type="body-sm" className="text-accent">
-                  {`of ${formatMinor(period.available, { showFraction: false })} available`}
-                </Typography>
-                {/* §7.1: a carry-over line, but only when there is one. */}
-                {period.carryOver > 0 && (
-                  <View className="mt-2 rounded-full bg-surface-secondary px-3 py-1.5">
-                    <Typography type="body-xs" color="muted">
-                      {`${formatMinor(period.carryOver, { showFraction: false })} carried in`}
-                    </Typography>
-                  </View>
-                )}
-              </View>
-            </ProgressRing>
-          </View>
-
-          {/* Only while the month is being lived in, and only with something
-              left: a past month has no "today", and the ring already says how
-              it ended. */}
-          {perDay > 0 && (
-            <Typography type="body-sm" color="muted" className="mt-3">
-              {daysLeft === 1
-                ? `${formatMinor(perDay, { showFraction: false })} left for the last day of the month`
-                : `${formatMinor(perDay, { showFraction: false })} a day for ${daysLeft} days`}
-            </Typography>
-          )}
-        </View>
-
-        <SpendSummary
-          budgetMinor={period.spent}
-          offBudgetMinor={offBudget.error === null ? (offBudget.data ?? ZERO_MINOR) : null}
+        <SpendOverviewCard
+          period={period}
+          offBudgetMinor={offBudget.error === null ? (offBudget.data ?? null) : null}
+          curve={curve.error === null ? curve.data : null}
+          isCurrent={isCurrent}
+          daysLeft={daysLeft}
           onPressScope={openFeed}
         />
-
-        {/* §7.1: cycle spend, utilisation and days to statement per card.
-            Utilisation is a billing-cycle figure, not a monthly one, so it does
-            not follow the month switcher above. */}
-        {cards.error !== null ? (
-          <View className="gap-2">
-            <Typography type="body-sm" weight="semibold">
-              Cards
-            </Typography>
-            <InlineError message="Your cards couldn't be loaded." onRetry={cards.refetch} />
-          </View>
-        ) : (
-          (cards.data ?? []).length > 0 && (
-            <View className="gap-2">
-              <Typography type="body-sm" weight="semibold">
-                Cards
-              </Typography>
-              <CardUtilisationList
-                cards={cards.data ?? []}
-                onPressCard={(id) => navigate(`/card/${id}`)}
-              />
-            </View>
-          )
-        )}
 
         <View className="gap-2">
           <View className="flex-row items-center justify-between">
             <Typography type="body-sm" weight="semibold">
-              Recent
+              Recent transactions
             </Typography>
             <Pressable
               accessibilityRole="button"
@@ -246,24 +168,40 @@ export default function BalanceScreen() {
               description="Add an expense, or bring your history across from a spreadsheet in Settings."
             />
           ) : (
-            <View className="rounded-3xl bg-surface p-1">
-              {recentRows.map((expense) => (
-                <TransactionRow
-                  key={expense.id}
-                  expense={expense}
-                  onPress={() => navigate(`/expense/${expense.id}`)}
-                />
+            <View className="overflow-hidden rounded-2xl bg-surface">
+              {recentRows.map((expense, position) => (
+                <View key={expense.id} className={position === 0 ? RECENT_ROWS.first : RECENT_ROWS.rest}>
+                  <TransactionRow expense={expense} onPress={() => navigate(`/expense/${expense.id}`)} />
+                </View>
               ))}
             </View>
           )}
         </View>
 
+        {/* §7.1: cycle spend, utilisation and days to statement per card.
+            Utilisation is a billing-cycle figure, not a monthly one, so it does
+            not follow the month on screen above. */}
+        {cards.error !== null ? (
+          <View className="gap-2">
+            <Typography type="body-sm" weight="semibold">
+              Cards
+            </Typography>
+            <InlineError message="Your cards couldn't be loaded." onRetry={cards.refetch} />
+          </View>
+        ) : (
+          (cards.data ?? []).length > 0 && (
+            <View className="gap-2">
+              <Typography type="body-sm" weight="semibold">
+                Cards
+              </Typography>
+              <CardUtilisationList
+                cards={cards.data ?? []}
+                onPressCard={(id) => navigate(`/card/${id}`)}
+              />
+            </View>
+          )
+        )}
       </ScrollView>
-
-      {/* A sibling of the scroll view, not a child, so it stays put while the
-          month scrolls under it. The tab bar sits below this view in normal
-          flow, so bottom-5 already clears it with no inset arithmetic. */}
-      <Fab icon={Plus} label="Add expense" onPress={() => navigate('/expense/new')} />
     </SafeAreaView>
   );
 }

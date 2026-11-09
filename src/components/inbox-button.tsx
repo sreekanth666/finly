@@ -4,23 +4,23 @@ import { Pressable, View } from 'react-native';
 
 import { Icon } from './icon';
 
-import { useCaptureEnabled, useReviewCount } from '@/features/capture/hooks';
+import { useReviewCount } from '@/features/capture/hooks';
 import { useNavigateOnce } from '@/features/navigation/hooks';
 
 /**
- * The way into the review inbox (D17), beside Settings on the Balance header.
+ * The way into the review inbox (D17), on the right of the Balance header.
  *
- * Shown while detection is on, or while anything is waiting — so switching the
- * feature off never strands candidates that already arrived. The count is only
- * what might be spending; see `countsTowardBadge`.
+ * Always shown, whether or not detection is on. With it off the inbox is still
+ * where a pasted payment message goes and where the switch to turn detection on
+ * is offered, and hiding the button left no way to either from Balance. The
+ * badge is only there while something is waiting, and counts only what might be
+ * spending; see `countsTowardBadge`.
  */
 export function InboxButton() {
   const navigate = useNavigateOnce();
-  const enabled = useCaptureEnabled();
   const count = useReviewCount();
 
   const pending = count.data ?? 0;
-  if (enabled.data !== true && pending === 0) return null;
 
   const label = pending === 0 ? 'Review inbox' : `Review inbox, ${pending} to review`;
 

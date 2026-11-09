@@ -9,9 +9,6 @@
 /** How many letters the avatar shows. Three is a monogram; one is a mystery. */
 const MAX_INITIALS = 2;
 
-const MORNING_ENDS_AT = 12;
-const AFTERNOON_ENDS_AT = 17;
-
 /**
  * A monogram for the header avatar, or null when the name yields no letters.
  *
@@ -31,17 +28,4 @@ export function initialsOf(name: string): string | null {
     .join('');
 
   return letters.length > 0 ? letters : null;
-}
-
-/**
- * Time of day, as an address rather than a fact.
- *
- * The clock is a defaulted parameter so the domain stays pure and a test can
- * name the hour it means.
- */
-export function greetingFor(now: number = Date.now()): string {
-  const hour = new Date(now).getHours();
-  if (hour < MORNING_ENDS_AT) return 'Good morning';
-  if (hour < AFTERNOON_ENDS_AT) return 'Good afternoon';
-  return 'Good evening';
 }

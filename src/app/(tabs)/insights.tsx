@@ -10,6 +10,7 @@ import { ErrorState } from '@/components/error-state';
 import { InlineError } from '@/components/inline-error';
 import { MonthSwitcher } from '@/components/month-switcher';
 import { SafeAreaView } from '@/components/safe-area-view';
+import { useFloatingBarClearance } from '@/components/floating-bar';
 import { ScreenHeader } from '@/components/screen-header';
 import { SectionHeader } from '@/components/section-header';
 import { SpendTrend } from '@/components/spend-trend';
@@ -29,6 +30,7 @@ export default function InsightsScreen() {
   const { width } = useWindowDimensions();
   /* One push per press: a card row stays tappable for the whole transition. */
   const navigate = useNavigateOnce();
+  const clearance = useFloatingBarClearance();
 
   /*
    * §7.6 asks for Insights per month, and the design pass had no way to change
@@ -52,18 +54,10 @@ export default function InsightsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScrollView
-        contentContainerClassName="gap-7 px-5 pb-8 pt-2"
+        contentContainerClassName="gap-7 px-5 pt-2"
+        contentContainerStyle={{ paddingBottom: clearance }}
         showsVerticalScrollIndicator={false}>
-        <ScreenHeader />
-
-        <View className="gap-1">
-          <Typography.Heading type="h2" weight="bold">
-            Insights
-          </Typography.Heading>
-          <Typography type="body-sm" color="muted">
-            {formatPeriodLong(period)}
-          </Typography>
-        </View>
+        <ScreenHeader title="Insights" />
 
         <MonthSwitcher
           label={formatPeriodLong(period)}
@@ -102,7 +96,7 @@ export default function InsightsScreen() {
                   spent outside it, this is where the two are added up — with
                   nothing off budget the total is the donut's own figure. */}
               {view.offBudgetMinor > 0 && (
-                <View className="gap-2.5 rounded-3xl bg-surface p-4">
+                <View className="gap-2.5 rounded-2xl bg-surface p-4">
                   <View className="flex-row items-center justify-between gap-3">
                     <Typography type="body-sm" color="muted">
                       Budget

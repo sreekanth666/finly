@@ -8,19 +8,25 @@ import { iconFor } from './icon-registry';
 
 import type { ExpenseListItem } from '@/db/repositories/expenses';
 import { speakMinor } from '@/domain/money';
-import { formatTime } from '@/domain/period';
+import { formatDayShort } from '@/domain/period';
 import { toAppColor } from '@/theme';
 
 export type TransactionRowProps = {
   expense: ExpenseListItem;
   onPress?: () => void;
+  /**
+   * What sits under the amount. `'date'` is the day the spend happened, for
+   * lists that mix days (Home); `'none'` is for the feed, whose day headers
+   * already say it.
+   */
+  meta?: 'date' | 'none';
 };
 
 /** The fixed height the flattened feed reports to getItemLayout. */
 export const TRANSACTION_ROW_HEIGHT = 60;
 
 /** One entry in the feed: category tile · description · amount over its time. */
-function TransactionRowBase({ expense, onPress }: TransactionRowProps) {
+function TransactionRowBase({ expense, onPress, meta = 'date' }: TransactionRowProps) {
   const { item, amountMinor, effectiveMinor, occurredAt, category, settledMinor } = expense;
   const wasSettled = settledMinor > 0;
 
@@ -33,15 +39,17 @@ function TransactionRowBase({ expense, onPress }: TransactionRowProps) {
   const categoryIcon = iconFor(category?.icon);
   const categoryTone = toAppColor(category?.colorToken ?? 'muted', 'muted');
 
-  const time = formatTime(occurredAt);
+  const when = meta === 'date' ? formatDayShort(occurredAt) : null;
   const spoken = [
     item,
     categoryName,
     wasSettled
       ? `${speakMinor(effectiveMinor)}, reduced from ${speakMinor(amountMinor)}`
       : speakMinor(amountMinor),
-    time,
-  ].join(', ');
+    when,
+  ]
+    .filter((part) => part !== null)
+    .join(', ');
 
   return (
     <Pressable
@@ -82,9 +90,11 @@ function TransactionRowBase({ expense, onPress }: TransactionRowProps) {
             fractionClassName="type-amount-sm"
           />
         </View>
-        <Typography type="body-xs" color="muted">
-          {time}
-        </Typography>
+        {when !== null && (
+          <Typography type="body-xs" color="muted">
+            {when}
+          </Typography>
+        )}
       </View>
     </Pressable>
   );

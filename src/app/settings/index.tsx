@@ -13,6 +13,8 @@ import {
   Shapes,
   Coins,
   ShieldCheck,
+  SlidersHorizontal,
+  User,
   Wallet,
 } from '@/components/icons';
 import { Alert, ScrollView, View } from 'react-native';
@@ -27,6 +29,8 @@ import { runDevSeed } from '@/db/dev-seed';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useDefaultMonthlyBudget } from '@/features/budget/hooks';
 import { useNavigateOnce } from '@/features/navigation/hooks';
+import { useProfileName } from '@/features/profile/hooks';
+import { useRules } from '@/features/rules/hooks';
 import { useReminderSettings } from '@/features/reminders/hooks';
 import { useCaptureEnabled, useReviewCount } from '@/features/capture/hooks';
 import { formatMinor } from '@/domain/money';
@@ -48,11 +52,14 @@ export default function SettingsScreen() {
   const reminder = useReminderSettings();
   const capture = useCaptureEnabled();
   const toReview = useReviewCount();
+  const rules = useRules();
+  const profileName = useProfileName();
 
   /* A count of 0 and a failed read are different things, and '0 accounts' is
      the more damaging of the two to show when it isn't true. */
   const activeAccounts = accountRows.data === undefined ? null : accountRows.data.length;
   const categoryCount = categoryRows.data === undefined ? null : categoryRows.data.length;
+  const ruleCount = rules.data === undefined ? null : rules.data.length;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
@@ -94,6 +101,24 @@ export default function SettingsScreen() {
           <View className="rounded-3xl bg-surface">
             <SettingsRow
               isFirst
+              icon={User}
+              iconTone="accent"
+              label="Profile"
+              description="What Finly calls you"
+              value={profileName.data ?? undefined}
+              onPress={() => navigate('/profile')}
+            />
+            <SettingsRow
+              isFirst={false}
+              icon={SlidersHorizontal}
+              iconTone="accent"
+              label="Rules"
+              description="Auto-fill categories and accounts"
+              value={ruleCount === null ? '—' : plural(ruleCount, 'rule', 'rules')}
+              onPress={() => navigate('/settings/rules')}
+            />
+            <SettingsRow
+              isFirst={false}
               icon={Wallet}
               iconTone="iris"
               label="Accounts"

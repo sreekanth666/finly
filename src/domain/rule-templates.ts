@@ -1,5 +1,5 @@
 /**
- * Ready-made rules, offered from the Rules tab to someone starting out.
+ * Ready-made rules, offered from Settings → Rules to someone starting out.
  *
  * Each one is a real rule, and each teaches one thing about writing rules:
  * matching any of several names, narrowing with "Match all", using "is" or

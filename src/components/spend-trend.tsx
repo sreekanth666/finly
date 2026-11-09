@@ -24,7 +24,7 @@ export function SpendTrend({ data, budget, width }: SpendTrendProps) {
   ].join(' ');
 
   return (
-    <View className="gap-4 rounded-3xl bg-surface p-4">
+    <View className="gap-4 rounded-2xl bg-surface p-4">
       <View accessible accessibilityRole="image" accessibilityLabel={spoken}>
         <TrendBars data={data} reference={budget} width={width} />
       </View>

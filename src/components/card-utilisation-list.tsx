@@ -80,7 +80,7 @@ const spokenUse = (card: CardStanding): string =>
 
 export function CardUtilisationList({ cards, onPressCard }: CardUtilisationListProps) {
   return (
-    <View className="gap-4 rounded-3xl bg-surface p-4">
+    <View className="gap-4 rounded-2xl bg-surface p-4">
       {cards.map((card, index) => {
         /* The band comes from domain/utilisation.ts now — the thresholds used to
            be magic numbers here, where nothing could test them. */

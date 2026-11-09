@@ -23,7 +23,7 @@ export function CategoryBreakdown({ segments, total, size }: CategoryBreakdownPr
   const palette = useChartPalette();
 
   return (
-    <View className="gap-6 rounded-3xl bg-surface p-4">
+    <View className="gap-6 rounded-2xl bg-surface p-4">
       <View className="items-center">
         <DonutChart
           importantForAccessibility="no-hide-descendants"

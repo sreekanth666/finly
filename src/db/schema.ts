@@ -544,7 +544,7 @@ export type SettingKey =
   | 'reminder_enabled'
   /** 'HH:mm' in local time. Absent means DEFAULT_REMINDER_TIME. */
   | 'reminder_time'
-  /** The Rules tab's template banner was closed; a smaller button remains. */
+  /** The rules screen's template banner was closed; a smaller button remains. */
   | 'rule_templates_dismissed'
   /** D17: reading payment notifications. A flag; off unless switched on. */
   | 'capture_enabled'

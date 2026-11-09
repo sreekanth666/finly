@@ -4,7 +4,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { FlatList, Pressable, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { FilterChipBar, type FilterOption } from '@/components/filter-chip-bar';
@@ -24,6 +23,7 @@ import { isBudgetScope, type BudgetScope } from '@/domain/spend';
 import { useAccounts, useCategories } from '@/features/catalog/hooks';
 import { useExpenseFeed } from '@/features/expenses/hooks';
 import { useNavigateOnce } from '@/features/navigation/hooks';
+import { useFloatingBarClearance, useFloatingBarTop } from '@/components/floating-bar';
 import { useAppColor } from '@/theme';
 
 /** One page of the feed. The list asks for more as it reaches the end. */
@@ -95,6 +95,8 @@ export default function TransactionsScreen() {
    */
   const deferredSearch = useDeferredValue(search);
   const mutedColor = useAppColor('muted');
+  const clearance = useFloatingBarClearance();
+  const barTop = useFloatingBarTop();
 
   const categories = useCategories();
   const accounts = useAccounts();
@@ -153,20 +155,7 @@ export default function TransactionsScreen() {
           reachable however far the feed is scrolled. */}
       <View className="gap-4 pt-2 pb-3">
         <View className="px-5">
-          <ScreenHeader />
-        </View>
-
-        <View className="flex-row items-center justify-between gap-3 px-5">
-          <Typography.Heading type="h2" weight="bold" className="flex-1" truncate>
-            Transactions
-          </Typography.Heading>
-          <Button
-            icon={Plus}
-            label="Add"
-            size="sm"
-            accessibilityLabel="Add expense"
-            onPress={() => navigate('/expense/new')}
-          />
+          <ScreenHeader title="Transactions" />
         </View>
 
         {/* items-stretch, so the filter trigger takes its height from the field
@@ -222,7 +211,9 @@ export default function TransactionsScreen() {
       </View>
 
       {feed.error !== null ? (
-        <ErrorState error={feed.error} onRetry={feed.refetch} />
+        <View className="flex-1" style={{ paddingBottom: clearance }}>
+          <ErrorState error={feed.error} onRetry={feed.refetch} />
+        </View>
       ) : (
         <FlatList
           className="flex-1"
@@ -252,6 +243,7 @@ export default function TransactionsScreen() {
                 }}>
                 <TransactionRow
                   expense={item.item}
+                  meta="none"
                   onPress={() => navigate(`/expense/${item.item.id}`)}
                 />
               </SwipeToDelete>
@@ -272,7 +264,8 @@ export default function TransactionsScreen() {
           onEndReached={() => {
             if (feed.data?.hasMore === true) setLimit((current) => current + PAGE_SIZE);
           }}
-          contentContainerClassName="px-5 pb-8"
+          contentContainerClassName="px-5"
+          contentContainerStyle={{ paddingBottom: clearance }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             isFiltered ? (
@@ -294,15 +287,19 @@ export default function TransactionsScreen() {
         />
       )}
 
+      {/* Floats over the list, just above the tab bar, so the offer to undo
+          is never underneath the pill. */}
       {undoable !== null && (
-        <UndoToast
-          message={`Deleted “${undoable.item}”`}
-          onUndo={async () => {
-            await restore.run(undoable.id);
-            setUndoable(null);
-          }}
-          onExpire={() => setUndoable(null)}
-        />
+        <View className="absolute inset-x-0" style={{ bottom: barTop + 8 }}>
+          <UndoToast
+            message={`Deleted “${undoable.item}”`}
+            onUndo={async () => {
+              await restore.run(undoable.id);
+              setUndoable(null);
+            }}
+            onExpire={() => setUndoable(null)}
+          />
+        </View>
       )}
     </SafeAreaView>
   );

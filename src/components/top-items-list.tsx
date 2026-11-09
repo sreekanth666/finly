@@ -16,7 +16,7 @@ import { toAppColor } from '@/theme';
  */
 export function TopItemsList({ items }: { items: readonly TopItem[] }) {
   return (
-    <View className="gap-1 rounded-3xl bg-surface p-2">
+    <View className="gap-1 rounded-2xl bg-surface p-2">
       {items.map((item, index) => {
         /* The row carries its own display fields, resolved by the query, so
            this component never has to look a category up. */

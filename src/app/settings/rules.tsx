@@ -1,5 +1,6 @@
 import { Typography } from 'heroui-native';
-import { CircleQuestionMark, LayoutTemplate, Plus } from '@/components/icons';
+import { ArrowLeft, CircleQuestionMark, LayoutTemplate, Plus } from '@/components/icons';
+import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
 
@@ -10,7 +11,6 @@ import { RuleTemplatesBanner } from '@/components/rule-templates-banner';
 import { RuleTemplatesSheet } from '@/components/rule-templates-sheet';
 import { RulesHelpSheet } from '@/components/rules-help-sheet';
 import { SafeAreaView } from '@/components/safe-area-view';
-import { ScreenHeader } from '@/components/screen-header';
 import { SectionHeader } from '@/components/section-header';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
@@ -92,25 +92,22 @@ export default function RulesScreen() {
   }, [rules.data]);
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="gap-5 pt-2 pb-4">
-        <View className="px-5">
-          <ScreenHeader
-            trailing={
-              <IconButton
-                icon={CircleQuestionMark}
-                label="How rules work"
-                onPress={() => setIsHelpOpen(true)}
-              />
-            }
+    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
+      <View className="gap-5 pb-4">
+        <View className="flex-row items-center gap-1 px-3 pt-2">
+          <IconButton icon={ArrowLeft} label="Back" onPress={() => router.back()} />
+          <Typography type="body" weight="semibold" className="flex-1">
+            Rules
+          </Typography>
+          <IconButton
+            icon={CircleQuestionMark}
+            label="How rules work"
+            onPress={() => setIsHelpOpen(true)}
           />
         </View>
 
         <View className="gap-1 px-5">
-          <View className="flex-row items-center justify-between gap-3">
-            <Typography.Heading type="h2" weight="bold" className="flex-1" truncate>
-              Rules
-            </Typography.Heading>
+          <View className="flex-row items-center justify-end gap-3">
             {!showBanner && templatesDismissed.data !== undefined && (
               <Button
                 icon={LayoutTemplate}
