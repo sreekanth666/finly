@@ -1,5 +1,11 @@
 /**
- * Zenith design tokens.
+ * Zenith design tokens: a calm palette built around one deep green.
+ *
+ * Emerald (`--zenith-emerald`) is the brand accent and the colour of the home
+ * card at rest; white text sits on it. Sage, ochre and coral are its softer
+ * siblings for success, warning and danger, light enough to read as text on the
+ * dark canvas. Body text is chalk rather than pure white, which is kept for text
+ * on the emerald fill. Nothing in the set is neon.
  *
  * This file is the ONLY place in the codebase where a raw color literal may
  * appear. Everything else — components, screens, JS — reads a semantic token,
@@ -13,7 +19,7 @@
  * therefore enough to re-skin every HeroUI component.
  *
  * The app is locked to the dark theme (see `src/app/_layout.tsx`), so only the
- * dark variant is defined here.
+ * dark variant is defined in full.
  */
 
 @theme {
@@ -22,14 +28,24 @@
 --zenith-graphite: #141619; /* cards, list groups */
 --zenith-slate: #1c1f23; /* chips, icon tiles, inputs */
 --zenith-steel: #262a2f; /* raised / tertiary surfaces */
---zenith-lime: #79e256; /* primary accent: CTA, savings, active chip */
---zenith-iris: #7b7cf2; /* secondary accent: bills card, inline links */
---zenith-mint: #4fe07b; /* positive amounts */
---zenith-ember: #ff5a5f; /* danger */
---zenith-amber: #f5b54a; /* warning */
---zenith-snow: #ffffff;
+--zenith-emerald: #2f7f49; /* brand accent fill: CTA, + button, active chip, meters */
+--zenith-sage: #6fbf8a; /* success, positive amounts, small green text */
+--zenith-ochre: #d4a35a; /* warning */
+--zenith-coral: #d9686b; /* danger */
+--zenith-iris: #8b8ed6; /* secondary accent: off-budget card, inline links */
+--zenith-snow: #ffffff; /* text on the emerald fill */
+--zenith-chalk: #eceeeb; /* body text */
 --zenith-mist: #8b9099; /* secondary text */
 --zenith-hairline: #24272c; /* borders, separators */
+
+/**
+ * Deep tones for the home card's ground, one per budget-health role. Health
+ * green is the accent emerald itself; the others are the status hues taken
+ * down to the same depth, so white text holds on all three.
+ */
+--zenith-health-good: #2f7f49;
+--zenith-health-watch: #8a682e;
+--zenith-health-over: #903639;
 
 /**
  * Categorical chart hues.
@@ -37,7 +53,7 @@
  * Deliberately NOT the brand accents. A categorical palette has to stay
  * separable under protanopia and deuteranopia, and the accents can't: they all
  * sit near OKLCH L 0.82, well above the 0.48–0.67 band a dark surface allows,
- * and lime/mint are barely distinguishable from each other to begin with.
+ * and the brand greens are barely distinguishable from each other to begin with.
  *
  * These five sit on the same hue angles as the brand where one exists (green
  * 139°, violet 280°, gold 77°, red 22°), stepped into the band with lightness
@@ -70,8 +86,11 @@
   @variant light {
     --iris: var(--zenith-iris);
     --iris-foreground: var(--zenith-ink);
-    --income: var(--zenith-mint);
-    --expense: var(--zenith-snow);
+    --income: var(--zenith-sage);
+    --expense: var(--zenith-chalk);
+    --health-good: var(--zenith-health-good);
+    --health-watch: var(--zenith-health-watch);
+    --health-over: var(--zenith-health-over);
     --chart-1: var(--zenith-chart-green);
     --chart-2: var(--zenith-chart-violet);
     --chart-3: var(--zenith-chart-gold);
@@ -82,47 +101,47 @@
   @variant dark {
     /* --- Base ---------------------------------------------------------- */
     --background: var(--zenith-ink);
-    --foreground: var(--zenith-snow);
+    --foreground: var(--zenith-chalk);
 
     /* --- Surfaces (cards, accordions, list groups) --------------------- */
     --surface: var(--zenith-graphite);
-    --surface-foreground: var(--zenith-snow);
+    --surface-foreground: var(--zenith-chalk);
     --surface-secondary: var(--zenith-slate);
-    --surface-secondary-foreground: var(--zenith-snow);
+    --surface-secondary-foreground: var(--zenith-chalk);
     --surface-tertiary: var(--zenith-steel);
-    --surface-tertiary-foreground: var(--zenith-snow);
+    --surface-tertiary-foreground: var(--zenith-chalk);
 
     /* --- Overlays (dialogs, popovers, sheets, menus) ------------------- */
     --overlay: var(--zenith-slate);
-    --overlay-foreground: var(--zenith-snow);
+    --overlay-foreground: var(--zenith-chalk);
     --backdrop: rgb(0 0 0 / 60%);
 
     --muted: var(--zenith-mist);
 
     /* Neutral interactive surface — inactive filter chips, ghost buttons */
     --default: var(--zenith-slate);
-    --default-foreground: var(--zenith-snow);
+    --default-foreground: var(--zenith-chalk);
 
-    --accent: var(--zenith-lime);
-    --accent-foreground: var(--zenith-ink);
+    --accent: var(--zenith-emerald);
+    --accent-foreground: var(--zenith-snow);
 
     /* --- Status ------------------------------------------------------- */
-    --success: var(--zenith-mint);
+    --success: var(--zenith-sage);
     --success-foreground: var(--zenith-ink);
-    --warning: var(--zenith-amber);
+    --warning: var(--zenith-ochre);
     --warning-foreground: var(--zenith-ink);
-    --danger: var(--zenith-ember);
-    --danger-foreground: var(--zenith-snow);
+    --danger: var(--zenith-coral);
+    --danger-foreground: var(--zenith-ink);
 
     /* --- Form fields --------------------------------------------------- */
     --field-background: var(--zenith-slate);
-    --field-foreground: var(--zenith-snow);
+    --field-foreground: var(--zenith-chalk);
     --field-placeholder: var(--zenith-mist);
     --field-border: transparent;
 
     /* --- Components ---------------------------------------------------- */
     --segment: var(--zenith-slate);
-    --segment-foreground: var(--zenith-snow);
+    --segment-foreground: var(--zenith-chalk);
 
     /* --- Misc ---------------------------------------------------------- */
     --border: var(--zenith-hairline);
@@ -133,8 +152,13 @@
     /* --- App-specific semantics ---------------------------------------- */
     --iris: var(--zenith-iris); /* secondary accent surface */
     --iris-foreground: var(--zenith-ink);
-    --income: var(--zenith-mint); /* money in */
-    --expense: var(--zenith-snow); /* money out */
+    --income: var(--zenith-sage); /* money in */
+    --expense: var(--zenith-chalk); /* money out */
+
+    /* The home card's ground, by how much of the limit is spent. */
+    --health-good: var(--zenith-health-good);
+    --health-watch: var(--zenith-health-watch);
+    --health-over: var(--zenith-health-over);
 
     /* Categorical series, assigned by entity and never by rank. */
     --chart-1: var(--zenith-chart-green);
@@ -154,6 +178,9 @@
   --color-iris-hover: color-mix(in oklab, var(--iris) 90%, var(--iris-foreground) 10%);
   --color-income: var(--income);
   --color-expense: var(--expense);
+  --color-health-good: var(--health-good);
+  --color-health-watch: var(--health-watch);
+  --color-health-over: var(--health-over);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

@@ -1,6 +1,7 @@
 /**
  * Blending two colours, for the one place the app needs a colour that sits
- * between two tokens (the home card's budget-health tint).
+ * between two tokens (the home card's budget-health tint), and measuring how
+ * legible one is on another (the palette's contrast guard).
  *
  * The values it is handed are always tokens resolved at runtime, never
  * literals, so this only does arithmetic on them: linear in RGB, which is
@@ -64,4 +65,32 @@ export function colorAtStops(stops: readonly ColorStop[], t: number): string {
   }
 
   return stops[stops.length - 1]!.color;
+}
+
+const linearise = (channel: number): number => {
+  const unit = channel / 255;
+  return unit <= 0.04045 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+};
+
+/**
+ * WCAG 2.x relative luminance, 0 (black) to 1 (white). A colour that is not
+ * `#rrggbb` has no luminance, and is NaN rather than a guess.
+ */
+export function relativeLuminance(color: string): number {
+  const rgb = parseHex(color);
+  if (rgb === null) return Number.NaN;
+  const [r, g, b] = rgb;
+  return 0.2126 * linearise(r) + 0.7152 * linearise(g) + 0.0722 * linearise(b);
+}
+
+/**
+ * WCAG 2.x contrast ratio between two colours, 1 (identical) to 21 (black on
+ * white). Symmetric: which one is the text does not matter.
+ */
+export function contrastRatio(a: string, b: string): number {
+  const first = relativeLuminance(a);
+  const second = relativeLuminance(b);
+  const lighter = Math.max(first, second);
+  const darker = Math.min(first, second);
+  return (lighter + 0.05) / (darker + 0.05);
 }

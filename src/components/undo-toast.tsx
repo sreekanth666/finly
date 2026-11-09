@@ -53,8 +53,8 @@ export function UndoToast({
         hitSlop={8}
         onPress={onUndo}
         className="flex-row items-center gap-1.5 active:opacity-60">
-        <Icon icon={Undo2} color="accent" size={14} />
-        <Typography type="body-sm" weight="semibold" className="text-accent">
+        <Icon icon={Undo2} color="success" size={14} />
+        <Typography type="body-sm" weight="semibold" className="text-success">
           Undo
         </Typography>
       </Pressable>

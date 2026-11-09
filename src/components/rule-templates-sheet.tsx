@@ -65,8 +65,8 @@ function TemplateCard({
         </View>
         {isAdded ? (
           <View className="flex-row items-center gap-1">
-            <Icon icon={Check} color="accent" size={14} />
-            <Typography type="body-xs" weight="medium" className="text-accent">
+            <Icon icon={Check} color="success" size={14} />
+            <Typography type="body-xs" weight="medium" className="text-success">
               Added
             </Typography>
           </View>

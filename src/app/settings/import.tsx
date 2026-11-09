@@ -366,7 +366,7 @@ export default function ImportScreen() {
                 <Typography type="body-xs" color="muted">
                   Ready
                 </Typography>
-                <Typography type="h4" weight="bold" className="text-accent">
+                <Typography type="h4" weight="bold" className="text-success">
                   {String(summary.ready)}
                 </Typography>
               </View>
@@ -430,7 +430,7 @@ export default function ImportScreen() {
                   <Typography
                     type="body-xs"
                     weight="semibold"
-                    className={skipDuplicates ? 'text-accent' : 'text-muted'}>
+                    className={skipDuplicates ? 'text-success' : 'text-muted'}>
                     {skipDuplicates ? 'Skipping' : 'Importing'}
                   </Typography>
                 </View>

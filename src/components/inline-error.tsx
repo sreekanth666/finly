@@ -35,8 +35,8 @@ export function InlineError({
           hitSlop={8}
           onPress={onRetry}
           className="flex-row items-center gap-1 active:opacity-60">
-          <Icon icon={RotateCw} color="accent" size={12} />
-          <Typography type="body-xs" weight="semibold" className="text-accent">
+          <Icon icon={RotateCw} color="success" size={12} />
+          <Typography type="body-xs" weight="semibold" className="text-success">
             Retry
           </Typography>
         </Pressable>

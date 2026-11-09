@@ -39,12 +39,12 @@ describe('budgetUsage', () => {
 });
 
 describe('healthStops', () => {
-  it('runs green, then amber, then red, in order', () => {
-    expect(healthStops.map((stop) => [stop.at, stop.token])).toEqual([
-      [0, 'success'],
-      [0.5, 'success'],
-      [0.8, 'warning'],
-      [1, 'danger'],
+  it('runs good, then watch, then over, in order', () => {
+    expect(healthStops.map((stop) => [stop.at, stop.role])).toEqual([
+      [0, 'good'],
+      [0.5, 'good'],
+      [0.8, 'watch'],
+      [1, 'over'],
     ]);
   });
 });

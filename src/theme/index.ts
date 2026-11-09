@@ -20,6 +20,10 @@ export type AppThemeColor =
   | 'iris-hover'
   | 'income'
   | 'expense'
+  /** The home card's ground, by budget health. */
+  | 'health-good'
+  | 'health-watch'
+  | 'health-over'
   /** Categorical chart series — see the palette note in tokens.css. */
   | 'chart-1'
   | 'chart-2'

@@ -30,8 +30,8 @@ export function RuleTemplatesBanner({ availableCount, onOpen, onDismiss }: RuleT
       accessibilityLabel={`Start from a template. ${count}.`}
       onPress={onOpen}
       className="flex-row items-center gap-3 rounded-3xl bg-accent p-4 active:opacity-80">
-      <View className="size-11 items-center justify-center rounded-2xl bg-accent-foreground">
-        <Icon icon={LayoutTemplate} color="accent" size={20} />
+      <View className="size-11 items-center justify-center rounded-2xl bg-foreground/15">
+        <Icon icon={LayoutTemplate} color="accent-foreground" size={20} />
       </View>
 
       <View className="flex-1 gap-0.5">

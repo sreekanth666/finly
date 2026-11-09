@@ -7,19 +7,23 @@
 
 import type { Minor } from './money';
 
-/** The status tokens the home card is tinted between. */
-export type HealthToken = 'success' | 'warning' | 'danger';
+/**
+ * The three standings a month can be in. A role, not a colour: the card turns
+ * each into a deep ground and a light line, and which tokens those are is the
+ * theme's business.
+ */
+export type HealthRole = 'good' | 'watch' | 'over';
 
 /**
- * Green while comfortably inside the limit, turning to amber as it closes in
- * and on to red at the limit itself. The blend is continuous between stops, so
+ * Good while comfortably inside the limit, turning to watch as it closes in
+ * and on to over at the limit itself. The blend is continuous between stops, so
  * the card never jumps colour on a single expense.
  */
-export const healthStops: readonly { at: number; token: HealthToken }[] = [
-  { at: 0, token: 'success' },
-  { at: 0.5, token: 'success' },
-  { at: 0.8, token: 'warning' },
-  { at: 1, token: 'danger' },
+export const healthStops: readonly { at: number; role: HealthRole }[] = [
+  { at: 0, role: 'good' },
+  { at: 0.5, role: 'good' },
+  { at: 0.8, role: 'watch' },
+  { at: 1, role: 'over' },
 ];
 
 /**

@@ -198,7 +198,7 @@ export default function DataTransferScreen() {
           </Typography>
 
           {notice !== null && (
-            <Typography type="body-xs" className="px-1 text-accent">
+            <Typography type="body-xs" className="px-1 text-success">
               {notice}
             </Typography>
           )}

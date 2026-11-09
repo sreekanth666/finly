@@ -428,7 +428,7 @@ export function TemplateEditor({ sample, onClose }: TemplateEditorProps) {
                     Not this format — read as usual.
                   </Typography>
                 ) : outcome === 'ignore' ? (
-                  <Typography type="body-xs" className="text-accent">
+                  <Typography type="body-xs" className="text-success">
                     Would be filed away.
                   </Typography>
                 ) : (

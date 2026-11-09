@@ -8,7 +8,7 @@ import { Icon } from './icon';
 import { SpendAreaChart } from './spend-area-chart';
 
 import type { PeriodResult } from '@/domain/budget';
-import { budgetUsage, healthStops } from '@/domain/budget-health';
+import { budgetUsage, healthStops, type HealthRole } from '@/domain/budget-health';
 import { colorAtStops, mixColor } from '@/domain/color';
 import {
   absMinor,
@@ -61,14 +61,13 @@ const SIDES: Record<BudgetScope, { title: string; tint: string }> = {
 };
 
 /**
- * How far the health colour is pulled toward the app's ink at the two corners
- * of the hero card. Mixed in RGB, so these decide how deep the card reads: low
- * enough that green is still green, high enough that it is an emerald rather
- * than a neon. The far corner is the darker, which is what gives the card its
- * weight.
+ * How far the health ground is pulled toward the app's ink at the two corners
+ * of the hero card, mixed in RGB. The top-left corner is the ground itself; the
+ * bottom-right is the darker, which is what gives the card its weight. 0.54
+ * takes the "good" emerald to the deep forest the card has always ended on.
  */
-const GRADIENT_FROM_MIX = 0.45;
-const GRADIENT_TO_MIX = 0.75;
+const GRADIENT_START_INK = 0;
+const GRADIENT_END_INK = 0.54;
 const GRADIENT_ID = 'hero-gradient';
 
 type HeroGradientProps = { from: string; to: string };
@@ -104,28 +103,39 @@ type SpendHeroCardProps = Pick<
  * the limit already spent, blended smoothly from green through amber to red
  * (budget-health.ts), so the month's standing reads before any figure does.
  *
- * The hue is drawn deep, not bright: a diagonal gradient from that colour
- * pulled toward the app's ink, so green is a forest and red a crimson, and
- * everything on it is the light foreground token. The bright colour itself is
- * kept for the chart line, which is what stands out against the dark.
+ * The ground is drawn deep, not bright: the theme's health tones, as a diagonal
+ * gradient that darkens toward the app's ink, so green is a forest and red a
+ * crimson, and everything on it is snow, the token for text on a fill. (Chalk,
+ * the body text, falls just under AA on the lighter corner of the green.) The
+ * lighter status tones are kept for the chart line, which stands out against it.
  */
 function SpendHeroCard({ period, curve, isCurrent, daysLeft }: SpendHeroCardProps) {
-  const [success, warning, danger, ink, contrast] = useAppColor([
+  const [good, watch, over, success, warning, danger, ink, contrast] = useAppColor([
+    'health-good',
+    'health-watch',
+    'health-over',
     'success',
     'warning',
     'danger',
     'background',
-    'foreground',
+    'accent-foreground',
   ]);
 
-  const palette = { success, warning, danger };
+  /* Two scales over the same stops: a deep one for the card's ground, and the
+     light status tones for the chart line that has to stand out against it. */
+  const grounds: Record<HealthRole, string> = { good, watch, over };
+  const lines: Record<HealthRole, string> = { good: success, watch: warning, over: danger };
   const usage = period.isOverspent ? 1 : budgetUsage(period.spent, period.available);
-  const tint = colorAtStops(
-    healthStops.map((stop) => ({ at: stop.at, color: palette[stop.token] })),
+  const ground = colorAtStops(
+    healthStops.map((stop) => ({ at: stop.at, color: grounds[stop.role] })),
     usage,
   );
-  const gradientFrom = mixColor(tint, ink, GRADIENT_FROM_MIX);
-  const gradientTo = mixColor(tint, ink, GRADIENT_TO_MIX);
+  const tint = colorAtStops(
+    healthStops.map((stop) => ({ at: stop.at, color: lines[stop.role] })),
+    usage,
+  );
+  const gradientFrom = mixColor(ground, ink, GRADIENT_START_INK);
+  const gradientTo = mixColor(ground, ink, GRADIENT_END_INK);
 
   const remaining = absMinor(period.remaining);
 
@@ -221,22 +231,22 @@ function SpendHeroCard({ period, curve, isCurrent, daysLeft }: SpendHeroCardProp
           <View className="flex-row items-baseline gap-2">
             <Amount
               value={remaining}
-              className="type-balance text-foreground"
+              className="type-balance text-accent-foreground"
               showFraction={false}
             />
             {period.isOverspent && (
-              <Typography type="body" weight="semibold" className="text-foreground">
+              <Typography type="body" weight="semibold" className="text-accent-foreground">
                 over
               </Typography>
             )}
           </View>
-          <Typography type="body-sm" className="text-foreground opacity-70">
+          <Typography type="body-sm" className="text-accent-foreground opacity-70">
             {period.isOverspent ? `over the ${available} available` : `left of ${available}`}
           </Typography>
           {/* §7.1: a carry-over line, but only when there is one. */}
           {period.carryOver > 0 && (
-            <View className="mt-1 self-start rounded-full bg-foreground/10 px-2.5 py-1">
-              <Typography type="body-xs" className="text-foreground">
+            <View className="mt-1 self-start rounded-full bg-accent-foreground/10 px-2.5 py-1">
+              <Typography type="body-xs" className="text-accent-foreground">
                 {`${formatMinor(period.carryOver, { showFraction: false })} carried in`}
               </Typography>
             </View>
@@ -247,9 +257,9 @@ function SpendHeroCard({ period, curve, isCurrent, daysLeft }: SpendHeroCardProp
             and under it the daily allowance, the one number acted on today. */}
         <View className="items-end gap-3">
           {delta !== null && comparison?.deltaPercent != null && (
-            <View className="flex-row items-center gap-1 rounded-full bg-foreground/10 px-2.5 py-1">
-              <Icon icon={delta.icon} color="foreground" size={14} />
-              <Typography type="body-xs" weight="semibold" className="text-foreground">
+            <View className="flex-row items-center gap-1 rounded-full bg-accent-foreground/10 px-2.5 py-1">
+              <Icon icon={delta.icon} color="accent-foreground" size={14} />
+              <Typography type="body-xs" weight="semibold" className="text-accent-foreground">
                 {comparison.direction === 'same'
                   ? `Same as ${formatPeriodShort(lastMonth)}`
                   : `${comparison.deltaPercent}% vs ${formatPeriodShort(lastMonth)}`}
@@ -258,8 +268,8 @@ function SpendHeroCard({ period, curve, isCurrent, daysLeft }: SpendHeroCardProp
           )}
           {paceAmount !== null && (
             <View className="items-end">
-              <Typography className="type-amount-sm text-foreground">{paceAmount}</Typography>
-              <Typography type="body-xs" className="text-foreground opacity-70">
+              <Typography className="type-amount-sm text-accent-foreground">{paceAmount}</Typography>
+              <Typography type="body-xs" className="text-accent-foreground opacity-70">
                 {paceShort}
               </Typography>
             </View>

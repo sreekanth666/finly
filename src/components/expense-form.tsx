@@ -114,8 +114,8 @@ function dayChoiceOf(occurredAt: number, now: number): DayChoice {
 function RuleBadge() {
   return (
     <View className="flex-row items-center gap-1 rounded-full bg-surface-secondary px-2 py-0.5">
-      <Icon icon={Sparkles} color="accent" size={10} />
-      <Typography type="body-xs" className="text-accent">
+      <Icon icon={Sparkles} color="success" size={10} />
+      <Typography type="body-xs" className="text-success">
         From rule
       </Typography>
     </View>
