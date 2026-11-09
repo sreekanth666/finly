@@ -14,9 +14,11 @@
     --graphite: #141619;
     --hairline: #24272c;
     --snow: #ffffff;
+    --chalk: #eceeeb;
     --mist: #8b9099;
     --dim: #61666e;
-    --lime: #79e256;
+    --emerald: #2f7f49;
+    --sage: #6fbf8a;
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
@@ -24,16 +26,16 @@
   body {
     margin: 0;
     background: var(--ink);
-    color: var(--snow);
+    color: var(--chalk);
     font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-size: 16px;
     line-height: 1.65;
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 660px; margin: 0 auto; padding: 88px 24px 80px; }
-  a { color: var(--lime); text-decoration: none; border-bottom: 1px solid #79e2564d; }
-  a:hover { border-bottom-color: var(--lime); }
-  a:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; border-radius: 2px; }
+  a { color: var(--sage); text-decoration: none; border-bottom: 1px solid #2f7f494d; }
+  a:hover { border-bottom-color: var(--sage); }
+  a:focus-visible { outline: 2px solid var(--sage); outline-offset: 3px; border-radius: 2px; }
 
   h1 {
     font-family: "Archivo Black", "Arial Black", sans-serif;
@@ -66,9 +68,9 @@
     margin: 40px 0 0;
     padding: 20px 22px;
     background: var(--graphite);
-    border-left: 2px solid var(--lime);
+    border-left: 2px solid var(--emerald);
   }
-  .stance p { margin: 0; color: #cfd3d8; font-size: 15px; }
+  .stance p { margin: 0; color: var(--chalk); font-size: 15px; }
 
   footer {
     margin-top: 56px;

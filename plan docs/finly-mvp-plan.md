@@ -404,7 +404,10 @@ JavaScript in the background.
 ## 6. Architecture
 
 Built on what already exists: Expo SDK 57, expo-router, HeroUI Native + uniwind,
-the Zenith token layer (`src/theme/`), and the shell: three tabs (Home,
+the Zenith token layer (`src/theme/`, a calm emerald palette: emerald accent
+with white text on it, sage for success and income, ochre warning, coral danger,
+a calm iris, chalk body text, and deep `health-*` tones for the home hero
+card), and the shell: three tabs (Home,
 Transactions, Insights) and a floating icon bar that also carries **+** and
 Settings, neither of which is a tab.
 
